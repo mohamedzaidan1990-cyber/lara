@@ -23,9 +23,6 @@ export interface EmailCustomer {
 
 interface EmailConfig {
   whish: string;
-  bankName: string;
-  bankIban: string;
-  accountHolder: string;
   whatsappNumber: string;
 }
 
@@ -40,9 +37,6 @@ function getResend(): Resend | null {
 function getEmailConfig(): EmailConfig {
   return {
     whish: process.env.WHISH_NUMBER ?? "03055491",
-    bankName: process.env.BANK_NAME ?? "QNB",
-    bankIban: process.env.BANK_IBAN ?? "QA64QNBA000000000224215260001",
-    accountHolder: process.env.ACCOUNT_HOLDER ?? "Mohamed Akram Zaidan",
     whatsappNumber: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "+96103055491"
   };
 }
@@ -61,6 +55,12 @@ function whatsappLink(number: string, message?: string): string {
   const digits = number.replace(/\D/g, "");
   const base = `https://wa.me/${digits}`;
   return message ? `${base}?text=${encodeURIComponent(message)}` : base;
+}
+
+function paymentMethodLabel(method?: string | null): string {
+  if (method === "whish_link") return "Whish payment link";
+  if (method === "whish_direct" || method === "whish") return "Direct Whish transfer";
+  return method ?? "—";
 }
 
 function baseLayout(title: string, body: string): string {
@@ -100,18 +100,42 @@ function baseLayout(title: string, body: string): string {
 </html>`;
 }
 
-function paymentBlock(cfg: EmailConfig): string {
+function whishDirectInstructions(cfg: EmailConfig): string {
   return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid rgba(35,39,42,0.08);background-color:#FFFDF5;margin-top:20px;">
   <tr>
     <td style="padding:20px;">
-      <div style="font-size:11px;text-transform:uppercase;letter-spacing:3px;color:#5A6168;">Payment instructions</div>
-      <div style="margin-top:12px;font-size:15px;line-height:1.6;">
-        <strong style="color:#23272A;">Option 1 — Whish:</strong> send to <strong>${cfg.whish}</strong> (${cfg.accountHolder})<br />
-        <strong style="color:#23272A;">Option 2 — Bank transfer:</strong> ${cfg.bankName}, IBAN <span style="word-break:break-all;">${cfg.bankIban}</span> (${cfg.accountHolder})
-      </div>
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:3px;color:#5A6168;">Payment instructions — Direct Whish transfer</div>
+      <ol style="margin:12px 0 0;padding-left:20px;font-size:14px;line-height:1.8;color:#23272A;">
+        <li>Open Whish</li>
+        <li>Tap <strong>Send Money</strong></li>
+        <li>Enter number <strong>${cfg.whish}</strong></li>
+        <li>Enter the order amount</li>
+        <li>Screenshot the confirmation</li>
+        <li>Send the screenshot to us on WhatsApp</li>
+      </ol>
     </td>
   </tr>
 </table>`;
+}
+
+function whishLinkInstructions(cfg: EmailConfig): string {
+  const waUrl = whatsappLink(cfg.whatsappNumber);
+  return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid rgba(35,39,42,0.08);background-color:#FFFDF5;margin-top:20px;">
+  <tr>
+    <td style="padding:20px;">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:3px;color:#5A6168;">Payment instructions — Whish payment link</div>
+      <p style="margin:12px 0 0;font-size:14px;line-height:1.7;color:#23272A;">
+        Send your invoice to us on <a href="${waUrl}" style="color:#C0392B;">WhatsApp</a> and we&rsquo;ll generate a secure Whish payment link for you.
+        You&rsquo;ll receive automatic payment confirmation and receipt via WhatsApp once paid.
+      </p>
+    </td>
+  </tr>
+</table>`;
+}
+
+function paymentInstructionsBlock(method: string | null | undefined, cfg: EmailConfig): string {
+  if (method === "whish_link") return whishLinkInstructions(cfg);
+  return whishDirectInstructions(cfg);
 }
 
 export async function sendOrderConfirmation(order: EmailOrder, customer: EmailCustomer): Promise<void> {
@@ -122,8 +146,12 @@ export async function sendOrderConfirmation(order: EmailOrder, customer: EmailCu
   }
   const cfg = getEmailConfig();
   const subject = `Your Seasons by B order — ${order.order_number}`;
-  const waMessage = `Hi Seasons by B, my order number is ${order.order_number}. Here is my payment confirmation.`;
+  const isWhishLink = order.payment_method === "whish_link";
+  const waMessage = isWhishLink
+    ? `Hi Seasons by B, this is order ${order.order_number}. Please send me a Whish payment link.`
+    : `Hi Seasons by B, my order number is ${order.order_number}. Here is my payment confirmation.`;
   const waUrl = whatsappLink(cfg.whatsappNumber, waMessage);
+
   const html = baseLayout(
     subject,
     `
@@ -137,13 +165,18 @@ export async function sendOrderConfirmation(order: EmailOrder, customer: EmailCu
         <div style="font-size:11px;text-transform:uppercase;letter-spacing:3px;color:#5A6168;">Order ${order.order_number}</div>
         <div style="font-family:Georgia,'Times New Roman',serif;font-size:20px;color:#23272A;margin-top:8px;">${order.product_brand} — ${order.product_name}</div>
         <div style="font-family:Georgia,'Times New Roman',serif;font-size:24px;color:#23272A;margin-top:8px;">${formatUsd(order.price_usd)}</div>
+        <div style="font-size:13px;color:#5A6168;margin-top:6px;">Payment method: ${paymentMethodLabel(order.payment_method)}</div>
       </td></tr>
     </table>
 
-    ${paymentBlock(cfg)}
+    ${paymentInstructionsBlock(order.payment_method, cfg)}
 
     <p style="font-size:14px;line-height:1.6;color:#23272A;margin:24px 0 0;">
-      After paying, send your payment screenshot to us on WhatsApp so we can confirm and place your order.
+      ${
+        isWhishLink
+          ? "Send your invoice to us on WhatsApp and we'll send you a secure payment link."
+          : "After paying, send your payment screenshot to us on WhatsApp so we can confirm and place your order."
+      }
     </p>
     <p style="margin:20px 0 0;">
       <a href="${waUrl}" style="display:inline-block;background-color:#F4D360;color:#23272A;text-decoration:none;padding:14px 28px;font-size:13px;text-transform:uppercase;letter-spacing:3px;">Contact us on WhatsApp</a>
@@ -155,19 +188,28 @@ export async function sendOrderConfirmation(order: EmailOrder, customer: EmailCu
     `
   );
 
+  const textBody = isWhishLink
+    ? `Payment: Whish payment link
+Send your invoice to us on WhatsApp: ${waUrl}
+We'll generate a secure Whish payment link and send confirmation + receipt by WhatsApp once paid.`
+    : `Payment: Direct Whish transfer
+1. Open Whish
+2. Tap Send Money
+3. Enter number ${cfg.whish}
+4. Enter the order amount
+5. Screenshot the confirmation
+6. Send the screenshot to us on WhatsApp: ${waUrl}`;
+
   const text = `Seasons by B — Order received
 
 Order: ${order.order_number}
 Product: ${order.product_brand} — ${order.product_name}
 Price: ${formatUsd(order.price_usd)}
+Payment method: ${paymentMethodLabel(order.payment_method)}
 
-Payment options:
-- Whish: ${cfg.whish} (${cfg.accountHolder})
-- Bank transfer: ${cfg.bankName}, IBAN ${cfg.bankIban} (${cfg.accountHolder})
+${textBody}
 
 Estimated delivery: 10–14 working days.
-
-After paying, send your payment screenshot to us on WhatsApp: ${waUrl}
 
 Seasons by B — London's finest, delivered to your door.`;
 
@@ -214,7 +256,7 @@ export async function sendOrderNotification(order: EmailOrder, customer: EmailCu
       <tr><td style="padding:20px;">
         <strong>Product:</strong> ${order.product_brand} — ${order.product_name}<br />
         <strong>Price:</strong> ${priceLabel}${order.price_gbp ? ` (£${order.price_gbp} GBP)` : ""}<br />
-        <strong>Payment method:</strong> ${order.payment_method ?? "—"}<br />
+        <strong>Payment method:</strong> ${paymentMethodLabel(order.payment_method)}<br />
         ${order.product_url ? `<strong>Source:</strong> <a href="${order.product_url}" style="color:#C0392B;word-break:break-all;">${order.product_url}</a><br />` : ""}
         ${order.notes ? `<strong>Notes:</strong> ${order.notes}` : ""}
       </td></tr>
@@ -235,7 +277,7 @@ Address: ${customer.address}
 
 Product: ${order.product_brand} — ${order.product_name}
 Price: ${priceLabel}${order.price_gbp ? ` (£${order.price_gbp} GBP)` : ""}
-Payment method: ${order.payment_method ?? "—"}
+Payment method: ${paymentMethodLabel(order.payment_method)}
 ${order.product_url ? `Source: ${order.product_url}\n` : ""}${order.notes ? `Notes: ${order.notes}\n` : ""}
 Admin: ${adminUrl}`;
 

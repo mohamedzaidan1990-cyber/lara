@@ -19,7 +19,7 @@ const STEPS = [
   {
     icon: "💳",
     title: "Pay",
-    body: "Pay in full upfront via Whish or bank transfer. Send us the screenshot."
+    body: "Pay by Whish — either a direct transfer or a secure Whish payment link sent to your WhatsApp."
   },
   {
     icon: "📦",
@@ -30,9 +30,6 @@ const STEPS = [
 
 export default function InfoPage() {
   const whish = process.env.WHISH_NUMBER ?? "";
-  const bankIban = process.env.BANK_IBAN ?? "";
-  const bankName = process.env.BANK_NAME ?? "";
-  const accountHolder = process.env.ACCOUNT_HOLDER ?? "";
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-16 sm:px-6 lg:px-8">
@@ -63,17 +60,31 @@ export default function InfoPage() {
       </Section>
 
       <Section title="Payment">
-        <p>Full payment is required upfront before we place your order.</p>
-        <ul className="list-disc space-y-2 pl-6">
-          <li>
-            <strong className="text-ink">Whish</strong> — send to {whish} ({accountHolder})
-          </li>
-          <li>
-            <strong className="text-ink">Bank transfer</strong> — {bankName}, IBAN{" "}
-            <span className="break-all">{bankIban}</span> ({accountHolder})
-          </li>
-        </ul>
-        <p>Send us your payment screenshot via the order form or WhatsApp.</p>
+        <p>Full payment is required upfront before we place your order. We accept two Whish-based options:</p>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div className="border border-ink/15 bg-cream p-5">
+            <p className="text-[10px] uppercase tracking-[0.2em] text-ink/60">Option 1</p>
+            <p className="mt-2 font-serif text-xl text-ink">Direct Whish transfer</p>
+            <ol className="mt-3 space-y-1 pl-5 text-sm leading-relaxed text-ink/80 list-decimal">
+              <li>Open Whish</li>
+              <li>Tap Send Money</li>
+              <li>
+                Enter number <strong className="text-ink">{whish}</strong>
+              </li>
+              <li>Enter the order amount</li>
+              <li>Screenshot the confirmation and upload it on the order form</li>
+            </ol>
+          </div>
+          <div className="border border-ink/15 bg-cream p-5">
+            <p className="text-[10px] uppercase tracking-[0.2em] text-ink/60">Option 2</p>
+            <p className="mt-2 font-serif text-xl text-ink">Whish payment link</p>
+            <p className="mt-3 text-sm leading-relaxed text-ink/80">
+              Submit your order, then send your invoice to our WhatsApp. We&apos;ll generate a secure Whish payment
+              link for you. You&apos;ll receive automatic payment confirmation and receipt via WhatsApp.
+            </p>
+            <p className="mt-3 text-xs text-ink/60">No screenshot upload required for this option.</p>
+          </div>
+        </div>
       </Section>
 
       <Section title="Returns" id="returns">

@@ -1,16 +1,21 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import OrderStepper from "@/components/OrderStepper";
 
 interface Props {
   whish: string;
-  bankIban: string;
-  bankName: string;
-  accountHolder: string;
 }
+
+interface ExchangeRateResponse {
+  rate: number;
+  markup: number;
+  effective_rate: number;
+}
+
+const FALLBACK_EFFECTIVE_RATE = 1.33 * 1.1; // matches lib/currency.ts fallback × markup
 
 interface CustomerForm {
   full_name: string;
@@ -24,7 +29,10 @@ interface CreatedOrder {
   order_number: string;
   customer_id: string;
   order_id: string;
+  payment_method: PaymentMethod;
 }
+
+type PaymentMethod = "whish_direct" | "whish_link";
 
 const MAX_SCREENSHOT_BYTES = 4 * 1024 * 1024; // 4MB
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -37,7 +45,7 @@ function formatUsd(value: number): string {
   }).format(value);
 }
 
-export default function OrderFlow({ whish, bankIban, bankName, accountHolder }: Props) {
+export default function OrderFlow({ whish }: Props) {
   const params = useSearchParams();
 
   const product = useMemo(() => {
@@ -67,11 +75,29 @@ export default function OrderFlow({ whish, bankIban, bankName, accountHolder }: 
     notes: ""
   });
 
-  const [paymentMethod, setPaymentMethod] = useState<"whish" | "bank">("whish");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("whish_direct");
   const [screenshot, setScreenshot] = useState<{ name: string; dataUrl: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<CreatedOrder | null>(null);
+  const [effectiveRate, setEffectiveRate] = useState<number>(FALLBACK_EFFECTIVE_RATE);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/exchange-rate")
+      .then((res) => (res.ok ? (res.json() as Promise<ExchangeRateResponse>) : null))
+      .then((data) => {
+        if (!cancelled && data && Number.isFinite(data.effective_rate) && data.effective_rate > 0) {
+          setEffectiveRate(data.effective_rate);
+        }
+      })
+      .catch(() => {
+        /* keep fallback */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function update<K extends keyof CustomerForm>(key: K, value: CustomerForm[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -111,6 +137,9 @@ export default function OrderFlow({ whish, bankIban, bankName, accountHolder }: 
       if (!EMAIL_RE.test(form.email.trim())) {
         throw new Error("Please enter a valid email address.");
       }
+      if (paymentMethod === "whish_direct" && !screenshot) {
+        throw new Error("Please upload a screenshot of your Whish transfer.");
+      }
       const res = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -126,15 +155,15 @@ export default function OrderFlow({ whish, bankIban, bankName, accountHolder }: 
           price_gbp: productDraft.gbp,
           price_usd: productDraft.usd,
           payment_method: paymentMethod,
-          payment_screenshot: screenshot?.dataUrl ?? null
+          payment_screenshot: paymentMethod === "whish_direct" ? screenshot?.dataUrl ?? null : null
         })
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error ?? "Failed to create order");
       }
-      const data = (await res.json()) as CreatedOrder;
-      setCreated(data);
+      const data = (await res.json()) as Omit<CreatedOrder, "payment_method">;
+      setCreated({ ...data, payment_method: paymentMethod });
       setStep(4);
     } catch (err) {
       setError((err as Error).message);
@@ -153,6 +182,7 @@ export default function OrderFlow({ whish, bankIban, bankName, accountHolder }: 
             product={productDraft}
             onChange={(p) => setProductDraft(p)}
             onNext={() => setStep(2)}
+            effectiveRate={effectiveRate}
           />
         ) : null}
 
@@ -180,9 +210,6 @@ export default function OrderFlow({ whish, bankIban, bankName, accountHolder }: 
         {step === 3 ? (
           <Step3Payment
             whish={whish}
-            bankIban={bankIban}
-            bankName={bankName}
-            accountHolder={accountHolder}
             paymentMethod={paymentMethod}
             setPaymentMethod={setPaymentMethod}
             screenshot={screenshot}
@@ -217,11 +244,13 @@ interface ProductDraft {
 function Step1Product({
   product,
   onChange,
-  onNext
+  onNext,
+  effectiveRate
 }: {
   product: ProductDraft;
   onChange: (p: ProductDraft) => void;
   onNext: () => void;
+  effectiveRate: number;
 }) {
   return (
     <section>
@@ -258,8 +287,7 @@ function Step1Product({
               value={product.gbp || ""}
               onChange={(e) => {
                 const gbp = Number(e.target.value) || 0;
-                const rate = 1.27;
-                onChange({ ...product, gbp, usd: Math.round(gbp * 1.1 * rate * 100) / 100 });
+                onChange({ ...product, gbp, usd: Math.round(gbp * effectiveRate * 100) / 100 });
               }}
             />
           </div>
@@ -376,9 +404,6 @@ function Step2Details({
 
 function Step3Payment({
   whish,
-  bankIban,
-  bankName,
-  accountHolder,
   paymentMethod,
   setPaymentMethod,
   screenshot,
@@ -389,11 +414,8 @@ function Step3Payment({
   product
 }: {
   whish: string;
-  bankIban: string;
-  bankName: string;
-  accountHolder: string;
-  paymentMethod: "whish" | "bank";
-  setPaymentMethod: (v: "whish" | "bank") => void;
+  paymentMethod: PaymentMethod;
+  setPaymentMethod: (v: PaymentMethod) => void;
   screenshot: { name: string; dataUrl: string } | null;
   onScreenshotChange: (f: File | null) => void;
   onBack: () => void;
@@ -404,44 +426,128 @@ function Step3Payment({
   return (
     <section>
       <h1 className="font-serif text-3xl text-ink">Payment</h1>
-      <p className="mt-2 text-sm text-ink/70">Full payment upfront. Choose your preferred method.</p>
+      <p className="mt-2 text-sm text-ink/70">Choose how you&apos;d like to pay.</p>
 
       <ProductSummary product={product} />
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2">
-        <button
-          type="button"
-          onClick={() => setPaymentMethod("whish")}
-          className={
-            "border p-5 text-left transition-colors " +
-            (paymentMethod === "whish" ? "border-accent bg-accent/5" : "border-ink/15 hover:border-ink")
+        <PaymentCard
+          active={paymentMethod === "whish_direct"}
+          onSelect={() => setPaymentMethod("whish_direct")}
+          label="Option 1"
+          title="Direct Whish transfer"
+          description={
+            <>
+              <p className="text-sm text-ink">
+                Send to Whish number <strong>{whish}</strong> and upload your screenshot below.
+              </p>
+              <p className="mt-2 text-xs text-ink/60">Instant. Manual verification by our team.</p>
+            </>
           }
-        >
-          <p className="text-[10px] uppercase tracking-[0.2em] text-ink/60">Option 1</p>
-          <p className="mt-2 font-serif text-2xl text-ink">Whish</p>
-          <p className="mt-3 text-sm text-ink">Send to {whish}</p>
-          <p className="mt-1 text-xs text-ink/60">{accountHolder}</p>
-        </button>
-        <button
-          type="button"
-          onClick={() => setPaymentMethod("bank")}
-          className={
-            "border p-5 text-left transition-colors " +
-            (paymentMethod === "bank" ? "border-accent bg-accent/5" : "border-ink/15 hover:border-ink")
+        />
+        <PaymentCard
+          active={paymentMethod === "whish_link"}
+          onSelect={() => setPaymentMethod("whish_link")}
+          label="Option 2"
+          title="Whish payment link"
+          description={
+            <>
+              <p className="text-sm text-ink">
+                We&apos;ll send you a secure Whish payment link by WhatsApp after you submit your order.
+              </p>
+              <p className="mt-2 text-xs text-ink/60">No screenshot upload required.</p>
+            </>
           }
-        >
-          <p className="text-[10px] uppercase tracking-[0.2em] text-ink/60">Option 2</p>
-          <p className="mt-2 font-serif text-2xl text-ink">Bank transfer</p>
-          <p className="mt-3 text-sm text-ink">{bankName}</p>
-          <p className="mt-1 break-all text-xs text-ink/70">IBAN {bankIban}</p>
-          <p className="mt-1 text-xs text-ink/60">{accountHolder}</p>
-        </button>
+        />
       </div>
 
-      <div className="mt-8 border border-ink/15 bg-cream p-5">
+      {paymentMethod === "whish_direct" ? (
+        <WhishDirectInstructions
+          whish={whish}
+          screenshot={screenshot}
+          onScreenshotChange={onScreenshotChange}
+        />
+      ) : (
+        <WhishLinkInstructions />
+      )}
+
+      <div className="mt-10 flex justify-between">
+        <button type="button" className="btn-outline" onClick={onBack} disabled={submitting}>
+          Back
+        </button>
+        <button type="button" className="btn-primary" onClick={onSubmit} disabled={submitting}>
+          {submitting ? "Submitting…" : "Place order"}
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function PaymentCard({
+  active,
+  onSelect,
+  label,
+  title,
+  description
+}: {
+  active: boolean;
+  onSelect: () => void;
+  label: string;
+  title: string;
+  description: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={
+        "border p-5 text-left transition-colors " +
+        (active ? "border-accent bg-accent/5" : "border-ink/15 hover:border-ink")
+      }
+    >
+      <p className="text-[10px] uppercase tracking-[0.2em] text-ink/60">{label}</p>
+      <p className="mt-2 font-serif text-2xl text-ink">{title}</p>
+      <div className="mt-3">{description}</div>
+    </button>
+  );
+}
+
+function WhishDirectInstructions({
+  whish,
+  screenshot,
+  onScreenshotChange
+}: {
+  whish: string;
+  screenshot: { name: string; dataUrl: string } | null;
+  onScreenshotChange: (f: File | null) => void;
+}) {
+  const steps = [
+    "Open Whish",
+    "Tap Send Money",
+    `Enter number ${whish}`,
+    "Enter the order amount",
+    "Screenshot the confirmation",
+    "Upload the screenshot below"
+  ];
+
+  return (
+    <div className="mt-8 border border-ink/15 bg-cream p-5">
+      <p className="text-[10px] uppercase tracking-[0.2em] text-ink/60">How to pay with Whish</p>
+      <ol className="mt-4 grid gap-2 text-sm text-ink/80 sm:grid-cols-2">
+        {steps.map((step, i) => (
+          <li key={i} className="flex items-start gap-3">
+            <span className="mt-0.5 inline-flex h-6 w-6 flex-none items-center justify-center rounded-full bg-gold font-serif text-xs text-ink">
+              {i + 1}
+            </span>
+            <span>{step}</span>
+          </li>
+        ))}
+      </ol>
+
+      <div className="mt-6 border-t border-ink/10 pt-5">
         <p className="text-[10px] uppercase tracking-[0.2em] text-ink/60">Upload payment screenshot</p>
         <p className="mt-2 text-sm text-ink/70">
-          After paying, attach a screenshot of the confirmation. Max 4MB.
+          Required. Max 4MB. JPG, PNG or HEIC.
         </p>
         <input
           type="file"
@@ -461,16 +567,20 @@ function Step3Payment({
           </div>
         ) : null}
       </div>
+    </div>
+  );
+}
 
-      <div className="mt-10 flex justify-between">
-        <button type="button" className="btn-outline" onClick={onBack} disabled={submitting}>
-          Back
-        </button>
-        <button type="button" className="btn-primary" onClick={onSubmit} disabled={submitting}>
-          {submitting ? "Submitting…" : "Place order"}
-        </button>
-      </div>
-    </section>
+function WhishLinkInstructions() {
+  return (
+    <div className="mt-8 border border-ink/15 bg-cream p-5">
+      <p className="text-[10px] uppercase tracking-[0.2em] text-ink/60">What happens next</p>
+      <p className="mt-3 text-sm leading-relaxed text-ink/80">
+        After submitting your order, send your invoice to our WhatsApp and we&apos;ll generate a secure Whish
+        payment link for you. You&apos;ll receive automatic payment confirmation and receipt via WhatsApp.
+      </p>
+      <p className="mt-3 text-xs text-ink/60">No screenshot upload required for this option.</p>
+    </div>
   );
 }
 
@@ -481,8 +591,11 @@ function Step4Confirmation({
   order: CreatedOrder;
   product: ProductDraft;
 }) {
-  const message = `Hi Seasons by B, my order number is ${order.order_number} for ${product.name}. I have sent payment.`;
-  const wa = `https://wa.me/96103055491?text=${encodeURIComponent(message)}`;
+  const baseMessage =
+    order.payment_method === "whish_link"
+      ? `Hi Seasons by B, my order number is ${order.order_number} for ${product.name}. Please send me a Whish payment link.`
+      : `Hi Seasons by B, my order number is ${order.order_number} for ${product.name}. I have sent payment via Whish.`;
+  const wa = `https://wa.me/96103055491?text=${encodeURIComponent(baseMessage)}`;
 
   return (
     <section className="text-center">
@@ -498,16 +611,24 @@ function Step4Confirmation({
 
       <div className="mx-auto mt-8 max-w-md border border-ink/15 bg-cream p-6 text-left">
         <p className="text-[10px] uppercase tracking-[0.2em] text-ink/60">What happens next</p>
-        <ol className="mt-3 space-y-2 text-sm text-ink/80">
-          <li>1. Send your payment screenshot via WhatsApp so we can confirm.</li>
-          <li>2. We&apos;ll process your order as soon as payment is verified.</li>
-          <li>3. We&apos;ll keep you updated by email and WhatsApp on shipping and delivery.</li>
-        </ol>
+        {order.payment_method === "whish_link" ? (
+          <ol className="mt-3 space-y-2 text-sm text-ink/80">
+            <li>1. Send your invoice to our WhatsApp.</li>
+            <li>2. We&apos;ll send you a secure Whish payment link.</li>
+            <li>3. You&apos;ll get automatic confirmation and receipt by WhatsApp once paid.</li>
+          </ol>
+        ) : (
+          <ol className="mt-3 space-y-2 text-sm text-ink/80">
+            <li>1. Send your payment screenshot via WhatsApp so we can confirm.</li>
+            <li>2. We&apos;ll process your order as soon as payment is verified.</li>
+            <li>3. We&apos;ll keep you updated by email and WhatsApp on shipping and delivery.</li>
+          </ol>
+        )}
       </div>
 
       <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
         <a href={wa} target="_blank" rel="noreferrer" className="btn-gold">
-          Send confirmation on WhatsApp
+          {order.payment_method === "whish_link" ? "Send invoice on WhatsApp" : "Send confirmation on WhatsApp"}
         </a>
         <Link href="/" className="btn-outline">
           Back to shop

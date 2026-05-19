@@ -6,7 +6,7 @@ A standalone, long-running scraper worker that populates the shared Neon `produc
 
 - Runs on a cron schedule (default: **every 6 hours**, `0 */6 * * *`).
 - Iterates a fixed list of search terms covering Seasons by B's catalogue (Charlotte Tilbury, La Mer, Dior makeup, Sisley, NARS, YSL, Gucci, Valentino, Loewe, Bottega Veneta, Mulberry, Jo Malone, Elemis, Clinique).
-- For each term: scrapes the Selfridges search results, visits each product page, checks Lebanon deliverability, calculates `price_usd = price_gbp * 1.10 * GBP_TO_USD_RATE`, and upserts into `products` (on conflict by `product_url`).
+- For each term: scrapes the Selfridges search results, visits each product page, checks Lebanon deliverability, calculates `price_usd = price_gbp * 1.10 * live_rate` (live rate via Frankfurter, cached 6h, fallback 1.33), and upserts into `products` (on conflict by `product_url`).
 - Logs every run to the `scrape_logs` table, plus a `__summary__` entry per cycle.
 - Anti-detection: random user-agent rotation, randomised 2000–4000 ms delays, realistic viewport and headers.
 
@@ -30,7 +30,6 @@ scraper-worker/
 | Variable | Purpose |
 | --- | --- |
 | `DATABASE_URL` | Neon Postgres connection string. **Must be the same one used by the main app.** |
-| `GBP_TO_USD_RATE` | FX rate used in markup. Defaults to `1.27`. |
 | `CRON_SCHEDULE` | Cron expression. Defaults to `0 */6 * * *` (every 6 hours). |
 | `RUN_ON_BOOT` | Set to `0` to skip the immediate run on container start. Defaults to `1`. |
 | `RUN_ONCE` | Set to `1` (or pass `--once`) for a single run, then exit. Useful for ad-hoc backfills. |
@@ -60,8 +59,8 @@ The worker upserts directly into the same Neon database that the main app talks 
 3. After the service is created, open **Settings → Source → Root Directory** and set it to `scraper-worker`. Railway will use the `Dockerfile` in that folder automatically.
 4. Open **Variables** and add:
    - `DATABASE_URL` — paste the same Neon connection string used in Vercel.
-   - `GBP_TO_USD_RATE` — `1.27` (or whatever rate is in use).
    - `CRON_SCHEDULE` — `0 */6 * * *` (optional — this is the default).
+   - The worker fetches the live GBP→USD rate from Frankfurter — no FX env var required.
 5. Click **Deploy**. Railway will build the Docker image (Playwright base image, ~1 GB) and start the worker. The first run kicks off automatically on boot; subsequent runs follow the cron schedule.
 
 > Tip: Railway's free trial provides ~500 hours/month — plenty for a worker that mostly idles between 6-hour cron runs.

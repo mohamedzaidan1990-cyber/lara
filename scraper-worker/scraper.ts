@@ -1,5 +1,6 @@
 import { chromium, type Browser, type Page } from "@playwright/test";
 import type { ScrapedProductRow } from "./db";
+import { convertGbpToUsd } from "./currency";
 
 const USER_AGENTS = [
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
@@ -23,11 +24,6 @@ function randomUA(): string {
 function randomDelay(min = 2000, max = 4000): Promise<void> {
   const ms = Math.floor(Math.random() * (max - min + 1)) + min;
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function gbpToUsd(gbp: number): number {
-  const rate = Number(process.env.GBP_TO_USD_RATE ?? 1.27);
-  return Math.round(gbp * 1.1 * rate * 100) / 100;
 }
 
 function inferCategory(text: string, fallback: string): string {
@@ -208,7 +204,7 @@ async function scrapeOneSearch(browser: Browser, term: string): Promise<ScrapedP
         name: card.name,
         category,
         price_gbp: priceGbp,
-        price_usd: gbpToUsd(priceGbp),
+        price_usd: await convertGbpToUsd(priceGbp),
         deliverable_lebanon: deliverable,
         product_url: card.href,
         image_url: card.img

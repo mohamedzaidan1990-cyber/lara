@@ -28,10 +28,6 @@ Copy `.env.example` to `.env.local` and fill it in:
 | `DATABASE_URL` | Neon Postgres connection string (`?sslmode=require` recommended). |
 | `ADMIN_PASSWORD` | Password for `/admin/login`. |
 | `WHISH_NUMBER` | Whish number shown on payment + info pages. |
-| `BANK_IBAN` | IBAN for bank transfer instructions. |
-| `BANK_NAME` | Bank name (e.g. `QNB`). |
-| `ACCOUNT_HOLDER` | Account holder name. |
-| `GBP_TO_USD_RATE` | FX rate used in the markup formula. Defaults to `1.27` if unset. |
 | `RESEND_API_KEY` | Resend API key. Use `re_placeholder_replace_before_deploy` to disable. |
 | `TWILIO_ACCOUNT_SID` | Twilio Account SID. Use `placeholder` to disable. |
 | `TWILIO_AUTH_TOKEN` | Twilio Auth Token. |
@@ -74,10 +70,12 @@ Colour system:
 ## 3. Pricing model
 
 ```
-price_usd = price_gbp * 1.10 * GBP_TO_USD_RATE
+price_usd = price_gbp * 1.10 * live_GBP_to_USD_rate
 ```
 
 The 10 % is Seasons by B's service margin. **Only USD is shown to customers**; GBP is kept in the order record for accounting.
+
+The live `GBP → USD` rate is fetched from the free [Frankfurter](https://www.frankfurter.app/) API (`api.frankfurter.app/latest?from=GBP&to=USD`) via `lib/currency.ts`. The rate is cached for **6 hours** in memory; if the fetch fails the app falls back to `1.33`. There is also a `/api/exchange-rate` endpoint that the order form uses to keep the admin GBP→USD field accurate.
 
 ---
 
@@ -111,7 +109,7 @@ Order statuses: `pending`, `payment_confirmed`, `ordered_selfridges`, `shipped`,
 
 `lib/email.ts` exports three functions, all using `hello@seasonsbyb.co.uk` as the `From` address:
 
-- `sendOrderConfirmation(order, customer)` — to the customer. Subject `Your Seasons by B order — LARA-XXXXXX`. Includes order number, product, USD price, payment instructions (Whish + bank), 10–14 working-day delivery estimate, WhatsApp link.
+- `sendOrderConfirmation(order, customer)` — to the customer. Subject `Your Seasons by B order — LARA-XXXXXX`. Includes order number, product, USD price, Whish payment instructions (Direct transfer or Whish payment link, based on the chosen method), 10–14 working-day delivery estimate, WhatsApp link.
 - `sendOrderNotification(order, customer)` — to `mohamedzaidan1990@gmail.com`. Subject `New order — LARA-XXXXXX — $[price]`. Full customer + product details plus a direct link to `/admin`.
 - `sendPaymentConfirmation(order, customer)` — to the customer. Subject `Payment confirmed — SEASONS BY B`. Sent when the admin toggles `payment_confirmed` to `true`.
 
@@ -172,7 +170,7 @@ See [`scraper-worker/README.md`](scraper-worker/README.md) for full deployment i
 
 1. Push this repo to GitHub.
 2. In Railway, create a new service from this repo and set **Root Directory** to `scraper-worker`.
-3. Add `DATABASE_URL` and `GBP_TO_USD_RATE` env vars (same values as Vercel).
+3. Add the `DATABASE_URL` env var (same value as Vercel). The worker fetches the live GBP→USD rate from Frankfurter directly — no FX env var required.
 4. Deploy. Railway uses the included `Dockerfile` (Playwright base image, Chromium pre-installed).
 5. Watch logs in the Railway dashboard; query `scrape_logs` in Neon for run history.
 

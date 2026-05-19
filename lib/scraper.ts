@@ -1,4 +1,5 @@
 import { getSql } from "./db";
+import { convertGbpToUsd } from "./currency";
 
 export interface ScrapedProduct {
   brand: string;
@@ -74,11 +75,6 @@ function inferCategory(text: string, fallback: string): string {
   }
   if (ALLOWED_CATEGORIES.has(fallback)) return fallback;
   return "Beauty";
-}
-
-function gbpToUsd(gbp: number): number {
-  const rate = Number(process.env.GBP_TO_USD_RATE ?? 1.27);
-  return Math.round(gbp * 1.1 * rate * 100) / 100;
 }
 
 function randomDelay(min = 1500, max = 3000): Promise<void> {
@@ -242,7 +238,7 @@ async function scrapeWithPlaywright(query: string, requestedCategory: string): P
         name: card.name,
         category,
         price_gbp: priceGbp,
-        price_usd: gbpToUsd(priceGbp),
+        price_usd: await convertGbpToUsd(priceGbp),
         deliverable_lebanon: deliverable,
         product_url: card.href,
         image_url: card.img
@@ -286,8 +282,9 @@ export async function searchSelfridges(query: string, category: string): Promise
       : cached.filter((p) => p.category === requestedCategory).concat(cached.filter((p) => p.category !== requestedCategory)).slice(0, 12);
   }
 
-  const { FALLBACK_PRODUCTS } = await import("./featured");
-  const fallback = FALLBACK_PRODUCTS.map((p) => ({
+  const { getFallbackProducts } = await import("./featured");
+  const fallbackProducts = await getFallbackProducts();
+  const fallback = fallbackProducts.map((p) => ({
     brand: p.brand,
     name: p.name,
     category: p.category,
