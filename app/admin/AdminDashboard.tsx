@@ -35,10 +35,10 @@ export default function AdminDashboard({ initialOrders }: Props) {
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
       <header className="flex items-end justify-between">
         <div>
-          <p className="text-[10px] uppercase tracking-[0.32em] text-gold">Lara</p>
+          <p className="text-[10px] uppercase tracking-[0.32em] text-accent">Seasons by B — Admin</p>
           <h1 className="mt-1 font-serif text-3xl text-ink">Orders</h1>
         </div>
-        <button type="button" onClick={logout} className="text-xs uppercase tracking-[0.18em] text-ink/60 hover:text-gold">
+        <button type="button" onClick={logout} className="text-xs uppercase tracking-[0.18em] text-ink/60 hover:text-accent">
           Sign out
         </button>
       </header>

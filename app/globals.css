@@ -3,13 +3,15 @@
 @tailwind utilities;
 
 :root {
-  --gold: #b8952a;
-  --ink: #1a1713;
+  --gold: #F4D360;
+  --accent: #C0392B;
+  --ink: #23272A;
+  --cream: #FFFDF5;
 }
 
 html,
 body {
-  background-color: #ffffff;
+  background-color: var(--cream);
   color: var(--ink);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -29,19 +31,19 @@ h4,
 }
 
 .btn-primary {
-  @apply inline-flex items-center justify-center rounded-none border border-ink bg-ink px-6 py-3 text-sm uppercase tracking-[0.18em] text-white transition-colors hover:bg-gold hover:border-gold;
+  @apply inline-flex items-center justify-center rounded-none border border-accent bg-accent px-6 py-3 text-sm uppercase tracking-[0.18em] text-white transition-colors hover:bg-accent-600 hover:border-accent-600;
 }
 
 .btn-outline {
-  @apply inline-flex items-center justify-center rounded-none border border-ink bg-transparent px-6 py-3 text-sm uppercase tracking-[0.18em] text-ink transition-colors hover:bg-ink hover:text-white;
+  @apply inline-flex items-center justify-center rounded-none border border-ink bg-transparent px-6 py-3 text-sm uppercase tracking-[0.18em] text-ink transition-colors hover:bg-ink hover:text-cream;
 }
 
 .btn-gold {
-  @apply inline-flex items-center justify-center rounded-none border border-gold bg-gold px-6 py-3 text-sm uppercase tracking-[0.18em] text-white transition-opacity hover:opacity-90;
+  @apply inline-flex items-center justify-center rounded-none border border-gold bg-gold px-6 py-3 text-sm uppercase tracking-[0.18em] text-ink transition-opacity hover:opacity-90;
 }
 
 .input {
-  @apply w-full rounded-none border border-ink/15 bg-white px-4 py-3 text-base text-ink placeholder:text-ink/40 focus:border-gold focus:outline-none focus:ring-0;
+  @apply w-full rounded-none border border-ink/15 bg-white px-4 py-3 text-base text-ink placeholder:text-ink/40 focus:border-accent focus:outline-none focus:ring-0;
 }
 
 .label {
@@ -49,11 +51,11 @@ h4,
 }
 
 .chip {
-  @apply inline-flex items-center rounded-full border border-ink/15 px-4 py-2 text-xs uppercase tracking-[0.16em] text-ink transition-colors hover:border-gold hover:text-gold;
+  @apply inline-flex items-center rounded-full border border-ink/15 bg-white px-4 py-2 text-xs uppercase tracking-[0.16em] text-ink transition-colors hover:border-accent hover:text-accent;
 }
 
 .chip-active {
-  @apply border-gold bg-gold text-white hover:text-white;
+  @apply border-gold bg-gold text-ink hover:text-ink hover:border-gold;
 }
 
 .divider {

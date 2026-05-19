@@ -14,6 +14,68 @@ export interface ScrapedProduct {
 const USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
+const ALLOWED_CATEGORIES = new Set([
+  "Beauty",
+  "Skincare",
+  "Makeup",
+  "Haircare",
+  "Bags",
+  "Accessories"
+]);
+
+function inferCategory(text: string, fallback: string): string {
+  const lower = text.toLowerCase();
+  if (lower.includes("bag") || lower.includes("tote") || lower.includes("clutch") || lower.includes("pouch") || lower.includes("satchel")) {
+    return "Bags";
+  }
+  if (
+    lower.includes("foundation") ||
+    lower.includes("concealer") ||
+    lower.includes("lipstick") ||
+    lower.includes("mascara") ||
+    lower.includes("eyeliner") ||
+    lower.includes("blush") ||
+    lower.includes("eyeshadow") ||
+    lower.includes("makeup")
+  ) {
+    return "Makeup";
+  }
+  if (
+    lower.includes("shampoo") ||
+    lower.includes("conditioner") ||
+    lower.includes("hair") ||
+    lower.includes("haircare")
+  ) {
+    return "Haircare";
+  }
+  if (
+    lower.includes("cream") ||
+    lower.includes("serum") ||
+    lower.includes("moistur") ||
+    lower.includes("cleans") ||
+    lower.includes("toner") ||
+    lower.includes("skincare") ||
+    lower.includes("mask")
+  ) {
+    return "Skincare";
+  }
+  if (
+    lower.includes("scarf") ||
+    lower.includes("wallet") ||
+    lower.includes("belt") ||
+    lower.includes("sunglass") ||
+    lower.includes("jewel") ||
+    lower.includes("accessor")
+  ) {
+    return "Accessories";
+  }
+  if (lower.includes("fragrance") || lower.includes("perfume") || lower.includes("parfum") || lower.includes("eau de")) {
+    return "Beauty";
+  }
+  if (ALLOWED_CATEGORIES.has(fallback)) return fallback;
+  return "Beauty";
+}
+
 function gbpToUsd(gbp: number): number {
   const rate = Number(process.env.GBP_TO_USD_RATE ?? 1.27);
   return Math.round(gbp * 1.1 * rate * 100) / 100;
@@ -36,14 +98,23 @@ async function logScrape(query: string, status: string, count: number): Promise<
   }
 }
 
-async function persistProducts(products: ScrapedProduct[], category: string): Promise<void> {
+async function persistProducts(products: ScrapedProduct[]): Promise<void> {
   if (products.length === 0) return;
   try {
     const sql = getSql();
     for (const p of products) {
       await sql`
         insert into products (brand, name, category, price_gbp, price_usd, deliverable_lebanon, product_url, image_url)
-        values (${p.brand}, ${p.name}, ${category}, ${p.price_gbp}, ${p.price_usd}, ${p.deliverable_lebanon}, ${p.product_url}, ${p.image_url})
+        values (${p.brand}, ${p.name}, ${p.category}, ${p.price_gbp}, ${p.price_usd}, ${p.deliverable_lebanon}, ${p.product_url}, ${p.image_url})
+        on conflict (product_url) do update set
+          brand = excluded.brand,
+          name = excluded.name,
+          category = excluded.category,
+          price_gbp = excluded.price_gbp,
+          price_usd = excluded.price_usd,
+          deliverable_lebanon = excluded.deliverable_lebanon,
+          image_url = excluded.image_url,
+          scraped_at = now()
       `;
     }
   } catch {
@@ -86,7 +157,7 @@ async function readCachedProducts(query: string): Promise<ScrapedProduct[]> {
   }
 }
 
-async function scrapeWithPlaywright(query: string): Promise<ScrapedProduct[]> {
+async function scrapeWithPlaywright(query: string, requestedCategory: string): Promise<ScrapedProduct[]> {
   // Dynamic import keeps Playwright out of the build graph for environments
   // (e.g. Vercel) where the binary isn't available.
   const { chromium } = await import("playwright");
@@ -164,10 +235,12 @@ async function scrapeWithPlaywright(query: string): Promise<ScrapedProduct[]> {
         deliverable = true;
       }
 
+      const category = inferCategory(`${card.brand} ${card.name}`, requestedCategory);
+
       products.push({
         brand: card.brand,
         name: card.name,
-        category: "All",
+        category,
         price_gbp: priceGbp,
         price_usd: gbpToUsd(priceGbp),
         deliverable_lebanon: deliverable,
@@ -186,13 +259,19 @@ export async function searchSelfridges(query: string, category: string): Promise
   const trimmed = query.trim();
   if (!trimmed) return [];
 
+  const requestedCategory = ALLOWED_CATEGORIES.has(category) ? category : "All";
+
   try {
-    const live = await scrapeWithPlaywright(trimmed);
+    const live = await scrapeWithPlaywright(trimmed, requestedCategory === "All" ? "" : requestedCategory);
     if (live.length > 0) {
-      const tagged = live.map((p) => ({ ...p, category: category && category !== "All" ? category : p.category }));
-      await persistProducts(tagged, category && category !== "All" ? category : "All");
-      await logScrape(trimmed, "ok", tagged.length);
-      return tagged;
+      const filtered =
+        requestedCategory === "All"
+          ? live
+          : live.filter((p) => p.category === requestedCategory);
+      const result = filtered.length > 0 ? filtered : live;
+      await persistProducts(result);
+      await logScrape(trimmed, "ok", result.length);
+      return result;
     }
     await logScrape(trimmed, "empty", 0);
   } catch (err) {
@@ -201,10 +280,14 @@ export async function searchSelfridges(query: string, category: string): Promise
   }
 
   const cached = await readCachedProducts(trimmed);
-  if (cached.length > 0) return cached;
+  if (cached.length > 0) {
+    return requestedCategory === "All"
+      ? cached
+      : cached.filter((p) => p.category === requestedCategory).concat(cached.filter((p) => p.category !== requestedCategory)).slice(0, 12);
+  }
 
   const { FALLBACK_PRODUCTS } = await import("./featured");
-  return FALLBACK_PRODUCTS.map((p) => ({
+  const fallback = FALLBACK_PRODUCTS.map((p) => ({
     brand: p.brand,
     name: p.name,
     category: p.category,
@@ -214,4 +297,7 @@ export async function searchSelfridges(query: string, category: string): Promise
     product_url: p.product_url,
     image_url: p.image_url
   }));
+  if (requestedCategory === "All") return fallback;
+  const matching = fallback.filter((p) => p.category === requestedCategory);
+  return matching.length > 0 ? matching : fallback;
 }

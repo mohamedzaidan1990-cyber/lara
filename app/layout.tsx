@@ -16,15 +16,15 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Lara — Your personal shopper in London",
+  title: "Seasons by B — London's finest, delivered to your door",
   description:
-    "Lara is a personal shopping service sourcing luxury pieces in London and delivering to Lebanon."
+    "Seasons by B is a personal shopping service sourcing London's finest luxury pieces and delivering to your door."
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${playfair.variable} ${dmSans.variable}`}>
-      <body className="min-h-screen bg-white text-ink">
+      <body className="min-h-screen bg-cream text-ink">
         <SiteHeader />
         <main className="min-h-[60vh]">{children}</main>
         <SiteFooter />
@@ -35,26 +35,26 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
 function SiteHeader() {
   return (
-    <header className="sticky top-0 z-30 border-b border-ink/10 bg-white/95 backdrop-blur">
+    <header className="sticky top-0 z-30 border-b border-ink/10 bg-cream/95 backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
         <Link href="/" className="flex flex-col leading-none">
-          <span className="font-serif text-3xl text-ink">Lara</span>
+          <span className="font-serif text-3xl text-ink">Seasons by B</span>
           <span className="mt-1 hidden text-[10px] uppercase tracking-[0.32em] text-ink/60 sm:block">
-            Your personal shopper in London
+            London&apos;s finest, delivered to your door
           </span>
         </Link>
         <nav className="flex items-center gap-6 text-xs uppercase tracking-[0.18em] text-ink/70">
-          <Link href="/" className="hover:text-gold">
+          <Link href="/" className="hover:text-accent">
             Shop
           </Link>
-          <Link href="/info" className="hover:text-gold">
+          <Link href="/info" className="hover:text-accent">
             How it works
           </Link>
           <a
             href="https://wa.me/96103055491"
             target="_blank"
             rel="noreferrer"
-            className="hidden text-gold hover:opacity-80 sm:inline"
+            className="hidden text-accent hover:opacity-80 sm:inline"
           >
             WhatsApp
           </a>
@@ -66,17 +66,17 @@ function SiteHeader() {
 
 function SiteFooter() {
   return (
-    <footer className="mt-24 border-t border-ink/10 bg-ink text-white">
+    <footer className="mt-24 border-t border-ink/10 bg-ink text-cream">
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:grid-cols-2 sm:px-6 lg:grid-cols-4 lg:px-8">
         <div>
-          <p className="font-serif text-2xl">Lara</p>
-          <p className="mt-2 text-xs uppercase tracking-[0.24em] text-white/60">
-            Sourced in London. Delivered to Lebanon.
+          <p className="font-serif text-2xl text-gold">Seasons by B</p>
+          <p className="mt-2 text-xs uppercase tracking-[0.24em] text-cream/60">
+            London&apos;s finest, delivered to your door
           </p>
         </div>
         <div>
           <p className="text-xs uppercase tracking-[0.18em] text-gold">Service</p>
-          <ul className="mt-3 space-y-2 text-sm text-white/80">
+          <ul className="mt-3 space-y-2 text-sm text-cream/80">
             <li>
               <Link href="/" className="hover:text-gold">
                 Shop
@@ -96,7 +96,7 @@ function SiteFooter() {
         </div>
         <div>
           <p className="text-xs uppercase tracking-[0.18em] text-gold">Delivery</p>
-          <p className="mt-3 text-sm text-white/80">10–14 working days door to door.</p>
+          <p className="mt-3 text-sm text-cream/80">10–14 working days door to door.</p>
         </div>
         <div>
           <p className="text-xs uppercase tracking-[0.18em] text-gold">Contact</p>
@@ -104,17 +104,32 @@ function SiteFooter() {
             href="https://wa.me/96103055491"
             target="_blank"
             rel="noreferrer"
-            className="mt-3 inline-block text-sm text-white/80 hover:text-gold"
+            className="mt-3 inline-flex items-center gap-2 text-sm text-cream/80 hover:text-gold"
           >
+            <WhatsAppIcon />
             WhatsApp +961 03 055 491
           </a>
         </div>
       </div>
-      <div className="border-t border-white/10">
-        <div className="mx-auto max-w-7xl px-4 py-6 text-center text-[11px] uppercase tracking-[0.24em] text-white/50 sm:px-6 lg:px-8">
-          © {new Date().getFullYear()} Lara Personal Shopping
+      <div className="border-t border-cream/10">
+        <div className="mx-auto max-w-7xl px-4 py-6 text-center text-[11px] uppercase tracking-[0.24em] text-cream/50 sm:px-6 lg:px-8">
+          © 2025 Seasons by B. London.
         </div>
       </div>
     </footer>
+  );
+}
+
+function WhatsAppIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className="h-4 w-4"
+      aria-hidden
+    >
+      <path d="M20.52 3.48A11.86 11.86 0 0 0 12.05 0C5.5 0 .17 5.33.17 11.88c0 2.09.55 4.13 1.6 5.93L0 24l6.36-1.67a11.88 11.88 0 0 0 5.69 1.45h.01c6.55 0 11.88-5.33 11.88-11.88 0-3.17-1.24-6.16-3.42-8.42ZM12.06 21.6h-.01a9.7 9.7 0 0 1-4.95-1.36l-.36-.21-3.78.99 1.01-3.68-.24-.38a9.69 9.69 0 0 1-1.49-5.18c0-5.36 4.37-9.73 9.74-9.73 2.6 0 5.04 1.01 6.88 2.85a9.66 9.66 0 0 1 2.86 6.88c0 5.36-4.37 9.73-9.66 9.73Zm5.59-7.29c-.31-.16-1.81-.89-2.09-.99-.28-.1-.49-.16-.69.16-.21.31-.79.99-.97 1.2-.18.21-.36.23-.66.08-.31-.16-1.29-.48-2.46-1.51-.91-.81-1.52-1.81-1.7-2.12-.18-.31-.02-.48.13-.63.13-.13.31-.36.46-.54.16-.18.21-.31.31-.52.1-.21.05-.39-.03-.55-.08-.16-.69-1.66-.95-2.27-.25-.6-.5-.52-.69-.53l-.59-.01c-.21 0-.55.08-.83.39-.28.31-1.09 1.06-1.09 2.59 0 1.53 1.12 3.01 1.27 3.22.16.21 2.2 3.36 5.33 4.71 1.86.8 2.59.87 3.52.74.56-.08 1.81-.74 2.07-1.46.26-.72.26-1.34.18-1.46-.08-.13-.28-.21-.59-.36Z" />
+    </svg>
   );
 }

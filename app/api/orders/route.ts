@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { ensureSchema, generateOrderNumber, getSql, type OrderWithCustomer } from "@/lib/db";
 import { isAdmin } from "@/lib/auth";
+import { sendOrderConfirmation, sendOrderNotification } from "@/lib/email";
+import { sendWhatsAppAlert } from "@/lib/whatsapp";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -8,6 +10,7 @@ export const dynamic = "force-dynamic";
 interface CreateBody {
   full_name?: string;
   phone?: string;
+  email?: string;
   address?: string;
   notes?: string;
   product_brand?: string;
@@ -19,6 +22,8 @@ interface CreateBody {
   payment_screenshot?: string | null;
 }
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export async function GET() {
   if (!isAdmin()) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -26,7 +31,7 @@ export async function GET() {
   await ensureSchema();
   const sql = getSql();
   const rows = (await sql`
-    select o.id, o.order_number, o.customer_id, o.product_name, o.product_brand, o.product_url,
+    select o.id, o.order_number, o.customer_id, o.customer_email, o.product_name, o.product_brand, o.product_url,
            o.price_gbp, o.price_usd, o.status, o.payment_method, o.payment_confirmed,
            o.payment_screenshot, o.notes, o.created_at, o.updated_at,
            coalesce(c.full_name, '') as full_name,
@@ -45,6 +50,7 @@ export async function POST(req: Request) {
   const required: Array<keyof CreateBody> = [
     "full_name",
     "phone",
+    "email",
     "address",
     "product_name",
     "product_brand",
@@ -56,6 +62,9 @@ export async function POST(req: Request) {
     if (v === undefined || v === null || v === "") {
       return NextResponse.json({ error: `Missing field: ${key}` }, { status: 400 });
     }
+  }
+  if (!EMAIL_RE.test(String(body.email))) {
+    return NextResponse.json({ error: "Invalid email" }, { status: 400 });
   }
 
   await ensureSchema();
@@ -80,11 +89,11 @@ export async function POST(req: Request) {
     try {
       inserted = (await sql`
         insert into orders (
-          order_number, customer_id, product_name, product_brand, product_url,
+          order_number, customer_id, customer_email, product_name, product_brand, product_url,
           price_gbp, price_usd, payment_method, payment_screenshot, notes
         )
         values (
-          ${orderNumber}, ${customerId}, ${body.product_name}, ${body.product_brand}, ${body.product_url ?? null},
+          ${orderNumber}, ${customerId}, ${body.email}, ${body.product_name}, ${body.product_brand}, ${body.product_url ?? null},
           ${body.price_gbp}, ${body.price_usd}, ${body.payment_method ?? null}, ${body.payment_screenshot ?? null}, ${body.notes ?? null}
         )
         returning id, order_number
@@ -102,6 +111,40 @@ export async function POST(req: Request) {
   const order = inserted[0];
   if (!order) {
     return NextResponse.json({ error: "Failed to create order" }, { status: 500 });
+  }
+
+  const emailOrder = {
+    order_number: order.order_number,
+    product_brand: body.product_brand!,
+    product_name: body.product_name!,
+    product_url: body.product_url ?? null,
+    price_usd: body.price_usd!,
+    price_gbp: body.price_gbp,
+    payment_method: body.payment_method ?? null,
+    notes: body.notes ?? null
+  };
+  const emailCustomer = {
+    full_name: body.full_name!,
+    phone: body.phone!,
+    email: body.email!,
+    address: body.address!
+  };
+
+  // Fire-and-forget notifications. Failures must never block order creation.
+  try {
+    await Promise.all([
+      sendOrderConfirmation(emailOrder, emailCustomer).catch((err) => {
+        console.error("sendOrderConfirmation error", err);
+      }),
+      sendOrderNotification(emailOrder, emailCustomer).catch((err) => {
+        console.error("sendOrderNotification error", err);
+      }),
+      sendWhatsAppAlert(emailOrder, emailCustomer).catch((err) => {
+        console.error("sendWhatsAppAlert error", err);
+      })
+    ]);
+  } catch (err) {
+    console.error("notification dispatch failed", err);
   }
 
   return NextResponse.json({

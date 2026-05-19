@@ -33,7 +33,8 @@ export default function AdminLoginPage() {
 
   return (
     <div className="mx-auto flex min-h-[60vh] max-w-sm flex-col justify-center px-4 py-16">
-      <h1 className="font-serif text-3xl text-ink">Admin</h1>
+      <p className="text-[10px] uppercase tracking-[0.32em] text-accent">Seasons by B</p>
+      <h1 className="mt-2 font-serif text-3xl text-ink">Seasons by B — Admin</h1>
       <p className="mt-2 text-sm text-ink/70">Enter your password to access orders.</p>
 
       <form onSubmit={submit} className="mt-8 space-y-4">
@@ -48,7 +49,7 @@ export default function AdminLoginPage() {
           />
         </div>
         {error ? (
-          <p className="rounded border border-red-300 bg-red-50 p-3 text-xs text-red-700">{error}</p>
+          <p className="rounded border border-accent/40 bg-accent/5 p-3 text-xs text-accent-700">{error}</p>
         ) : null}
         <button type="submit" disabled={busy} className="btn-primary w-full">
           {busy ? "Signing in…" : "Sign in"}

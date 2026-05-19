@@ -1,0 +1,29 @@
+{
+  "name": "seasons-by-b-scraper-worker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Selfridges scraper worker for Seasons by B — runs on Railway, populates the shared Neon products table.",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx index.ts",
+    "scrape:once": "tsx index.ts --once"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "latest",
+    "@playwright/test": "latest",
+    "node-cron": "latest",
+    "ws": "latest"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/node-cron": "^3.0.11",
+    "@types/ws": "^8.5.10",
+    "tsx": "^4.7.0",
+    "typescript": "^5.6.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

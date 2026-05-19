@@ -76,7 +76,7 @@ export default function AdminOrderRow({ order, onUpdated }: Props) {
             disabled={busy}
             value={local.status}
             onChange={(e) => patch({ status: e.target.value as OrderStatus })}
-            className="border border-ink/15 bg-white px-2 py-1 text-xs uppercase tracking-[0.12em] focus:border-gold focus:outline-none"
+            className="border border-ink/15 bg-white px-2 py-1 text-xs uppercase tracking-[0.12em] focus:border-accent focus:outline-none"
           >
             {ORDER_STATUSES.map((s) => (
               <option key={s} value={s}>
@@ -114,6 +114,17 @@ export default function AdminOrderRow({ order, onUpdated }: Props) {
               <div>
                 <p className="text-[10px] uppercase tracking-[0.2em] text-ink/60">Delivery address</p>
                 <p className="mt-2 whitespace-pre-line text-sm text-ink">{local.address}</p>
+                {local.customer_email ? (
+                  <>
+                    <p className="mt-4 text-[10px] uppercase tracking-[0.2em] text-ink/60">Email</p>
+                    <a
+                      href={`mailto:${local.customer_email}`}
+                      className="mt-2 inline-block break-all text-sm text-accent hover:underline"
+                    >
+                      {local.customer_email}
+                    </a>
+                  </>
+                ) : null}
                 <p className="mt-4 text-[10px] uppercase tracking-[0.2em] text-ink/60">Notes</p>
                 <p className="mt-2 whitespace-pre-line text-sm text-ink">
                   {local.notes ? local.notes : <span className="text-ink/40">None</span>}
@@ -126,7 +137,7 @@ export default function AdminOrderRow({ order, onUpdated }: Props) {
                     href={local.product_url}
                     target="_blank"
                     rel="noreferrer"
-                    className="mt-2 inline-block break-all text-sm text-gold hover:underline"
+                    className="mt-2 inline-block break-all text-sm text-accent hover:underline"
                   >
                     {local.product_url}
                   </a>

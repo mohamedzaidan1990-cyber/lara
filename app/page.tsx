@@ -63,7 +63,7 @@ export default function HomePage() {
           {results !== null ? (
             <button
               type="button"
-              className="text-xs uppercase tracking-[0.2em] text-ink/60 hover:text-gold"
+              className="text-xs uppercase tracking-[0.2em] text-ink/60 hover:text-accent"
               onClick={() => {
                 setResults(null);
                 setQuery("");
@@ -76,12 +76,12 @@ export default function HomePage() {
 
         {loading ? <LoadingGrid /> : null}
         {error ? (
-          <p className="rounded border border-red-300 bg-red-50 p-4 text-sm text-red-700">{error}</p>
+          <p className="rounded border border-accent/40 bg-accent/5 p-4 text-sm text-accent-700">{error}</p>
         ) : null}
 
         {!loading && display.length === 0 ? (
           <p className="rounded border border-ink/10 bg-ink/[0.02] p-8 text-center text-sm text-ink/60">
-            No products to show. Try a different search or message Lara on WhatsApp for a custom request.
+            No products to show. Try a different search or message us on WhatsApp for a custom request.
           </p>
         ) : null}
 
@@ -93,6 +93,8 @@ export default function HomePage() {
           </div>
         ) : null}
       </section>
+
+      <WhySeasons />
     </div>
   );
 }
@@ -107,24 +109,24 @@ interface HeroProps {
 
 function Hero({ query, setQuery, category, setCategory, onSubmit }: HeroProps) {
   return (
-    <section className="border-b border-ink/10 bg-gradient-to-b from-[#FBF7EC]/60 to-white">
+    <section className="border-b border-ink/10 bg-gradient-to-b from-gold/20 to-cream">
       <div className="mx-auto max-w-7xl px-4 py-16 text-center sm:px-6 sm:py-20 lg:px-8">
-        <p className="text-[11px] uppercase tracking-[0.32em] text-gold">Sourced in London</p>
+        <p className="text-[11px] uppercase tracking-[0.32em] text-accent">Seasons by B</p>
         <h1 className="mt-4 font-serif text-4xl leading-tight text-ink sm:text-6xl">
-          Anything from London,
-          <br /> at your door in Lebanon.
+          London&apos;s finest,
+          <br /> delivered to your door.
         </h1>
         <p className="mx-auto mt-5 max-w-xl text-sm text-ink/70 sm:text-base">
-          Tell Lara what you want. We&apos;ll source it in London, check it can ship, and deliver in 10–14 working
-          days.
+          Tell us what you want. We&apos;ll source it from London&apos;s finest retailers, check it can ship, and
+          deliver in 10–14 working days.
         </p>
 
         <form onSubmit={onSubmit} className="mx-auto mt-10 flex max-w-2xl items-stretch gap-0 shadow-soft">
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search a brand or item — e.g. Bottega bag"
-            className="flex-1 border border-ink/15 bg-white px-5 py-4 text-base text-ink placeholder:text-ink/40 focus:border-gold focus:outline-none"
+            placeholder="Search a brand or item — e.g. Charlotte Tilbury"
+            className="flex-1 border border-ink/15 bg-white px-5 py-4 text-base text-ink placeholder:text-ink/40 focus:border-accent focus:outline-none"
           />
           <button type="submit" className="btn-primary px-8">
             Search
@@ -143,6 +145,41 @@ function Hero({ query, setQuery, category, setCategory, onSubmit }: HeroProps) {
             </button>
           ))}
         </div>
+      </div>
+    </section>
+  );
+}
+
+function WhySeasons() {
+  const items = [
+    {
+      icon: "🐝",
+      title: "Curated in London",
+      body: "Hand-picked from London's finest luxury retailers."
+    },
+    {
+      icon: "📦",
+      title: "Delivered to your door",
+      body: "10–14 working days, tracked shipping."
+    },
+    {
+      icon: "💬",
+      title: "Personal service",
+      body: "WhatsApp support throughout your order."
+    }
+  ];
+  return (
+    <section className="border-t border-ink/10 bg-gold/15">
+      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-16 sm:px-6 sm:grid-cols-3 lg:px-8">
+        {items.map((item) => (
+          <div key={item.title} className="text-center">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-gold bg-cream text-2xl">
+              <span aria-hidden>{item.icon}</span>
+            </div>
+            <h3 className="mt-5 font-serif text-2xl text-ink">{item.title}</h3>
+            <p className="mt-3 text-sm text-ink/70">{item.body}</p>
+          </div>
+        ))}
       </div>
     </section>
   );

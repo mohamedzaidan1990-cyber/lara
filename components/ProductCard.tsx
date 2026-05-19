@@ -54,17 +54,17 @@ export default function ProductCard({ product }: Props) {
           className={
             "absolute left-3 top-3 inline-flex items-center gap-1 rounded-full px-3 py-1 text-[10px] uppercase tracking-[0.2em] " +
             (product.deliverable_lebanon
-              ? "bg-white/95 text-ink"
-              : "bg-ink/80 text-white")
+              ? "bg-cream/95 text-ink"
+              : "bg-ink/85 text-cream")
           }
         >
           <span
             className={
               "h-1.5 w-1.5 rounded-full " +
-              (product.deliverable_lebanon ? "bg-gold" : "bg-white/70")
+              (product.deliverable_lebanon ? "bg-gold" : "bg-cream/70")
             }
           />
-          {product.deliverable_lebanon ? "Ships to Lebanon" : "Ask Lara"}
+          {product.deliverable_lebanon ? "Ships worldwide" : "Ask us"}
         </span>
       </div>
 

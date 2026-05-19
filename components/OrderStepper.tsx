@@ -22,7 +22,7 @@ export default function OrderStepper({ current }: Props) {
                 className={
                   "flex h-9 w-9 items-center justify-center rounded-full border text-sm transition-colors " +
                   (isActive
-                    ? "border-gold bg-gold text-white"
+                    ? "border-accent bg-accent text-white"
                     : isDone
                       ? "border-ink bg-ink text-white"
                       : "border-ink/20 bg-white text-ink/40")

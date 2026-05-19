@@ -26,6 +26,7 @@ export const SCHEMA_STATEMENTS = [
     id uuid default gen_random_uuid() primary key,
     order_number text unique not null,
     customer_id uuid references customers(id),
+    customer_email text,
     product_name text not null,
     product_brand text not null,
     product_url text,
@@ -39,6 +40,7 @@ export const SCHEMA_STATEMENTS = [
     created_at timestamp default now(),
     updated_at timestamp default now()
   )`,
+  `alter table orders add column if not exists customer_email text`,
   `create table if not exists products (
     id uuid default gen_random_uuid() primary key,
     brand text not null,
@@ -47,10 +49,11 @@ export const SCHEMA_STATEMENTS = [
     price_gbp numeric not null,
     price_usd numeric not null,
     deliverable_lebanon boolean default true,
-    product_url text,
+    product_url text unique,
     image_url text,
     scraped_at timestamp default now()
   )`,
+  `create unique index if not exists products_product_url_idx on products (product_url)`,
   `create table if not exists scrape_logs (
     id uuid default gen_random_uuid() primary key,
     query text,
@@ -93,7 +96,7 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   payment_confirmed: "Payment confirmed",
   ordered_selfridges: "Ordered from Selfridges",
   shipped: "Shipped",
-  in_lebanon: "In Lebanon",
+  in_lebanon: "In transit",
   delivered: "Delivered",
   cancelled: "Cancelled",
   refunded: "Refunded"
@@ -111,6 +114,7 @@ export interface OrderRow {
   id: string;
   order_number: string;
   customer_id: string | null;
+  customer_email: string | null;
   product_name: string;
   product_brand: string;
   product_url: string | null;

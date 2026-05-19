@@ -1,15 +1,15 @@
 import Link from "next/link";
 
 export const metadata = {
-  title: "How it works — Lara",
-  description: "Delivery, payment and returns policy for Lara personal shopping."
+  title: "How it works — Seasons by B",
+  description: "Delivery, payment and returns policy for Seasons by B personal shopping."
 };
 
 const STEPS = [
   {
     icon: "🔎",
     title: "Search",
-    body: "Browse the catalogue or message Lara on WhatsApp with anything you'd like sourced from London."
+    body: "Browse the catalogue or message Seasons by B on WhatsApp with anything you'd like sourced from London."
   },
   {
     icon: "🛍",
@@ -37,17 +37,17 @@ export default function InfoPage() {
   return (
     <div className="mx-auto max-w-4xl px-4 py-16 sm:px-6 lg:px-8">
       <header className="text-center">
-        <p className="text-[11px] uppercase tracking-[0.32em] text-gold">Information</p>
-        <h1 className="mt-3 font-serif text-4xl text-ink sm:text-5xl">How Lara works</h1>
+        <p className="text-[11px] uppercase tracking-[0.32em] text-accent">Information</p>
+        <h1 className="mt-3 font-serif text-4xl text-ink sm:text-5xl">How Seasons by B works</h1>
         <p className="mx-auto mt-4 max-w-xl text-sm text-ink/70">
-          A simple process from London to your door in Lebanon.
+          London&apos;s finest, delivered to your door.
         </p>
       </header>
 
       <section className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {STEPS.map((s, i) => (
-          <div key={s.title} className="border border-ink/10 p-6 text-center">
-            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full border border-gold text-base">
+          <div key={s.title} className="border border-ink/10 bg-cream p-6 text-center">
+            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full border border-gold bg-gold/20 text-base">
               <span aria-hidden>{s.icon}</span>
             </div>
             <p className="mt-4 text-[10px] uppercase tracking-[0.2em] text-ink/60">Step {i + 1}</p>
@@ -58,8 +58,8 @@ export default function InfoPage() {
       </section>
 
       <Section title="Delivery">
-        <p>10–14 working days door to door, anywhere in Lebanon.</p>
-        <p>You&apos;ll receive WhatsApp updates from order confirmation through to delivery.</p>
+        <p>10–14 working days door to door, anywhere we ship.</p>
+        <p>You&apos;ll receive email and WhatsApp updates from order confirmation through to delivery.</p>
       </Section>
 
       <Section title="Payment">
@@ -83,7 +83,7 @@ export default function InfoPage() {
         </p>
         <p>
           <strong className="text-ink">After delivery</strong> — 14 days to return, provided the item is unused with
-          all original tags and packaging intact. The customer pays return shipping back to our Lebanon address.
+          all original tags and packaging intact. The customer pays return shipping back to our address.
         </p>
         <p>
           <strong className="text-ink">Non-returnable</strong> — opened beauty products, fragrances, and
@@ -93,13 +93,12 @@ export default function InfoPage() {
           <strong className="text-ink">No exchanges</strong> — we issue refunds only.
         </p>
         <p className="text-ink/70">
-          Note: Prada and Christian Louboutin items are subject to those brands&apos; own return rules, which we
-          will share at the point of order.
+          Note: certain brands are subject to their own return rules, which we will share at the point of order.
         </p>
       </Section>
 
       <Section title="Contact">
-        <p>For anything else, reach Lara directly on WhatsApp.</p>
+        <p>For anything else, reach Seasons by B directly on WhatsApp.</p>
         <a
           href="https://wa.me/96103055491"
           target="_blank"
@@ -111,7 +110,7 @@ export default function InfoPage() {
       </Section>
 
       <div className="mt-16 border-t border-ink/10 pt-8 text-center">
-        <Link href="/" className="text-xs uppercase tracking-[0.2em] text-ink/60 hover:text-gold">
+        <Link href="/" className="text-xs uppercase tracking-[0.2em] text-ink/60 hover:text-accent">
           ← Back to shop
         </Link>
       </div>

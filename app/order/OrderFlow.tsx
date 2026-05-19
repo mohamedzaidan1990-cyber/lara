@@ -15,6 +15,7 @@ interface Props {
 interface CustomerForm {
   full_name: string;
   phone: string;
+  email: string;
   address: string;
   notes: string;
 }
@@ -26,6 +27,7 @@ interface CreatedOrder {
 }
 
 const MAX_SCREENSHOT_BYTES = 4 * 1024 * 1024; // 4MB
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function formatUsd(value: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -60,6 +62,7 @@ export default function OrderFlow({ whish, bankIban, bankName, accountHolder }: 
   const [form, setForm] = useState<CustomerForm>({
     full_name: "",
     phone: "",
+    email: "",
     address: "",
     notes: ""
   });
@@ -102,8 +105,11 @@ export default function OrderFlow({ whish, bankIban, bankName, accountHolder }: 
       if (!productDraft.name || !productDraft.brand) {
         throw new Error("Please confirm the product details.");
       }
-      if (!form.full_name || !form.phone || !form.address) {
-        throw new Error("Name, phone and address are required.");
+      if (!form.full_name || !form.phone || !form.email || !form.address) {
+        throw new Error("Name, phone, email and address are required.");
+      }
+      if (!EMAIL_RE.test(form.email.trim())) {
+        throw new Error("Please enter a valid email address.");
       }
       const res = await fetch("/api/orders", {
         method: "POST",
@@ -111,6 +117,7 @@ export default function OrderFlow({ whish, bankIban, bankName, accountHolder }: 
         body: JSON.stringify({
           full_name: form.full_name,
           phone: form.phone,
+          email: form.email.trim(),
           address: form.address,
           notes: form.notes,
           product_brand: productDraft.brand,
@@ -156,8 +163,12 @@ export default function OrderFlow({ whish, bankIban, bankName, accountHolder }: 
             product={productDraft}
             onBack={() => setStep(1)}
             onNext={() => {
-              if (!form.full_name || !form.phone || !form.address) {
-                setError("Name, phone and address are required.");
+              if (!form.full_name || !form.phone || !form.email || !form.address) {
+                setError("Name, phone, email and address are required.");
+                return;
+              }
+              if (!EMAIL_RE.test(form.email.trim())) {
+                setError("Please enter a valid email address.");
                 return;
               }
               setError(null);
@@ -188,7 +199,7 @@ export default function OrderFlow({ whish, bankIban, bankName, accountHolder }: 
         ) : null}
 
         {error ? (
-          <p className="mt-6 rounded border border-red-300 bg-red-50 p-4 text-sm text-red-700">{error}</p>
+          <p className="mt-6 rounded border border-accent/40 bg-accent/5 p-4 text-sm text-accent-700">{error}</p>
         ) : null}
       </div>
     </div>
@@ -301,7 +312,7 @@ function Step2Details({
     <section>
       <h1 className="font-serif text-3xl text-ink">Your delivery details</h1>
       <p className="mt-2 text-sm text-ink/70">
-        We deliver door to door in 10–14 working days across Lebanon.
+        We deliver door to door in 10–14 working days.
       </p>
 
       <ProductSummary product={product} />
@@ -312,12 +323,23 @@ function Step2Details({
           <input className="input" value={form.full_name} onChange={(e) => update("full_name", e.target.value)} />
         </div>
         <div>
-          <label className="label">Lebanese phone number</label>
+          <label className="label">Phone number</label>
           <input
             className="input"
             placeholder="03 000 000"
             value={form.phone}
             onChange={(e) => update("phone", e.target.value)}
+          />
+        </div>
+        <div>
+          <label className="label">Email address</label>
+          <input
+            type="email"
+            autoComplete="email"
+            className="input"
+            placeholder="you@example.com"
+            value={form.email}
+            onChange={(e) => update("email", e.target.value)}
           />
         </div>
         <div>
@@ -392,7 +414,7 @@ function Step3Payment({
           onClick={() => setPaymentMethod("whish")}
           className={
             "border p-5 text-left transition-colors " +
-            (paymentMethod === "whish" ? "border-gold bg-gold/5" : "border-ink/15 hover:border-ink")
+            (paymentMethod === "whish" ? "border-accent bg-accent/5" : "border-ink/15 hover:border-ink")
           }
         >
           <p className="text-[10px] uppercase tracking-[0.2em] text-ink/60">Option 1</p>
@@ -405,7 +427,7 @@ function Step3Payment({
           onClick={() => setPaymentMethod("bank")}
           className={
             "border p-5 text-left transition-colors " +
-            (paymentMethod === "bank" ? "border-gold bg-gold/5" : "border-ink/15 hover:border-ink")
+            (paymentMethod === "bank" ? "border-accent bg-accent/5" : "border-ink/15 hover:border-ink")
           }
         >
           <p className="text-[10px] uppercase tracking-[0.2em] text-ink/60">Option 2</p>
@@ -416,7 +438,7 @@ function Step3Payment({
         </button>
       </div>
 
-      <div className="mt-8 border border-ink/15 p-5">
+      <div className="mt-8 border border-ink/15 bg-cream p-5">
         <p className="text-[10px] uppercase tracking-[0.2em] text-ink/60">Upload payment screenshot</p>
         <p className="mt-2 text-sm text-ink/70">
           After paying, attach a screenshot of the confirmation. Max 4MB.
@@ -424,7 +446,7 @@ function Step3Payment({
         <input
           type="file"
           accept="image/*"
-          className="mt-4 block w-full text-sm text-ink file:mr-4 file:border-0 file:bg-ink file:px-4 file:py-2 file:text-xs file:uppercase file:tracking-[0.18em] file:text-white hover:file:bg-gold"
+          className="mt-4 block w-full text-sm text-ink file:mr-4 file:border-0 file:bg-accent file:px-4 file:py-2 file:text-xs file:uppercase file:tracking-[0.18em] file:text-white hover:file:bg-accent-600"
           onChange={(e) => onScreenshotChange(e.target.files?.[0] ?? null)}
         />
         {screenshot ? (
@@ -459,24 +481,27 @@ function Step4Confirmation({
   order: CreatedOrder;
   product: ProductDraft;
 }) {
-  const message = `Hi Lara, my order number is ${order.order_number} for ${product.name}. I have sent payment.`;
+  const message = `Hi Seasons by B, my order number is ${order.order_number} for ${product.name}. I have sent payment.`;
   const wa = `https://wa.me/96103055491?text=${encodeURIComponent(message)}`;
 
   return (
     <section className="text-center">
-      <p className="text-[11px] uppercase tracking-[0.32em] text-gold">Order received</p>
+      <p className="text-[11px] uppercase tracking-[0.32em] text-accent">Order received</p>
       <h1 className="mt-4 font-serif text-4xl text-ink">Thank you</h1>
       <p className="mt-3 text-sm text-ink/70">
         Your order number is{" "}
         <span className="font-mono text-ink">{order.order_number}</span>. Estimated delivery: 10–14 working days.
       </p>
+      <p className="mt-2 text-sm text-ink/70">
+        A confirmation email has been sent. Seasons by B will be in touch shortly.
+      </p>
 
-      <div className="mx-auto mt-8 max-w-md border border-ink/15 p-6 text-left">
+      <div className="mx-auto mt-8 max-w-md border border-ink/15 bg-cream p-6 text-left">
         <p className="text-[10px] uppercase tracking-[0.2em] text-ink/60">What happens next</p>
         <ol className="mt-3 space-y-2 text-sm text-ink/80">
           <li>1. Send your payment screenshot via WhatsApp so we can confirm.</li>
           <li>2. We&apos;ll process your order as soon as payment is verified.</li>
-          <li>3. We&apos;ll keep you updated on shipping and delivery.</li>
+          <li>3. We&apos;ll keep you updated by email and WhatsApp on shipping and delivery.</li>
         </ol>
       </div>
 
