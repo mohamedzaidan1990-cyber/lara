@@ -19,7 +19,9 @@
       "Bash(grep -oE '.{0,20}products' home.html)",
       "Bash(grep -oE '\\\\[[0-9]+,[^]]*products|[0-9]+,\\\\\\\\\" \\\\\\\\\",\\\\\\\\\"products|[0-9]+ products')",
       "Bash(grep -oE 'children\\\\\\\\\":\\\\[60|children\\\\\\\\\":\\\\[50|children\\\\\\\\\":\\\\[40' home.html)",
-      "Bash(python3 -)"
+      "Bash(python3 -)",
+      "Bash(npx tsc *)",
+      "Bash(echo \"EXIT CODE: $?\")"
     ]
   }
 }

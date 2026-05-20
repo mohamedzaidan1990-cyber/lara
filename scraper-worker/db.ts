@@ -1,51 +1,21 @@
-import { neon, neonConfig } from "@neondatabase/serverless";
-import ws from "ws";
+import { Pool } from "pg";
 
-// Required for the neon serverless driver in long-running Node processes.
-neonConfig.webSocketConstructor = ws as unknown as typeof WebSocket;
+let pool: Pool | null = null;
 
-let cached: ReturnType<typeof neon> | null = null;
-
-export function getSql(): ReturnType<typeof neon> {
-  if (!cached) {
-    const url = process.env.DATABASE_URL;
-    if (!url) {
+export function getPool(): Pool {
+  if (!pool) {
+    const connectionString = process.env.DATABASE_URL;
+    if (!connectionString) {
       throw new Error("DATABASE_URL is not set");
     }
-    cached = neon(url);
+    pool = new Pool({
+      connectionString,
+      // Neon requires TLS; the managed cert isn't in the default CA bundle
+      // inside the Railway container, so don't reject unauthorized.
+      ssl: { rejectUnauthorized: false }
+    });
   }
-  return cached;
-}
-
-export const SCHEMA_STATEMENTS = [
-  `create extension if not exists "pgcrypto"`,
-  `create table if not exists products (
-    id uuid default gen_random_uuid() primary key,
-    brand text not null,
-    name text not null,
-    category text not null,
-    price_gbp numeric not null,
-    price_usd numeric not null,
-    deliverable_lebanon boolean default true,
-    product_url text unique,
-    image_url text,
-    scraped_at timestamp default now()
-  )`,
-  `create unique index if not exists products_product_url_idx on products (product_url)`,
-  `create table if not exists scrape_logs (
-    id uuid default gen_random_uuid() primary key,
-    query text,
-    status text,
-    results_count int,
-    created_at timestamp default now()
-  )`
-];
-
-export async function ensureSchema(): Promise<void> {
-  const sql = getSql();
-  for (const stmt of SCHEMA_STATEMENTS) {
-    await sql(stmt);
-  }
+  return pool;
 }
 
 export interface ScrapedProductRow {
@@ -59,26 +29,67 @@ export interface ScrapedProductRow {
   image_url: string;
 }
 
+export async function ensureSchema(): Promise<void> {
+  const client = getPool();
+  await client.query(`
+    CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+    CREATE TABLE IF NOT EXISTS products (
+      id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+      brand text NOT NULL,
+      name text NOT NULL,
+      category text NOT NULL,
+      price_gbp numeric NOT NULL,
+      price_usd numeric NOT NULL,
+      deliverable_lebanon boolean DEFAULT true,
+      product_url text,
+      image_url text,
+      scraped_at timestamp DEFAULT now()
+    );
+
+    CREATE UNIQUE INDEX IF NOT EXISTS products_product_url_idx ON products (product_url);
+
+    CREATE TABLE IF NOT EXISTS scrape_logs (
+      id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+      query text,
+      status text,
+      results_count int,
+      created_at timestamp DEFAULT now()
+    );
+  `);
+}
+
 export async function upsertProducts(products: ScrapedProductRow[]): Promise<number> {
   if (products.length === 0) return 0;
-  const sql = getSql();
+  const client = getPool();
   let n = 0;
   for (const p of products) {
     if (!p.product_url) continue;
     try {
-      await sql`
-        insert into products (brand, name, category, price_gbp, price_usd, deliverable_lebanon, product_url, image_url)
-        values (${p.brand}, ${p.name}, ${p.category}, ${p.price_gbp}, ${p.price_usd}, ${p.deliverable_lebanon}, ${p.product_url}, ${p.image_url})
-        on conflict (product_url) do update set
-          brand = excluded.brand,
-          name = excluded.name,
-          category = excluded.category,
-          price_gbp = excluded.price_gbp,
-          price_usd = excluded.price_usd,
-          deliverable_lebanon = excluded.deliverable_lebanon,
-          image_url = excluded.image_url,
-          scraped_at = now()
-      `;
+      await client.query(
+        `INSERT INTO products
+           (brand, name, category, price_gbp, price_usd, deliverable_lebanon, product_url, image_url)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         ON CONFLICT (product_url) DO UPDATE SET
+           brand = excluded.brand,
+           name = excluded.name,
+           category = excluded.category,
+           price_gbp = excluded.price_gbp,
+           price_usd = excluded.price_usd,
+           deliverable_lebanon = excluded.deliverable_lebanon,
+           image_url = excluded.image_url,
+           scraped_at = now()`,
+        [
+          p.brand,
+          p.name,
+          p.category,
+          p.price_gbp,
+          p.price_usd,
+          p.deliverable_lebanon,
+          p.product_url,
+          p.image_url
+        ]
+      );
       n += 1;
     } catch (err) {
       console.error("[db] upsert failed", p.product_url, err);
@@ -89,11 +100,11 @@ export async function upsertProducts(products: ScrapedProductRow[]): Promise<num
 
 export async function logScrape(query: string, status: string, count: number): Promise<void> {
   try {
-    const sql = getSql();
-    await sql`
-      insert into scrape_logs (query, status, results_count)
-      values (${query}, ${status}, ${count})
-    `;
+    const client = getPool();
+    await client.query(
+      `INSERT INTO scrape_logs (query, status, results_count) VALUES ($1, $2, $3)`,
+      [query, status, count]
+    );
   } catch (err) {
     console.error("[db] logScrape failed", err);
   }
