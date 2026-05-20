@@ -8,7 +8,18 @@
       "Bash(vercel *)",
       "Bash(curl *)",
       "Bash(npx ts-node *)",
-      "Bash(powershell *)"
+      "Bash(powershell *)",
+      "Bash(grep -oE 'Shop the edit|Breadcrumb|Sort|Newest first|Price: low to high|Price: high to low|Order now|Page \\\\\\\\\",1,\\\\\\\\\" of \\\\\\\\\",3' cat_bags.html)",
+      "Bash(grep -oE '\\\\$[0-9],?[0-9]{0,3}' cat_bags.html)",
+      "Bash(grep -oE '\\\\$[0-9],?[0-9]{0,3}')",
+      "Bash(grep -oE '\\(Makeup|Skincare|Bags|Haircare|Accessories|Beauty tools\\)\\\\\\\\\",\\\\\\\\\" \\\\\\\\\",[0-9]+,\\\\\\\\\" \\\\\\\\\",\\\\\\\\\"products' home.html)",
+      "Bash(grep -oE 'chip-active|class=\\\\\\\\\"chip' home.html)",
+      "Bash(grep -oE '\\\\[[0-9]+,\\\\\\\\\" \\\\\\\\\",\\\\\\\\\"products\\\\\\\\\"\\\\]' home.html)",
+      "Bash(grep -oE '\\(60|50|40\\),\\\\\\\\\" \\\\\\\\\",\\\\\\\\\"products' home.html)",
+      "Bash(grep -oE '.{0,20}products' home.html)",
+      "Bash(grep -oE '\\\\[[0-9]+,[^]]*products|[0-9]+,\\\\\\\\\" \\\\\\\\\",\\\\\\\\\"products|[0-9]+ products')",
+      "Bash(grep -oE 'children\\\\\\\\\":\\\\[60|children\\\\\\\\\":\\\\[50|children\\\\\\\\\":\\\\[40' home.html)",
+      "Bash(python3 -)"
     ]
   }
 }
