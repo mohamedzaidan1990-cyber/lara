@@ -4,11 +4,13 @@ A standalone, long-running scraper worker that populates the shared Neon `produc
 
 ## What it does
 
-- Runs on a cron schedule (default: **every 6 hours**, `0 */6 * * *`).
-- Iterates a fixed list of search terms covering Seasons by B's catalogue (Charlotte Tilbury, La Mer, Dior makeup, Sisley, NARS, YSL, Gucci, Valentino, Loewe, Bottega Veneta, Mulberry, Jo Malone, Elemis, Clinique).
-- For each term: scrapes the Selfridges search results, visits each product page, checks Lebanon deliverability, calculates `price_usd = price_gbp * 1.10 * live_rate` (live rate via Frankfurter, cached 6h, fallback 1.33), and upserts into `products` (on conflict by `product_url`).
+- Runs on a cron schedule (default: **every 6 hours**, `0 */6 * * *`), plus one immediate run on startup.
+- Iterates the six store categories (Makeup, Skincare, Bags, Haircare, Accessories, Beauty tools) and scrapes the matching **Selfridges category pages** (pages 1–5, 60 products per page) — category listing pages are less aggressively bot-protected than search results.
+- Calculates `price_usd = price_gbp * 1.10 * live_rate` (live rate via Frankfurter, cached 6h, fallback 1.33) and upserts into `products` (on conflict by `product_url`). `deliverable_lebanon` is true for everything except fragrances.
 - Logs every run to the `scrape_logs` table, plus a `__summary__` entry per cycle.
-- Anti-detection: random user-agent rotation, randomised 2000–4000 ms delays, realistic viewport and headers.
+- **Stealth / anti-detection**: `playwright-extra` + `puppeteer-extra-plugin-stealth`, randomised viewport (1280–1920 × 800–1080), rotating realistic user agents, `en-GB` locale + `Europe/London` timezone, full browser-like request headers, human-style mouse movement and scrolling, network-idle waits, and 2000–5000 ms delays between requests.
+- **Fallback retailers**: if Selfridges returns zero for a category, it falls back to Space NK + Cult Beauty (beauty categories) or Browns (bags/accessories), which have weaker bot protection.
+- **Optional proxy**: set `PROXY_URL` to route the browser through a residential proxy.
 
 ## Folder layout
 
@@ -29,9 +31,9 @@ scraper-worker/
 
 | Variable | Purpose |
 | --- | --- |
-| `DATABASE_URL` | Neon Postgres connection string. **Must be the same one used by the main app.** |
+| `DATABASE_URL` | Neon Postgres connection string. **Must be the same one used by the main app, and must NOT include `channel_binding=require`** (the pg driver doesn't support it). |
 | `CRON_SCHEDULE` | Cron expression. Defaults to `0 */6 * * *` (every 6 hours). |
-| `RUN_ON_BOOT` | Set to `0` to skip the immediate run on container start. Defaults to `1`. |
+| `PROXY_URL` | Optional. Residential proxy server, e.g. `http://user:pass@host:port`. When set, the browser routes all traffic through it. |
 | `RUN_ONCE` | Set to `1` (or pass `--once`) for a single run, then exit. Useful for ad-hoc backfills. |
 
 Copy `.env.example` → `.env` for local dev.

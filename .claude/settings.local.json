@@ -22,7 +22,8 @@
       "Bash(python3 -)",
       "Bash(npx tsc *)",
       "Bash(echo \"EXIT CODE: $?\")",
-      "Bash(railway --version)"
+      "Bash(railway --version)",
+      "Bash(node -e \"console.log\\(require\\('playwright-core/package.json'\\).version\\)\")"
     ]
   }
 }

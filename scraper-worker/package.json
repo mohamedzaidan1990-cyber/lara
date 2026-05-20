@@ -13,7 +13,10 @@
   "dependencies": {
     "@playwright/test": "latest",
     "node-cron": "latest",
-    "pg": "^8.13.1"
+    "pg": "^8.13.1",
+    "playwright-extra": "latest",
+    "puppeteer-extra": "latest",
+    "puppeteer-extra-plugin-stealth": "latest"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
