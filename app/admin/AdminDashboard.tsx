@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AdminOrderRow from "@/components/AdminOrderRow";
 import type { OrderWithCustomer } from "@/lib/db";
@@ -33,15 +34,32 @@ export default function AdminDashboard({ initialOrders }: Props) {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-      <header className="flex items-end justify-between">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-[10px] uppercase tracking-[0.32em] text-accent">Seasons by B — Admin</p>
           <h1 className="mt-1 font-serif text-3xl text-ink">Orders</h1>
         </div>
-        <button type="button" onClick={logout} className="text-xs uppercase tracking-[0.18em] text-ink/60 hover:text-accent">
-          Sign out
-        </button>
+        <nav className="flex items-center gap-5 text-xs uppercase tracking-[0.18em] text-ink/70">
+          <Link href="/admin" className="text-ink hover:text-accent">
+            Dashboard
+          </Link>
+          <Link href="/admin/import" className="hover:text-accent">
+            Import Products
+          </Link>
+          <button type="button" onClick={logout} className="text-ink/60 hover:text-accent">
+            Sign out
+          </button>
+        </nav>
       </header>
+
+      <div className="mt-8">
+        <Link
+          href="/admin/import"
+          className="btn-primary inline-flex items-center gap-2"
+        >
+          + Import Products from Selfridges
+        </Link>
+      </div>
 
       <section className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-5">
         <Stat label="Total" value={stats.total} />
