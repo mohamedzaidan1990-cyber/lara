@@ -21,7 +21,8 @@
       "Bash(grep -oE 'children\\\\\\\\\":\\\\[60|children\\\\\\\\\":\\\\[50|children\\\\\\\\\":\\\\[40' home.html)",
       "Bash(python3 -)",
       "Bash(npx tsc *)",
-      "Bash(echo \"EXIT CODE: $?\")"
+      "Bash(echo \"EXIT CODE: $?\")",
+      "Bash(railway --version)"
     ]
   }
 }

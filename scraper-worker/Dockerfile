@@ -3,10 +3,15 @@ FROM mcr.microsoft.com/playwright:v1.40.0-jammy
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm install
+RUN npm ci
 
-COPY . .
+COPY tsconfig.json ./
+COPY *.ts ./
 
-RUN npm run build
+RUN npx tsc
+
+RUN npx playwright install chromium --with-deps
+
+ENV NODE_ENV=production
 
 CMD ["node", "dist/index.js"]

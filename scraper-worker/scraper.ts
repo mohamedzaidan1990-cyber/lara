@@ -207,8 +207,14 @@ async function scrapeOneSearch(browser: Browser, term: string): Promise<ScrapedP
           img: img?.src ?? ""
         });
       });
-      return out.slice(0, 10);
+      // Limit to 50 products per search term to avoid timeouts.
+      return out.slice(0, 50);
     });
+
+    if (cards.length === 0) {
+      console.log(`[scraper] "${term}" returned 0 results — continuing`);
+      return [];
+    }
 
     const products: ScrapedProductRow[] = [];
 
@@ -218,7 +224,8 @@ async function scrapeOneSearch(browser: Browser, term: string): Promise<ScrapedP
       const priceGbp = Number(priceMatch[1].replace(/,/g, ""));
       if (!Number.isFinite(priceGbp) || priceGbp <= 0) continue;
 
-      await randomDelay();
+      // Random 2000–5000ms pause between product page visits (anti bot-detection).
+      await randomDelay(2000, 5000);
       const deliverable = await checkLebanonDeliverability(page, card.href);
       const category = inferCategory(`${card.brand} ${card.name} ${term}`, "");
 
@@ -245,7 +252,12 @@ export async function scrapeSelfridges(term: string): Promise<ScrapedProductRow[
   try {
     browser = await chromium.launch({
       headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-blink-features=AutomationControlled"
+      ]
     });
     const result = await scrapeOneSearch(browser, term);
     return result;
