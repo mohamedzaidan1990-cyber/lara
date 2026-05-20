@@ -1,34 +1,27 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useEffect, useState } from "react";
 import ProductCard, { type ProductCardData } from "@/components/ProductCard";
-import { CATEGORIES, type Category, type FeaturedProduct } from "@/lib/featured";
+import type { CategoryStat } from "@/lib/categories";
 
 interface SearchProduct extends ProductCardData {
   category?: string;
 }
 
 interface Props {
-  initialFeatured: FeaturedProduct[];
+  categories: CategoryStat[];
 }
 
-export default function HomeClient({ initialFeatured }: Props) {
+export default function HomeClient({ categories }: Props) {
   const [query, setQuery] = useState("");
-  const [category, setCategory] = useState<Category>("All");
   const [results, setResults] = useState<SearchProduct[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setError(null);
-  }, [query, category]);
-
-  const featured = useMemo<SearchProduct[]>(() => {
-    if (category === "All") return initialFeatured;
-    return initialFeatured.filter((p) => p.category === category);
-  }, [category, initialFeatured]);
-
-  const display = results ?? featured;
+  }, [query]);
 
   async function runSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -42,7 +35,7 @@ export default function HomeClient({ initialFeatured }: Props) {
       const res = await fetch("/api/search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query, category })
+        body: JSON.stringify({ query, category: "All" })
       });
       if (!res.ok) throw new Error("Search failed");
       const data = (await res.json()) as { products: SearchProduct[] };
@@ -57,14 +50,14 @@ export default function HomeClient({ initialFeatured }: Props) {
 
   return (
     <div>
-      <Hero query={query} setQuery={setQuery} category={category} setCategory={setCategory} onSubmit={runSearch} />
+      <Hero query={query} setQuery={setQuery} onSubmit={runSearch} />
 
-      <section className="mx-auto max-w-7xl px-4 pb-16 sm:px-6 lg:px-8">
-        <div className="mb-6 flex items-end justify-between">
-          <h2 className="font-serif text-2xl text-ink">
-            {results === null ? "Featured this season" : `Results for "${query}"`}
-          </h2>
-          {results !== null ? (
+      {results !== null ? (
+        <section className="mx-auto max-w-7xl px-4 pb-16 sm:px-6 lg:px-8">
+          <div className="mb-6 flex items-end justify-between">
+            <h2 className="font-serif text-2xl text-ink">
+              {loading ? "Searching…" : `Results for "${query}"`}
+            </h2>
             <button
               type="button"
               className="text-xs uppercase tracking-[0.2em] text-ink/60 hover:text-accent"
@@ -75,28 +68,30 @@ export default function HomeClient({ initialFeatured }: Props) {
             >
               Clear
             </button>
-          ) : null}
-        </div>
-
-        {loading ? <LoadingGrid /> : null}
-        {error ? (
-          <p className="rounded border border-accent/40 bg-accent/5 p-4 text-sm text-accent-700">{error}</p>
-        ) : null}
-
-        {!loading && display.length === 0 ? (
-          <p className="rounded border border-ink/10 bg-ink/[0.02] p-8 text-center text-sm text-ink/60">
-            No products to show. Try a different search or message us on WhatsApp for a custom request.
-          </p>
-        ) : null}
-
-        {!loading && display.length > 0 ? (
-          <div className="grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
-            {display.map((p, i) => (
-              <ProductCard key={(p.product_url || p.name) + i} product={p} />
-            ))}
           </div>
-        ) : null}
-      </section>
+
+          {loading ? <LoadingGrid /> : null}
+          {error ? (
+            <p className="rounded border border-accent/40 bg-accent/5 p-4 text-sm text-accent-700">
+              {error}
+            </p>
+          ) : null}
+          {!loading && results.length === 0 ? (
+            <p className="rounded border border-ink/10 bg-ink/[0.02] p-8 text-center text-sm text-ink/60">
+              No products matched. Try a different search or message us on WhatsApp.
+            </p>
+          ) : null}
+          {!loading && results.length > 0 ? (
+            <div className="grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
+              {results.map((p, i) => (
+                <ProductCard key={(p.product_url || p.name) + i} product={p} />
+              ))}
+            </div>
+          ) : null}
+        </section>
+      ) : (
+        <CategoryCards categories={categories} />
+      )}
 
       <WhySeasons />
     </div>
@@ -106,12 +101,10 @@ export default function HomeClient({ initialFeatured }: Props) {
 interface HeroProps {
   query: string;
   setQuery: (v: string) => void;
-  category: Category;
-  setCategory: (v: Category) => void;
   onSubmit: (e: React.FormEvent) => void;
 }
 
-function Hero({ query, setQuery, category, setCategory, onSubmit }: HeroProps) {
+function Hero({ query, setQuery, onSubmit }: HeroProps) {
   return (
     <section className="border-b border-ink/10 bg-gradient-to-b from-gold/20 to-cream">
       <div className="mx-auto max-w-7xl px-4 py-16 text-center sm:px-6 sm:py-20 lg:px-8">
@@ -121,34 +114,66 @@ function Hero({ query, setQuery, category, setCategory, onSubmit }: HeroProps) {
           <br /> delivered to your door.
         </h1>
         <p className="mx-auto mt-5 max-w-xl text-sm text-ink/70 sm:text-base">
-          Tell us what you want. We&apos;ll source it from London&apos;s finest retailers, check it can ship, and
-          deliver in 10–14 working days.
+          Tell us what you want. We&apos;ll source it from London&apos;s finest retailers, check it can ship,
+          and deliver in 10–14 working days.
         </p>
 
         <form onSubmit={onSubmit} className="mx-auto mt-10 flex max-w-2xl items-stretch gap-0 shadow-soft">
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search a brand or item — e.g. Charlotte Tilbury"
+            placeholder="Search across every category — e.g. Charlotte Tilbury"
             className="flex-1 border border-ink/15 bg-white px-5 py-4 text-base text-ink placeholder:text-ink/40 focus:border-accent focus:outline-none"
           />
           <button type="submit" className="btn-primary px-8">
             Search
           </button>
         </form>
+      </div>
+    </section>
+  );
+}
 
-        <div className="mx-auto mt-6 flex max-w-2xl flex-wrap justify-center gap-2">
-          {CATEGORIES.map((c) => (
-            <button
-              key={c}
-              type="button"
-              onClick={() => setCategory(c)}
-              className={"chip " + (category === c ? "chip-active" : "")}
-            >
-              {c}
-            </button>
-          ))}
+function CategoryCards({ categories }: { categories: CategoryStat[] }) {
+  return (
+    <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+      <div className="mb-8 flex items-end justify-between">
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.32em] text-accent">Shop the edit</p>
+          <h2 className="mt-2 font-serif text-3xl text-ink">By category</h2>
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {categories.map((cat) => (
+          <Link
+            key={cat.slug}
+            href={`/category/${cat.slug}`}
+            className="group relative block overflow-hidden border border-ink/10 bg-cream transition-transform duration-300 hover:-translate-y-1 hover:border-ink/30 hover:shadow-soft"
+          >
+            <div className="relative aspect-[4/3] w-full overflow-hidden bg-ink/[0.04]">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={cat.defaultImage}
+                alt={cat.label}
+                className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.04]"
+                loading="lazy"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-ink/60 via-ink/10 to-transparent" />
+              <span className="absolute right-3 top-3 inline-flex items-center rounded-full bg-cream/95 px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-ink">
+                {cat.count} {cat.count === 1 ? "product" : "products"}
+              </span>
+            </div>
+            <div className="p-5">
+              <p className="text-[11px] uppercase tracking-[0.32em] text-accent">Category</p>
+              <h3 className="mt-1 font-serif text-2xl text-ink group-hover:text-accent">{cat.label}</h3>
+              <p className="mt-2 text-sm text-ink/70">{cat.blurb}</p>
+              <p className="mt-4 inline-flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-ink/80 group-hover:text-accent">
+                Shop {cat.label} →
+              </p>
+            </div>
+          </Link>
+        ))}
       </div>
     </section>
   );

@@ -9,12 +9,12 @@ const USER_AGENTS = [
 ];
 
 const ALLOWED_CATEGORIES = new Set([
-  "Beauty",
-  "Skincare",
   "Makeup",
-  "Haircare",
+  "Skincare",
   "Bags",
-  "Accessories"
+  "Haircare",
+  "Accessories",
+  "Beauty tools"
 ]);
 
 function randomUA(): string {
@@ -28,6 +28,27 @@ function randomDelay(min = 2000, max = 4000): Promise<void> {
 
 function inferCategory(text: string, fallback: string): string {
   const lower = text.toLowerCase();
+  if (
+    lower.includes("hair dryer") ||
+    lower.includes("hairdryer") ||
+    lower.includes("straightener") ||
+    lower.includes("airwrap") ||
+    lower.includes("airstrait") ||
+    lower.includes("curling iron") ||
+    lower.includes("curl tong") ||
+    lower.includes("curling tong") ||
+    lower.includes("hair brush") ||
+    lower.includes("hairbrush") ||
+    lower.includes("makeup brush") ||
+    lower.includes("brush set") ||
+    lower.includes("massage gun") ||
+    lower.includes("tweezer") ||
+    lower.includes("microcurrent") ||
+    lower.includes("facial toning device") ||
+    lower.includes("cleansing device")
+  ) {
+    return "Beauty tools";
+  }
   if (
     lower.includes("bag") ||
     lower.includes("tote") ||
@@ -43,11 +64,16 @@ function inferCategory(text: string, fallback: string): string {
     lower.includes("foundation") ||
     lower.includes("concealer") ||
     lower.includes("lipstick") ||
+    lower.includes("lip gloss") ||
+    lower.includes("lip oil") ||
+    lower.includes("lip liner") ||
     lower.includes("mascara") ||
     lower.includes("eyeliner") ||
     lower.includes("blush") ||
     lower.includes("eyeshadow") ||
     lower.includes("bronzer") ||
+    lower.includes("highlighter") ||
+    lower.includes("setting spray") ||
     lower.includes("makeup")
   ) {
     return "Makeup";
@@ -55,8 +81,11 @@ function inferCategory(text: string, fallback: string): string {
   if (
     lower.includes("shampoo") ||
     lower.includes("conditioner") ||
-    lower.includes("hairspray") ||
     lower.includes("hair oil") ||
+    lower.includes("hair mask") ||
+    lower.includes("hair perfector") ||
+    lower.includes("hair spray") ||
+    lower.includes("hairspray") ||
     lower.includes("haircare") ||
     lower.includes("hair care")
   ) {
@@ -82,25 +111,19 @@ function inferCategory(text: string, fallback: string): string {
     lower.includes("wallet") ||
     lower.includes("belt") ||
     lower.includes("sunglass") ||
+    lower.includes("card holder") ||
+    lower.includes("cardholder") ||
     lower.includes("jewel") ||
     lower.includes("necklace") ||
     lower.includes("bracelet") ||
     lower.includes("earring") ||
+    lower.includes("hair clip") ||
     lower.includes("accessor")
   ) {
     return "Accessories";
   }
-  if (
-    lower.includes("fragrance") ||
-    lower.includes("perfume") ||
-    lower.includes("parfum") ||
-    lower.includes("eau de") ||
-    lower.includes("cologne")
-  ) {
-    return "Beauty";
-  }
   if (ALLOWED_CATEGORIES.has(fallback)) return fallback;
-  return "Beauty";
+  return "Accessories";
 }
 
 async function checkLebanonDeliverability(page: Page, productUrl: string): Promise<boolean> {

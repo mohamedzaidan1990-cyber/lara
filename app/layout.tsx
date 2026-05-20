@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { DM_Sans, Playfair_Display } from "next/font/google";
 import Link from "next/link";
+import SiteHeader from "@/components/SiteHeader";
 import "./globals.css";
 
 const playfair = Playfair_Display({
@@ -30,37 +31,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <SiteFooter />
       </body>
     </html>
-  );
-}
-
-function SiteHeader() {
-  return (
-    <header className="sticky top-0 z-30 border-b border-ink/10 bg-cream/95 backdrop-blur">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-        <Link href="/" className="flex flex-col leading-none">
-          <span className="font-serif text-3xl text-ink">Seasons by B</span>
-          <span className="mt-1 hidden text-[10px] uppercase tracking-[0.32em] text-ink/60 sm:block">
-            London&apos;s finest, delivered to your door
-          </span>
-        </Link>
-        <nav className="flex items-center gap-6 text-xs uppercase tracking-[0.18em] text-ink/70">
-          <Link href="/" className="hover:text-accent">
-            Shop
-          </Link>
-          <Link href="/info" className="hover:text-accent">
-            How it works
-          </Link>
-          <a
-            href="https://wa.me/96103055491"
-            target="_blank"
-            rel="noreferrer"
-            className="hidden text-accent hover:opacity-80 sm:inline"
-          >
-            WhatsApp
-          </a>
-        </nav>
-      </div>
-    </header>
   );
 }
 

@@ -1,9 +1,9 @@
 import HomeClient from "./HomeClient";
-import { getFeaturedProducts } from "@/lib/featured";
+import { getCategoryStats } from "@/lib/categories";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const featured = await getFeaturedProducts();
-  return <HomeClient initialFeatured={featured} />;
+  const categoryStats = await getCategoryStats();
+  return <HomeClient categories={categoryStats} />;
 }

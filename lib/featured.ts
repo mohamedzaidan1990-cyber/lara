@@ -1,11 +1,20 @@
 import { convertGbpToUsd } from "./currency";
 
-export type Category = "All" | "Beauty" | "Skincare" | "Makeup" | "Haircare" | "Bags" | "Accessories";
+export type Category =
+  | "All"
+  | "Makeup"
+  | "Skincare"
+  | "Bags"
+  | "Haircare"
+  | "Accessories"
+  | "Beauty tools";
+
+export type ProductCategory = Exclude<Category, "All">;
 
 export interface FeaturedProductData {
   brand: string;
   name: string;
-  category: Exclude<Category, "All">;
+  category: ProductCategory;
   price_gbp: number;
   deliverable_lebanon: boolean;
   product_url: string;
@@ -16,69 +25,27 @@ export interface FeaturedProduct extends FeaturedProductData {
   price_usd: number;
 }
 
-export const FEATURED_PRODUCT_DATA: FeaturedProductData[] = [
+// Compact fallback used when the in-app scraper returns nothing AND the
+// `products` table has nothing matching the user's search. With the Railway
+// scraper worker + seed script populating 300 rows, this should rarely run.
+const FALLBACK_DATA: FeaturedProductData[] = [
   {
     brand: "Charlotte Tilbury",
-    name: "Pillow Talk Lip & Cheek Glow Kit",
-    category: "Beauty",
-    price_gbp: 65,
+    name: "Pillow Talk Lipstick",
+    category: "Makeup",
+    price_gbp: 30,
     deliverable_lebanon: true,
-    product_url: "https://www.selfridges.com/GB/en/cat/charlotte-tilbury/",
-    image_url: "https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=800&q=80"
+    product_url: "https://www.selfridges.com/GB/en/cat/charlotte-tilbury/#fallback-pillow-talk-lipstick",
+    image_url: "https://images.unsplash.com/photo-1586495777744-4413f21062fa?w=800&q=80"
   },
   {
     brand: "La Mer",
     name: "Crème de la Mer Moisturising Cream 60ml",
     category: "Skincare",
-    price_gbp: 195,
+    price_gbp: 325,
     deliverable_lebanon: true,
-    product_url: "https://www.selfridges.com/GB/en/cat/la-mer/",
+    product_url: "https://www.selfridges.com/GB/en/cat/la-mer/#fallback-creme-de-la-mer-60ml",
     image_url: "https://images.unsplash.com/photo-1631730486572-226d1f595b68?w=800&q=80"
-  },
-  {
-    brand: "NARS",
-    name: "Soft Matte Complete Concealer",
-    category: "Makeup",
-    price_gbp: 28,
-    deliverable_lebanon: true,
-    product_url: "https://www.selfridges.com/GB/en/cat/nars/",
-    image_url: "https://images.unsplash.com/photo-1599733589046-8e1f10f57cca?w=800&q=80"
-  },
-  {
-    brand: "Dior",
-    name: "Backstage Face & Body Foundation",
-    category: "Makeup",
-    price_gbp: 42,
-    deliverable_lebanon: true,
-    product_url: "https://www.selfridges.com/GB/en/cat/dior/",
-    image_url: "https://images.unsplash.com/photo-1631214524020-3c8b9a541b06?w=800&q=80"
-  },
-  {
-    brand: "Sisley",
-    name: "Black Rose Skin Infusion Cream",
-    category: "Skincare",
-    price_gbp: 185,
-    deliverable_lebanon: true,
-    product_url: "https://www.selfridges.com/GB/en/cat/sisley/",
-    image_url: "https://images.unsplash.com/photo-1570194065650-d99fb4bedf0a?w=800&q=80"
-  },
-  {
-    brand: "Charlotte Tilbury",
-    name: "Magic Cream Moisturiser 50ml",
-    category: "Skincare",
-    price_gbp: 95,
-    deliverable_lebanon: true,
-    product_url: "https://www.selfridges.com/GB/en/cat/charlotte-tilbury/",
-    image_url: "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=800&q=80"
-  },
-  {
-    brand: "YSL",
-    name: "Touche Éclat Illuminating Pen",
-    category: "Makeup",
-    price_gbp: 34,
-    deliverable_lebanon: true,
-    product_url: "https://www.selfridges.com/GB/en/cat/ysl/",
-    image_url: "https://images.unsplash.com/photo-1522335789203-aaa2eb0aaccc?w=800&q=80"
   },
   {
     brand: "Gucci",
@@ -86,17 +53,44 @@ export const FEATURED_PRODUCT_DATA: FeaturedProductData[] = [
     category: "Bags",
     price_gbp: 1180,
     deliverable_lebanon: true,
-    product_url: "https://www.selfridges.com/GB/en/cat/gucci/",
+    product_url: "https://www.selfridges.com/GB/en/cat/gucci/#fallback-gg-marmont-shoulder",
     image_url: "https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=800&q=80"
   },
   {
-    brand: "Valentino",
-    name: "Rockstud Calfskin Tote",
-    category: "Bags",
-    price_gbp: 1450,
+    brand: "Olaplex",
+    name: "No.3 Hair Perfector 100ml",
+    category: "Haircare",
+    price_gbp: 28,
     deliverable_lebanon: true,
-    product_url: "https://www.selfridges.com/GB/en/cat/valentino/",
-    image_url: "https://images.unsplash.com/photo-1591561954557-26941169b49e?w=800&q=80"
+    product_url: "https://www.selfridges.com/GB/en/cat/olaplex/#fallback-no-3-hair-perfector",
+    image_url: "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=800&q=80"
+  },
+  {
+    brand: "Ray-Ban",
+    name: "Aviator Classic Metal Sunglasses",
+    category: "Accessories",
+    price_gbp: 166,
+    deliverable_lebanon: true,
+    product_url: "https://www.selfridges.com/GB/en/cat/ray-ban/#fallback-aviator-classic",
+    image_url: "https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=800&q=80"
+  },
+  {
+    brand: "Dyson",
+    name: "Airwrap Multi-Styler Complete Long",
+    category: "Beauty tools",
+    price_gbp: 479.99,
+    deliverable_lebanon: true,
+    product_url: "https://www.selfridges.com/GB/en/cat/dyson/#fallback-airwrap-complete-long",
+    image_url: "https://images.unsplash.com/photo-1522338242992-e1a54906a8da?w=800&q=80"
+  },
+  {
+    brand: "Sisley",
+    name: "Black Rose Cream Mask 60ml",
+    category: "Skincare",
+    price_gbp: 100,
+    deliverable_lebanon: true,
+    product_url: "https://www.selfridges.com/GB/en/cat/sisley/#fallback-black-rose-cream-mask",
+    image_url: "https://images.unsplash.com/photo-1570194065650-d99fb4bedf0a?w=800&q=80"
   },
   {
     brand: "Loewe",
@@ -104,26 +98,8 @@ export const FEATURED_PRODUCT_DATA: FeaturedProductData[] = [
     category: "Bags",
     price_gbp: 1650,
     deliverable_lebanon: true,
-    product_url: "https://www.selfridges.com/GB/en/cat/loewe/",
+    product_url: "https://www.selfridges.com/GB/en/cat/loewe/#fallback-puzzle-small",
     image_url: "https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=800&q=80"
-  },
-  {
-    brand: "Bottega Veneta",
-    name: "Intrecciato Leather Mini Pouch",
-    category: "Bags",
-    price_gbp: 890,
-    deliverable_lebanon: true,
-    product_url: "https://www.selfridges.com/GB/en/cat/bottega-veneta/",
-    image_url: "https://images.unsplash.com/photo-1566150905458-1bf1fc113f0d?w=800&q=80"
-  },
-  {
-    brand: "Mulberry",
-    name: "Alexa Satchel",
-    category: "Bags",
-    price_gbp: 795,
-    deliverable_lebanon: true,
-    product_url: "https://www.selfridges.com/GB/en/cat/mulberry/",
-    image_url: "https://images.unsplash.com/photo-1601924994987-69e26d50dc26?w=800&q=80"
   }
 ];
 
@@ -136,20 +112,25 @@ async function withPrices(items: FeaturedProductData[]): Promise<FeaturedProduct
   );
 }
 
-export async function getFeaturedProducts(): Promise<FeaturedProduct[]> {
-  return withPrices(FEATURED_PRODUCT_DATA);
-}
-
 export async function getFallbackProducts(): Promise<FeaturedProduct[]> {
-  return withPrices(FEATURED_PRODUCT_DATA.slice(0, 8));
+  return withPrices(FALLBACK_DATA);
 }
 
-export const CATEGORIES = [
+export const CATEGORIES: readonly Category[] = [
   "All",
-  "Beauty",
-  "Skincare",
   "Makeup",
-  "Haircare",
+  "Skincare",
   "Bags",
-  "Accessories"
+  "Haircare",
+  "Accessories",
+  "Beauty tools"
+] as const;
+
+export const PRODUCT_CATEGORIES: readonly ProductCategory[] = [
+  "Makeup",
+  "Skincare",
+  "Bags",
+  "Haircare",
+  "Accessories",
+  "Beauty tools"
 ] as const;
