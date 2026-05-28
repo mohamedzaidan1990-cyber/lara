@@ -24,7 +24,8 @@
       "Bash(echo \"EXIT CODE: $?\")",
       "Bash(railway --version)",
       "Bash(node -e \"console.log\\(require\\('playwright-core/package.json'\\).version\\)\")",
-      "Bash(node -e \"console.log\\('cheerio', require\\('cheerio/package.json'\\).version\\)\")"
+      "Bash(node -e \"console.log\\('cheerio', require\\('cheerio/package.json'\\).version\\)\")",
+      "Bash(node *)"
     ]
   }
 }

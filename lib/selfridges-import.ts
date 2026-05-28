@@ -1,5 +1,16 @@
 import * as cheerio from "cheerio";
+import { fetch as undiciFetch, ProxyAgent } from "undici";
 import { convertGbpToUsd } from "./currency";
+
+// Build a dispatcher once per cold start. If PROXY_URL isn't set we let
+// undici's default agent talk directly to the upstream.
+let cachedDispatcher: ProxyAgent | null = null;
+function getDispatcher(): ProxyAgent | undefined {
+  const url = process.env.PROXY_URL;
+  if (!url) return undefined;
+  if (!cachedDispatcher) cachedDispatcher = new ProxyAgent(url);
+  return cachedDispatcher;
+}
 
 export interface ImportedProduct {
   url: string;
@@ -268,7 +279,11 @@ export function parseProductHtml(html: string, url: string): Omit<ImportedProduc
 export async function importOne(url: string): Promise<ImportedProduct> {
   let html: string;
   try {
-    const res = await fetch(url, { headers: FETCH_HEADERS, redirect: "follow" });
+    const res = await undiciFetch(url, {
+      headers: FETCH_HEADERS,
+      redirect: "follow",
+      dispatcher: getDispatcher()
+    });
     if (!res.ok) {
       return { url, ok: false, error: `Fetch failed (HTTP ${res.status})` };
     }

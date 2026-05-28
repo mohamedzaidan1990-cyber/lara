@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Seasons by B">
+  <rect width="512" height="512" fill="#23272A"/>
+  <circle cx="256" cy="256" r="232" fill="none" stroke="#F4D360" stroke-width="6" opacity="0.35"/>
+  <text x="256" y="298" font-family="Georgia, 'Playfair Display', 'Times New Roman', serif" font-size="320" font-weight="700" fill="#F4D360" text-anchor="middle">B</text>
+  <text x="256" y="438" font-family="Georgia, 'Playfair Display', 'Times New Roman', serif" font-size="28" font-weight="400" letter-spacing="6" fill="#F4D360" text-anchor="middle" opacity="0.9">SEASONS</text>
+</svg>

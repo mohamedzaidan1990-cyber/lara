@@ -1,8 +1,13 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { DM_Sans, Playfair_Display } from "next/font/google";
 import Link from "next/link";
 import SiteHeader from "@/components/SiteHeader";
 import "./globals.css";
+
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.seasonsbyb.co.uk";
+const SITE_TITLE = "Seasons by B — London's Finest, Delivered to Your Door";
+const SITE_DESCRIPTION =
+  "Shop luxury beauty, skincare, makeup and bags from London's finest retailers. Personal shopping service delivering to Lebanon and beyond.";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -17,9 +22,59 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Seasons by B — London's finest, delivered to your door",
-  description:
-    "Seasons by B is a personal shopping service sourcing London's finest luxury pieces and delivering to your door."
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: SITE_TITLE,
+    template: "%s · Seasons by B"
+  },
+  description: SITE_DESCRIPTION,
+  applicationName: "Seasons by B",
+  manifest: "/manifest.json",
+  alternates: { canonical: "/" },
+  openGraph: {
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    url: "/",
+    siteName: "Seasons by B",
+    images: [
+      {
+        url: "/icons/icon-512.svg",
+        width: 512,
+        height: 512,
+        alt: "Seasons by B"
+      }
+    ],
+    locale: "en_GB",
+    type: "website"
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    images: ["/icons/icon-512.svg"]
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Seasons by B"
+  },
+  icons: {
+    icon: [
+      { url: "/icons/icon-192.svg", sizes: "192x192", type: "image/svg+xml" },
+      { url: "/icons/icon-512.svg", sizes: "512x512", type: "image/svg+xml" }
+    ],
+    apple: [{ url: "/icons/icon-512.svg" }],
+    shortcut: ["/icons/icon-192.svg"]
+  },
+  category: "shopping",
+  formatDetection: { telephone: false }
+};
+
+export const viewport: Viewport = {
+  themeColor: "#F4D360",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

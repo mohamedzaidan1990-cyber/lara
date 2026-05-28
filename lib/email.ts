@@ -3,6 +3,12 @@ import { Resend } from "resend";
 const FROM_ADDRESS = "Seasons by B <hello@seasonsbyb.co.uk>";
 const ADMIN_NOTIFICATION_TO = "mohamedzaidan1990@gmail.com";
 
+const COLOR_CREAM = "#FFFDF5";
+const COLOR_INK = "#23272A";
+const COLOR_INK_MUTED = "#5A6168";
+const COLOR_GOLD = "#F4D360";
+const COLOR_ACCENT = "#C0392B";
+
 export interface EmailOrder {
   order_number: string;
   product_brand: string;
@@ -24,6 +30,8 @@ export interface EmailCustomer {
 interface EmailConfig {
   whish: string;
   whatsappNumber: string;
+  siteUrl: string;
+  adminUrl: string;
 }
 
 function getResend(): Resend | null {
@@ -35,9 +43,12 @@ function getResend(): Resend | null {
 }
 
 function getEmailConfig(): EmailConfig {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.seasonsbyb.co.uk";
   return {
     whish: process.env.WHISH_NUMBER ?? "03055491",
-    whatsappNumber: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "+96103055491"
+    whatsappNumber: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "+96103055491",
+    siteUrl,
+    adminUrl: `${siteUrl.replace(/\/$/, "")}/admin`
   };
 }
 
@@ -63,33 +74,78 @@ function paymentMethodLabel(method?: string | null): string {
   return method ?? "—";
 }
 
-function baseLayout(title: string, body: string): string {
+// Add N working days (Mon–Fri) to today.
+function addWorkingDays(days: number, from: Date = new Date()): Date {
+  const d = new Date(from);
+  let added = 0;
+  while (added < days) {
+    d.setDate(d.getDate() + 1);
+    const day = d.getDay();
+    if (day !== 0 && day !== 6) added += 1;
+  }
+  return d;
+}
+
+function formatDate(d: Date): string {
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
+
+function deliveryDateRange(): { range: string; min: Date; max: Date } {
+  const min = addWorkingDays(10);
+  const max = addWorkingDays(14);
+  return { range: `${formatDate(min)} – ${formatDate(max)}`, min, max };
+}
+
+// Embedded mobile-friendly CSS — gracefully degrades in clients that ignore
+// <style> blocks (Outlook etc.), where the inline desktop layout still holds.
+const MOBILE_STYLES = `
+  @media only screen and (max-width: 620px) {
+    .container { width: 100% !important; }
+    .pad { padding: 22px !important; }
+    .h-pad { padding: 22px 22px !important; }
+    h1 { font-size: 24px !important; line-height: 1.25 !important; }
+    .stack-block { padding: 16px !important; }
+    .order-number { font-size: 16px !important; }
+    .price-big { font-size: 22px !important; }
+    .cta { display: block !important; text-align: center !important; padding: 14px 22px !important; }
+  }
+`;
+
+function baseLayout(title: string, body: string, preheader?: string): string {
+  const hiddenPreheader = preheader
+    ? `<div style="display:none;max-height:0;overflow:hidden;font-size:1px;line-height:1px;color:${COLOR_CREAM};opacity:0;">${preheader}</div>`
+    : "";
   return `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <title>${title}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <meta name="supported-color-schemes" content="light" />
+    <style type="text/css">${MOBILE_STYLES}</style>
   </head>
-  <body style="margin:0;padding:0;background-color:#FFFDF5;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#23272A;">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#FFFDF5;padding:32px 16px;">
+  <body style="margin:0;padding:0;background-color:${COLOR_CREAM};font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:${COLOR_INK};">
+    ${hiddenPreheader}
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:${COLOR_CREAM};padding:32px 12px;">
       <tr>
         <td align="center">
-          <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="max-width:600px;background-color:#FFFFFF;border:1px solid rgba(35,39,42,0.08);">
+          <table role="presentation" class="container" width="600" cellspacing="0" cellpadding="0" border="0" style="max-width:600px;width:100%;background-color:#FFFFFF;border:1px solid rgba(35,39,42,0.08);">
             <tr>
-              <td style="background-color:#23272A;padding:24px 32px;text-align:center;">
-                <div style="font-family:Georgia,'Times New Roman',serif;font-size:28px;color:#F4D360;letter-spacing:0.5px;">Seasons by B</div>
-                <div style="font-size:11px;text-transform:uppercase;letter-spacing:4px;color:#FFFDF5;opacity:0.7;margin-top:6px;">London&rsquo;s finest, delivered to your door</div>
+              <td class="h-pad" style="background-color:${COLOR_INK};padding:28px 32px;text-align:center;">
+                <div style="font-family:Georgia,'Times New Roman',serif;font-size:30px;color:${COLOR_GOLD};letter-spacing:0.5px;font-weight:700;">Seasons&nbsp;by&nbsp;B</div>
+                <div style="font-size:11px;text-transform:uppercase;letter-spacing:4px;color:${COLOR_CREAM};opacity:0.7;margin-top:8px;">London&rsquo;s finest, delivered to your door</div>
               </td>
             </tr>
             <tr>
-              <td style="padding:32px;">
+              <td class="pad" style="padding:36px 32px;">
                 ${body}
               </td>
             </tr>
             <tr>
-              <td style="background-color:#FFFDF5;padding:20px 32px;text-align:center;font-size:12px;color:#5A6168;border-top:1px solid rgba(35,39,42,0.08);">
-                © 2025 Seasons by B. London.
+              <td style="background-color:${COLOR_CREAM};padding:22px 32px;text-align:center;font-size:12px;color:${COLOR_INK_MUTED};border-top:1px solid rgba(35,39,42,0.08);">
+                <div>Seasons by B · London</div>
+                <div style="margin-top:6px;">© ${new Date().getFullYear()} Seasons by B. All rights reserved.</div>
               </td>
             </tr>
           </table>
@@ -100,16 +156,36 @@ function baseLayout(title: string, body: string): string {
 </html>`;
 }
 
+function ctaButton(href: string, label: string, variant: "gold" | "accent" = "gold"): string {
+  const bg = variant === "gold" ? COLOR_GOLD : COLOR_ACCENT;
+  const fg = variant === "gold" ? COLOR_INK : "#FFFFFF";
+  return `<a class="cta" href="${href}" style="display:inline-block;background-color:${bg};color:${fg};text-decoration:none;padding:14px 28px;font-size:13px;text-transform:uppercase;letter-spacing:3px;font-weight:600;border:1px solid ${bg};">${label}</a>`;
+}
+
+function orderCard(order: EmailOrder): string {
+  return `<table role="presentation" class="stack-block" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid rgba(35,39,42,0.08);background-color:${COLOR_CREAM};margin-top:24px;">
+  <tr><td style="padding:22px;">
+    <div class="order-number" style="font-family:Georgia,'Times New Roman',serif;font-size:18px;color:${COLOR_INK};letter-spacing:1px;font-weight:700;">Order ${order.order_number}</div>
+    <div style="font-family:Georgia,'Times New Roman',serif;font-size:20px;color:${COLOR_INK};margin-top:10px;">${order.product_brand} — ${order.product_name}</div>
+    <div class="price-big" style="font-family:Georgia,'Times New Roman',serif;font-size:26px;color:${COLOR_INK};margin-top:10px;font-weight:700;">${formatUsd(order.price_usd)}</div>
+    <div style="font-size:13px;color:${COLOR_INK_MUTED};margin-top:8px;">Payment method: ${paymentMethodLabel(order.payment_method)}</div>
+  </td></tr>
+</table>`;
+}
+
 function whishDirectInstructions(cfg: EmailConfig): string {
-  return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid rgba(35,39,42,0.08);background-color:#FFFDF5;margin-top:20px;">
+  return `<table role="presentation" class="stack-block" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid rgba(35,39,42,0.08);background-color:${COLOR_CREAM};margin-top:20px;">
   <tr>
-    <td style="padding:20px;">
-      <div style="font-size:11px;text-transform:uppercase;letter-spacing:3px;color:#5A6168;">Payment instructions — Direct Whish transfer</div>
-      <ol style="margin:12px 0 0;padding-left:20px;font-size:14px;line-height:1.8;color:#23272A;">
+    <td style="padding:22px;">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:3px;color:${COLOR_INK_MUTED};">Payment instructions — Whish</div>
+      <p style="margin:12px 0 0;font-size:14px;line-height:1.7;color:${COLOR_INK};">
+        Send your payment to Whish number <strong>${cfg.whish}</strong>, then send us the screenshot on WhatsApp.
+      </p>
+      <ol style="margin:14px 0 0;padding-left:20px;font-size:14px;line-height:1.8;color:${COLOR_INK};">
         <li>Open Whish</li>
         <li>Tap <strong>Send Money</strong></li>
         <li>Enter number <strong>${cfg.whish}</strong></li>
-        <li>Enter the order amount</li>
+        <li>Enter the order amount in USD</li>
         <li>Screenshot the confirmation</li>
         <li>Send the screenshot to us on WhatsApp</li>
       </ol>
@@ -120,12 +196,12 @@ function whishDirectInstructions(cfg: EmailConfig): string {
 
 function whishLinkInstructions(cfg: EmailConfig): string {
   const waUrl = whatsappLink(cfg.whatsappNumber);
-  return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid rgba(35,39,42,0.08);background-color:#FFFDF5;margin-top:20px;">
+  return `<table role="presentation" class="stack-block" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid rgba(35,39,42,0.08);background-color:${COLOR_CREAM};margin-top:20px;">
   <tr>
-    <td style="padding:20px;">
-      <div style="font-size:11px;text-transform:uppercase;letter-spacing:3px;color:#5A6168;">Payment instructions — Whish payment link</div>
-      <p style="margin:12px 0 0;font-size:14px;line-height:1.7;color:#23272A;">
-        Send your invoice to us on <a href="${waUrl}" style="color:#C0392B;">WhatsApp</a> and we&rsquo;ll generate a secure Whish payment link for you.
+    <td style="padding:22px;">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:3px;color:${COLOR_INK_MUTED};">Payment instructions — Whish payment link</div>
+      <p style="margin:12px 0 0;font-size:14px;line-height:1.7;color:${COLOR_INK};">
+        Send your invoice to us on <a href="${waUrl}" style="color:${COLOR_ACCENT};">WhatsApp</a> and we&rsquo;ll generate a secure Whish payment link for you.
         You&rsquo;ll receive automatic payment confirmation and receipt via WhatsApp once paid.
       </p>
     </td>
@@ -146,57 +222,51 @@ export async function sendOrderConfirmation(order: EmailOrder, customer: EmailCu
   }
   const cfg = getEmailConfig();
   const subject = `Your Seasons by B order — ${order.order_number}`;
+  const preheader = `Order ${order.order_number} received. Estimated delivery 10–14 working days.`;
   const isWhishLink = order.payment_method === "whish_link";
   const waMessage = isWhishLink
     ? `Hi Seasons by B, this is order ${order.order_number}. Please send me a Whish payment link.`
     : `Hi Seasons by B, my order number is ${order.order_number}. Here is my payment confirmation.`;
   const waUrl = whatsappLink(cfg.whatsappNumber, waMessage);
 
+  const firstName = customer.full_name.split(" ")[0] || "there";
+
   const html = baseLayout(
     subject,
     `
-    <div style="font-size:11px;text-transform:uppercase;letter-spacing:3px;color:#C0392B;">Order received</div>
-    <h1 style="font-family:Georgia,'Times New Roman',serif;font-size:28px;line-height:1.2;margin:8px 0 16px;color:#23272A;">Thank you, ${customer.full_name.split(" ")[0] || "there"}.</h1>
-    <p style="font-size:15px;line-height:1.6;color:#23272A;margin:0 0 8px;">We&rsquo;ve received your order and will source it from London&rsquo;s finest retailers.</p>
-    <p style="font-size:15px;line-height:1.6;color:#23272A;margin:0;">Estimated delivery: <strong>10–14 working days</strong>.</p>
+    <div style="font-size:11px;text-transform:uppercase;letter-spacing:3px;color:${COLOR_ACCENT};font-weight:600;">Order received</div>
+    <h1 style="font-family:Georgia,'Times New Roman',serif;font-size:30px;line-height:1.2;margin:8px 0 16px;color:${COLOR_INK};font-weight:700;">Thank you, ${firstName}.</h1>
+    <p style="font-size:15px;line-height:1.65;color:${COLOR_INK};margin:0 0 8px;">We&rsquo;ve received your order and will source it from London&rsquo;s finest retailers.</p>
+    <p style="font-size:15px;line-height:1.65;color:${COLOR_INK};margin:0;">Estimated delivery: <strong>10–14 working days</strong>.</p>
 
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid rgba(35,39,42,0.08);background-color:#FFFDF5;margin-top:24px;">
-      <tr><td style="padding:20px;">
-        <div style="font-size:11px;text-transform:uppercase;letter-spacing:3px;color:#5A6168;">Order ${order.order_number}</div>
-        <div style="font-family:Georgia,'Times New Roman',serif;font-size:20px;color:#23272A;margin-top:8px;">${order.product_brand} — ${order.product_name}</div>
-        <div style="font-family:Georgia,'Times New Roman',serif;font-size:24px;color:#23272A;margin-top:8px;">${formatUsd(order.price_usd)}</div>
-        <div style="font-size:13px;color:#5A6168;margin-top:6px;">Payment method: ${paymentMethodLabel(order.payment_method)}</div>
-      </td></tr>
-    </table>
-
+    ${orderCard(order)}
     ${paymentInstructionsBlock(order.payment_method, cfg)}
 
-    <p style="font-size:14px;line-height:1.6;color:#23272A;margin:24px 0 0;">
+    <p style="font-size:14px;line-height:1.65;color:${COLOR_INK};margin:24px 0 0;">
       ${
         isWhishLink
           ? "Send your invoice to us on WhatsApp and we'll send you a secure payment link."
           : "After paying, send your payment screenshot to us on WhatsApp so we can confirm and place your order."
       }
     </p>
-    <p style="margin:20px 0 0;">
-      <a href="${waUrl}" style="display:inline-block;background-color:#F4D360;color:#23272A;text-decoration:none;padding:14px 28px;font-size:13px;text-transform:uppercase;letter-spacing:3px;">Contact us on WhatsApp</a>
-    </p>
+    <p style="margin:20px 0 0;">${ctaButton(waUrl, "Contact us on WhatsApp", "gold")}</p>
 
-    <p style="font-size:13px;line-height:1.6;color:#5A6168;margin:32px 0 0;">
+    <p style="font-size:13px;line-height:1.65;color:${COLOR_INK_MUTED};margin:32px 0 0;">
       Any questions? Reply directly to this email or message us on WhatsApp.
     </p>
-    `
+    `,
+    preheader
   );
 
   const textBody = isWhishLink
     ? `Payment: Whish payment link
 Send your invoice to us on WhatsApp: ${waUrl}
 We'll generate a secure Whish payment link and send confirmation + receipt by WhatsApp once paid.`
-    : `Payment: Direct Whish transfer
+    : `Payment: Whish to ${cfg.whish}
 1. Open Whish
 2. Tap Send Money
 3. Enter number ${cfg.whish}
-4. Enter the order amount
+4. Enter the order amount in USD
 5. Screenshot the confirmation
 6. Send the screenshot to us on WhatsApp: ${waUrl}`;
 
@@ -232,40 +302,41 @@ export async function sendOrderNotification(order: EmailOrder, customer: EmailCu
     console.warn("[email] RESEND_API_KEY not configured — skipping admin notification");
     return;
   }
+  const cfg = getEmailConfig();
   const priceLabel = formatUsd(order.price_usd);
   const subject = `New order — ${order.order_number} — ${priceLabel}`;
-  const adminUrl = "https://seasonsbyb.co.uk/admin";
+  const preheader = `${customer.full_name} just placed an order for ${priceLabel}.`;
 
   const html = baseLayout(
     subject,
     `
-    <div style="font-size:11px;text-transform:uppercase;letter-spacing:3px;color:#C0392B;">New order alert</div>
-    <h1 style="font-family:Georgia,'Times New Roman',serif;font-size:24px;line-height:1.2;margin:8px 0 16px;color:#23272A;">${order.order_number} — ${priceLabel}</h1>
+    <div style="font-size:11px;text-transform:uppercase;letter-spacing:3px;color:${COLOR_ACCENT};font-weight:600;">New order</div>
+    <h1 style="font-family:Georgia,'Times New Roman',serif;font-size:26px;line-height:1.2;margin:8px 0 18px;color:${COLOR_INK};font-weight:700;">${order.order_number} — ${priceLabel}</h1>
 
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="font-size:14px;line-height:1.7;color:#23272A;border:1px solid rgba(35,39,42,0.08);background-color:#FFFDF5;margin-top:16px;">
-      <tr><td style="padding:20px;">
-        <strong>Customer:</strong> ${customer.full_name}<br />
-        <strong>Phone:</strong> ${customer.phone}<br />
-        <strong>Email:</strong> <a href="mailto:${customer.email}" style="color:#C0392B;">${customer.email}</a><br />
-        <strong>Address:</strong><br />
-        <span style="white-space:pre-line;">${customer.address}</span>
+    <table role="presentation" class="stack-block" width="100%" cellspacing="0" cellpadding="0" border="0" style="font-size:14px;line-height:1.8;color:${COLOR_INK};border:1px solid rgba(35,39,42,0.08);background-color:${COLOR_CREAM};margin-top:8px;">
+      <tr><td style="padding:22px;">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:3px;color:${COLOR_INK_MUTED};margin-bottom:8px;">Customer</div>
+        <strong>${customer.full_name}</strong><br />
+        ${customer.phone}<br />
+        <a href="mailto:${customer.email}" style="color:${COLOR_ACCENT};">${customer.email}</a><br />
+        <span style="white-space:pre-line;display:block;margin-top:8px;">${customer.address}</span>
       </td></tr>
     </table>
 
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="font-size:14px;line-height:1.7;color:#23272A;border:1px solid rgba(35,39,42,0.08);background-color:#FFFDF5;margin-top:16px;">
-      <tr><td style="padding:20px;">
-        <strong>Product:</strong> ${order.product_brand} — ${order.product_name}<br />
-        <strong>Price:</strong> ${priceLabel}${order.price_gbp ? ` (£${order.price_gbp} GBP)` : ""}<br />
-        <strong>Payment method:</strong> ${paymentMethodLabel(order.payment_method)}<br />
-        ${order.product_url ? `<strong>Source:</strong> <a href="${order.product_url}" style="color:#C0392B;word-break:break-all;">${order.product_url}</a><br />` : ""}
-        ${order.notes ? `<strong>Notes:</strong> ${order.notes}` : ""}
+    <table role="presentation" class="stack-block" width="100%" cellspacing="0" cellpadding="0" border="0" style="font-size:14px;line-height:1.8;color:${COLOR_INK};border:1px solid rgba(35,39,42,0.08);background-color:${COLOR_CREAM};margin-top:16px;">
+      <tr><td style="padding:22px;">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:3px;color:${COLOR_INK_MUTED};margin-bottom:8px;">Product</div>
+        <strong>${order.product_brand} — ${order.product_name}</strong><br />
+        Price: ${priceLabel}${order.price_gbp ? ` (£${order.price_gbp} GBP)` : ""}<br />
+        Payment method: ${paymentMethodLabel(order.payment_method)}<br />
+        ${order.product_url ? `<div style="margin-top:8px;">Source: <a href="${order.product_url}" style="color:${COLOR_ACCENT};word-break:break-all;">${order.product_url}</a></div>` : ""}
+        ${order.notes ? `<div style="margin-top:8px;">Notes: ${order.notes}</div>` : ""}
       </td></tr>
     </table>
 
-    <p style="margin:24px 0 0;">
-      <a href="${adminUrl}" style="display:inline-block;background-color:#C0392B;color:#FFFFFF;text-decoration:none;padding:14px 28px;font-size:13px;text-transform:uppercase;letter-spacing:3px;">Open admin dashboard</a>
-    </p>
-    `
+    <p style="margin:28px 0 0;">${ctaButton(cfg.adminUrl, "Open admin dashboard", "accent")}</p>
+    `,
+    preheader
   );
 
   const text = `New order ${order.order_number} — ${priceLabel}
@@ -279,7 +350,7 @@ Product: ${order.product_brand} — ${order.product_name}
 Price: ${priceLabel}${order.price_gbp ? ` (£${order.price_gbp} GBP)` : ""}
 Payment method: ${paymentMethodLabel(order.payment_method)}
 ${order.product_url ? `Source: ${order.product_url}\n` : ""}${order.notes ? `Notes: ${order.notes}\n` : ""}
-Admin: ${adminUrl}`;
+Admin: ${cfg.adminUrl}`;
 
   try {
     await resend.emails.send({
@@ -301,45 +372,46 @@ export async function sendPaymentConfirmation(order: EmailOrder, customer: Email
     return;
   }
   const cfg = getEmailConfig();
-  const subject = "Payment confirmed — SEASONS BY B";
+  const subject = "Payment confirmed — Seasons by B";
+  const { range: deliveryRange } = deliveryDateRange();
   const waMessage = `Hi Seasons by B, this is order ${order.order_number}.`;
   const waUrl = whatsappLink(cfg.whatsappNumber, waMessage);
+  const firstName = customer.full_name.split(" ")[0] || "there";
+  const preheader = `Payment received. Expected delivery ${deliveryRange}.`;
 
   const html = baseLayout(
     subject,
     `
-    <div style="font-size:11px;text-transform:uppercase;letter-spacing:3px;color:#C0392B;">Payment confirmed</div>
-    <h1 style="font-family:Georgia,'Times New Roman',serif;font-size:28px;line-height:1.2;margin:8px 0 16px;color:#23272A;">Payment received ✓</h1>
-    <p style="font-size:15px;line-height:1.6;color:#23272A;margin:0 0 8px;">
-      Hi ${customer.full_name.split(" ")[0] || "there"}, we&rsquo;ve received your payment and your order is now being processed.
-    </p>
-    <p style="font-size:15px;line-height:1.6;color:#23272A;margin:0;">
-      Estimated delivery: <strong>10–14 working days</strong>.
+    <div style="font-size:11px;text-transform:uppercase;letter-spacing:3px;color:${COLOR_ACCENT};font-weight:600;">Payment confirmed</div>
+    <h1 style="font-family:Georgia,'Times New Roman',serif;font-size:30px;line-height:1.2;margin:8px 0 16px;color:${COLOR_INK};font-weight:700;">Payment received ✓</h1>
+    <p style="font-size:15px;line-height:1.65;color:${COLOR_INK};margin:0 0 8px;">
+      Hi ${firstName}, we&rsquo;ve received your payment and your order is now being processed.
     </p>
 
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid rgba(35,39,42,0.08);background-color:#FFFDF5;margin-top:24px;">
-      <tr><td style="padding:20px;">
-        <div style="font-size:11px;text-transform:uppercase;letter-spacing:3px;color:#5A6168;">Order ${order.order_number}</div>
-        <div style="font-family:Georgia,'Times New Roman',serif;font-size:20px;color:#23272A;margin-top:8px;">${order.product_brand} — ${order.product_name}</div>
-        <div style="font-family:Georgia,'Times New Roman',serif;font-size:22px;color:#23272A;margin-top:8px;">${formatUsd(order.price_usd)}</div>
+    ${orderCard(order)}
+
+    <table role="presentation" class="stack-block" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid rgba(244,211,96,0.4);background-color:rgba(244,211,96,0.12);margin-top:20px;">
+      <tr><td style="padding:22px;">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:3px;color:${COLOR_INK_MUTED};">Expected delivery</div>
+        <div style="font-family:Georgia,'Times New Roman',serif;font-size:22px;color:${COLOR_INK};margin-top:8px;font-weight:700;">${deliveryRange}</div>
+        <div style="font-size:13px;color:${COLOR_INK_MUTED};margin-top:6px;">10–14 working days from today, door to door.</div>
       </td></tr>
     </table>
 
-    <p style="margin:24px 0 0;">
-      <a href="${waUrl}" style="display:inline-block;background-color:#F4D360;color:#23272A;text-decoration:none;padding:14px 28px;font-size:13px;text-transform:uppercase;letter-spacing:3px;">Contact us on WhatsApp</a>
-    </p>
+    <p style="margin:24px 0 0;">${ctaButton(waUrl, "Contact us on WhatsApp", "gold")}</p>
 
-    <p style="font-size:13px;line-height:1.6;color:#5A6168;margin:32px 0 0;">
+    <p style="font-size:13px;line-height:1.65;color:${COLOR_INK_MUTED};margin:32px 0 0;">
       We&rsquo;ll send you updates as your order ships and arrives.
     </p>
-    `
+    `,
+    preheader
   );
 
   const text = `Seasons by B — Payment confirmed
 
 Order ${order.order_number} — ${order.product_brand} — ${order.product_name}
 Payment received. Your order is now being processed.
-Estimated delivery: 10–14 working days.
+Expected delivery: ${deliveryRange} (10–14 working days from today).
 
 Questions? ${waUrl}`;
 
