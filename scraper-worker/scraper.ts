@@ -409,7 +409,9 @@ export async function scrapeCategory(categoryName: string): Promise<ScrapedProdu
   };
   if (process.env.PROXY_URL) {
     launchOptions.proxy = { server: process.env.PROXY_URL };
-    console.log(`[scraper] using proxy ${process.env.PROXY_URL}`);
+    // Mask the password so credentials don't show up in Railway logs.
+    const safe = process.env.PROXY_URL.replace(/(\/\/[^:@/]+):[^@]+@/, "$1:***@");
+    console.log(`[scraper] using proxy ${safe}`);
   }
 
   let browser: Browser | null = null;
