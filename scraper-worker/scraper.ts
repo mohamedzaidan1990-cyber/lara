@@ -30,6 +30,8 @@ const EXTRA_HEADERS: Record<string, string> = {
   Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
   "Accept-Language": "en-GB,en;q=0.9",
   "Accept-Encoding": "gzip, deflate, br",
+  "Cache-Control": "no-cache",
+  Pragma: "no-cache",
   DNT: "1"
 };
 
@@ -227,12 +229,17 @@ async function extractCards(page: Page, linkIncludes: string, max: number): Prom
   );
 }
 
-async function loadListing(page: Page, url: string): Promise<boolean> {
+async function loadListing(page: Page, url: string, waitSelector?: string): Promise<boolean> {
   try {
-    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45000 });
-    // Wait for network to settle so lazy product tiles render.
-    await page.waitForLoadState("networkidle", { timeout: 20000 }).catch(() => {});
-    await randomDelay(1500, 3000);
+    // 90s timeout — proxied requests through residential IPs can be slow.
+    // networkidle waits for the page to fully settle (incl. lazy product tiles).
+    await page.goto(url, { waitUntil: "networkidle", timeout: 90000 });
+    // Human-like settle pause.
+    await page.waitForTimeout(3000 + Math.random() * 3000);
+    if (waitSelector) {
+      // Best-effort: if the selector never appears we still try to extract.
+      await page.waitForSelector(waitSelector, { timeout: 30000 }).catch(() => {});
+    }
     await humanize(page);
     return true;
   } catch (err) {
@@ -281,6 +288,10 @@ function dedupeByUrl(rows: ScrapedProductRow[]): ScrapedProductRow[] {
 }
 
 // ---------- Primary source: Selfridges category pages ----------
+// Selectors that Selfridges uses for product tiles. Best-effort — the
+// extractor still runs even if none of these appear in the DOM.
+const SELFRIDGES_PRODUCT_SELECTOR = '.product-card, [data-test="product"], .cat-product';
+
 async function scrapeSelfridgesCategory(browser: Browser, categoryName: string): Promise<ScrapedProductRow[]> {
   const slug = SELFRIDGES_SLUGS[categoryName];
   if (!slug) return [];
@@ -288,10 +299,22 @@ async function scrapeSelfridgesCategory(browser: Browser, categoryName: string):
   const { context, page } = await newStealthPage(browser);
   const collected: ScrapedProductRow[] = [];
   try {
+    // Warm-up: hit the Selfridges homepage first so we pick up session
+    // cookies and look like a returning visitor before requesting a
+    // listing page. Cookies live on the context, so this benefits every
+    // subsequent page navigation in this run.
+    try {
+      console.log(`[scraper] Selfridges warm-up: homepage`);
+      await page.goto("https://www.selfridges.com/GB/en/", { waitUntil: "domcontentloaded", timeout: 60000 });
+      await page.waitForTimeout(2000 + Math.random() * 2000);
+    } catch (err) {
+      console.warn(`[scraper] homepage warm-up failed — continuing to category pages anyway`, err);
+    }
+
     for (let pge = 1; pge <= PAGES_PER_CATEGORY; pge += 1) {
       const url = `https://www.selfridges.com/GB/en/cat/${slug}/?pge=${pge}&ppp=${PRODUCTS_PER_PAGE}&sort=relevance`;
       console.log(`[scraper] Selfridges ${categoryName} page ${pge}: ${url}`);
-      const ok = await loadListing(page, url);
+      const ok = await loadListing(page, url, SELFRIDGES_PRODUCT_SELECTOR);
       if (!ok) break;
 
       const cards = await extractCards(page, "/GB/en/cat/", PRODUCTS_PER_PAGE);
