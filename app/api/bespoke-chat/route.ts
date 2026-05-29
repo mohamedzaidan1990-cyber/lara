@@ -54,7 +54,9 @@ function fallbackBea(messages: ChatMessage[]): string {
 async function callBea(messages: ChatMessage[]): Promise<string | null> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return null;
-  const model = process.env.ANTHROPIC_CHAT_MODEL ?? "claude-sonnet-4-20250514";
+  // claude-sonnet-4-20250514 returned 4xx on this account; use the model proven
+  // to work here. Override with ANTHROPIC_CHAT_MODEL for a specific Sonnet id.
+  const model = process.env.ANTHROPIC_CHAT_MODEL ?? "claude-haiku-4-5-20251001";
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
