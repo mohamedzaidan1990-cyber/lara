@@ -162,7 +162,11 @@ function normalizeRec(raw: unknown): BespokeRec | null {
 
 async function bespokeRecommendations(input: ShadeFinderInput): Promise<BespokeRec[]> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return fallbackBespoke(input);
+  if (!apiKey) {
+    console.warn("[shade-finder] ANTHROPIC_API_KEY not set — using rule-based fallback");
+    return fallbackBespoke(input);
+  }
+  const model = process.env.ANTHROPIC_MODEL ?? "claude-haiku-4-5";
 
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -173,7 +177,7 @@ async function bespokeRecommendations(input: ShadeFinderInput): Promise<BespokeR
         "content-type": "application/json"
       },
       body: JSON.stringify({
-        model: process.env.ANTHROPIC_MODEL ?? "claude-haiku-4-5",
+        model,
         max_tokens: 1024,
         // Static system prompt → cache it across requests for cheaper calls.
         system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
@@ -181,14 +185,27 @@ async function bespokeRecommendations(input: ShadeFinderInput): Promise<BespokeR
       }),
       signal: AbortSignal.timeout(20000)
     });
-    if (!res.ok) return fallbackBespoke(input);
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      console.warn(`[shade-finder] Anthropic HTTP ${res.status} (model=${model}) ${detail.slice(0, 200)}`);
+      return fallbackBespoke(input);
+    }
     const data = (await res.json()) as { content?: Array<{ type: string; text?: string }> };
     const text = data.content?.find((c) => c.type === "text")?.text ?? "";
     const arr = extractJsonArray(text);
-    if (!arr) return fallbackBespoke(input);
+    if (!arr) {
+      console.warn("[shade-finder] Anthropic returned unparseable content — using fallback");
+      return fallbackBespoke(input);
+    }
     const recs = arr.map(normalizeRec).filter((r): r is BespokeRec => r !== null).slice(0, 4);
-    return recs.length > 0 ? recs : fallbackBespoke(input);
-  } catch {
+    if (recs.length === 0) {
+      console.warn("[shade-finder] Anthropic returned no usable recs — using fallback");
+      return fallbackBespoke(input);
+    }
+    console.log(`[shade-finder] Anthropic OK (model=${model}) → ${recs.length} recs`);
+    return recs;
+  } catch (err) {
+    console.warn(`[shade-finder] Anthropic call failed: ${(err as Error).message}`);
     return fallbackBespoke(input);
   }
 }
