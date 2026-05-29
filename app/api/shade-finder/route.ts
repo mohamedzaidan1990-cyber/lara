@@ -166,7 +166,7 @@ async function bespokeRecommendations(input: ShadeFinderInput): Promise<BespokeR
     console.warn("[shade-finder] ANTHROPIC_API_KEY not set — using rule-based fallback");
     return fallbackBespoke(input);
   }
-  const model = process.env.ANTHROPIC_MODEL ?? "claude-haiku-4-5";
+  const model = process.env.ANTHROPIC_MODEL ?? "claude-haiku-4-5-20251001";
 
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -187,7 +187,8 @@ async function bespokeRecommendations(input: ShadeFinderInput): Promise<BespokeR
     });
     if (!res.ok) {
       const detail = await res.text().catch(() => "");
-      console.warn(`[shade-finder] Anthropic HTTP ${res.status} (model=${model}) ${detail.slice(0, 200)}`);
+      // Status front-loaded so it survives log-column truncation.
+      console.warn(`[sf] anthropic ${res.status} model=${model} ${detail.slice(0, 300)}`);
       return fallbackBespoke(input);
     }
     const data = (await res.json()) as { content?: Array<{ type: string; text?: string }> };
