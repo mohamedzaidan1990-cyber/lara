@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import OrderStepper from "@/components/OrderStepper";
+import { BeeMascot } from "@/components/BeeMascot";
 
 interface Props {
   whish: string;
@@ -599,8 +600,12 @@ function Step4Confirmation({
 
   return (
     <section className="text-center">
-      <p className="text-[11px] uppercase tracking-[0.32em] text-accent">Order received</p>
-      <h1 className="mt-4 font-serif text-4xl text-ink">Thank you</h1>
+      <div className="flex justify-center">
+        <BeeMascot variant="success" />
+      </div>
+      <p className="mt-2 font-serif text-2xl text-ink">Your order is on its way to London! 🐝</p>
+      <p className="mt-6 text-[11px] uppercase tracking-[0.32em] text-accent">Order received</p>
+      <h1 className="mt-3 font-serif text-4xl text-ink">Thank you</h1>
       <p className="mt-3 text-sm text-ink/70">
         Your order number is{" "}
         <span className="font-mono text-ink">{order.order_number}</span>. Estimated delivery: 10–14 working days.

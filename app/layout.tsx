@@ -2,6 +2,10 @@ import type { Metadata, Viewport } from "next";
 import { DM_Sans, Playfair_Display } from "next/font/google";
 import Link from "next/link";
 import SiteHeader from "@/components/SiteHeader";
+import BespokeFloat from "@/components/BespokeFloat";
+import CustomCursor from "@/components/CustomCursor";
+import TitleCycler from "@/components/TitleCycler";
+import PageFade from "@/components/PageFade";
 import "./globals.css";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.seasonsbyb.co.uk";
@@ -81,9 +85,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${playfair.variable} ${dmSans.variable}`}>
       <body className="min-h-screen bg-cream text-ink">
+        <CustomCursor />
+        <TitleCycler />
         <SiteHeader />
-        <main className="min-h-[60vh]">{children}</main>
+        <main className="min-h-[60vh]">
+          <PageFade>{children}</PageFade>
+        </main>
         <SiteFooter />
+        <BespokeFloat />
       </body>
     </html>
   );

@@ -61,3 +61,165 @@ h4,
 .divider {
   @apply h-px w-full bg-ink/10;
 }
+
+/* ===== Bee mascot animations ===== */
+@keyframes wingFlap {
+  from {
+    transform: scaleY(1);
+  }
+  to {
+    transform: scaleY(0.5);
+  }
+}
+@keyframes beeFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+@keyframes beeFly {
+  0% {
+    transform: translate(0, 0) rotate(-4deg);
+  }
+  25% {
+    transform: translate(10px, -9px) rotate(4deg);
+  }
+  50% {
+    transform: translate(0, -13px) rotate(-3deg);
+  }
+  75% {
+    transform: translate(-10px, -9px) rotate(3deg);
+  }
+  100% {
+    transform: translate(0, 0) rotate(-4deg);
+  }
+}
+@keyframes beeBounce {
+  0% {
+    transform: translateY(0) scale(1);
+  }
+  30% {
+    transform: translateY(-18px) scale(1.06);
+  }
+  50% {
+    transform: translateY(0) scale(0.97);
+  }
+  70% {
+    transform: translateY(-8px) scale(1.02);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+.bee-wings {
+  transform-origin: 32px 22px;
+  animation: wingFlap 0.22s ease-in-out infinite alternate;
+}
+.bee-anim-floating {
+  animation: beeFloat 3s ease-in-out infinite;
+}
+.bee-anim-loading {
+  animation: beeFly 2.4s ease-in-out infinite;
+}
+.bee-anim-success {
+  animation: beeBounce 0.9s ease;
+}
+
+/* ===== Gold shimmer (light catching gold) ===== */
+@keyframes goldShimmer {
+  0% {
+    background-position: -150% 0;
+  }
+  100% {
+    background-position: 250% 0;
+  }
+}
+.gold-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.gold-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(
+    110deg,
+    transparent 35%,
+    rgba(255, 255, 255, 0.55) 50%,
+    transparent 65%
+  );
+  background-size: 200% 100%;
+  animation: goldShimmer 4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* ===== Floating bespoke button pulse ===== */
+@keyframes bespokePulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(244, 211, 96, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 16px rgba(244, 211, 96, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(244, 211, 96, 0);
+  }
+}
+.bespoke-pulse {
+  animation: bespokePulse 5s ease-out infinite;
+}
+
+/* ===== Custom gold cursor (desktop only) ===== */
+.custom-cursor {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 14px;
+  height: 14px;
+  border-radius: 9999px;
+  background: #f4d360;
+  opacity: 0.7;
+  pointer-events: none;
+  z-index: 9999;
+  will-change: transform;
+  mix-blend-mode: multiply;
+}
+@media (pointer: coarse) {
+  .custom-cursor {
+    display: none;
+  }
+}
+
+/* ===== Nav underline slide ===== */
+.nav-underline {
+  position: relative;
+}
+.nav-underline::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -4px;
+  height: 1px;
+  width: 100%;
+  background-color: currentColor;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.25s ease;
+}
+.nav-underline:hover::after {
+  transform: scaleX(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bee-wings,
+  .bee-anim-floating,
+  .bee-anim-loading,
+  .bee-anim-success,
+  .gold-shimmer::after,
+  .bespoke-pulse {
+    animation: none !important;
+  }
+}

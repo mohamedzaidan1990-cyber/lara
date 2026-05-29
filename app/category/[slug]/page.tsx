@@ -10,6 +10,7 @@ import {
   parseSort
 } from "@/lib/categories";
 import { whatsappRequestLink } from "@/lib/links";
+import { BeeMascot } from "@/components/BeeMascot";
 import CategoryControls from "./CategoryControls";
 
 // Bags & accessories are sourced on demand rather than scraped — these pages
@@ -83,9 +84,12 @@ export default async function CategoryPage({
           </header>
 
           {products.length === 0 ? (
-            <p className="mt-12 rounded border border-ink/10 bg-ink/[0.02] p-8 text-center text-sm text-ink/60">
-              No products in this category yet. Message us on WhatsApp for a custom request.
-            </p>
+            <div className="mt-12 flex flex-col items-center gap-4 rounded border border-ink/10 bg-ink/[0.02] p-12 text-center">
+              <BeeMascot variant="floating" />
+              <p className="text-sm text-ink/60">
+                No products in this category yet. Message us on WhatsApp for a custom request.
+              </p>
+            </div>
           ) : (
             <>
               <div className="mt-10 grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">

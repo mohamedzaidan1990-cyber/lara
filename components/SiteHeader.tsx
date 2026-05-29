@@ -73,17 +73,17 @@ export default function SiteHeader() {
               </div>
             ) : null}
           </div>
-          <Link href="/info" className="hover:text-accent">
+          <Link href="/info" className="nav-underline hover:text-accent">
             How it works
           </Link>
-          <Link href="/bespoke" className="hover:text-accent">
+          <Link href="/bespoke" className="nav-underline hover:text-accent">
             Bespoke
           </Link>
           <a
             href="https://wa.me/96103055491"
             target="_blank"
             rel="noreferrer"
-            className="text-accent hover:opacity-80"
+            className="nav-underline text-accent hover:opacity-80"
           >
             WhatsApp
           </a>
