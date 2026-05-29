@@ -57,6 +57,8 @@ export default function HomeClient({ categories }: Props) {
     <div>
       <HeroSection />
 
+      <ShadeFinderBanner />
+
       <section id="shop" className="mx-auto max-w-7xl px-4 pt-16 sm:px-6 lg:px-8">
         <SearchBar query={query} setQuery={setQuery} onSubmit={runSearch} />
       </section>
@@ -132,6 +134,33 @@ function SearchBar({ query, setQuery, onSubmit }: SearchBarProps) {
           Search
         </button>
       </form>
+    </div>
+  );
+}
+
+function ShadeFinderBanner() {
+  return (
+    <div className="mx-auto mt-12 max-w-7xl px-4 sm:px-6 lg:px-8">
+      <Link
+        href="/shade-finder"
+        className="group flex flex-col items-center justify-between gap-4 overflow-hidden rounded-lg border border-gold/40 p-6 text-center transition-all duration-300 hover:-translate-y-0.5 hover:shadow-soft sm:flex-row sm:text-left"
+        style={{ background: "linear-gradient(110deg, #FAEBB8 0%, #F4D360 55%, #F7E08F 100%)" }}
+      >
+        <div className="flex items-center gap-4">
+          <span className="text-3xl" aria-hidden>
+            🐝
+          </span>
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.28em] text-ink/60">AI Shade Finder</p>
+            <p className="mt-1 font-serif text-xl text-ink sm:text-2xl">
+              Not sure which shade is right for you?
+            </p>
+          </div>
+        </div>
+        <span className="inline-flex items-center gap-2 whitespace-nowrap rounded-full bg-ink px-5 py-2.5 text-xs uppercase tracking-[0.18em] text-cream transition-transform group-hover:scale-[1.03]">
+          Try our Shade Finder →
+        </span>
+      </Link>
     </div>
   );
 }

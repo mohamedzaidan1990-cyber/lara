@@ -173,9 +173,20 @@ export default function OrderFlow({ whish }: Props) {
     }
   }
 
+  const isComplexion = /foundation|concealer|tint|bb cream|cc cream|cushion|complexion/i.test(productDraft.name);
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-10 sm:py-16">
       <OrderStepper current={step} />
+
+      {isComplexion && step < 4 ? (
+        <Link
+          href="/shade-finder"
+          className="mt-6 flex items-center justify-center gap-2 rounded-md border border-gold/50 bg-gold/15 px-4 py-3 text-center text-xs uppercase tracking-[0.18em] text-ink transition-colors hover:bg-gold/25"
+        >
+          Not sure about your shade? Try our Shade Finder 🐝
+        </Link>
+      ) : null}
 
       <div className="mt-12">
         {step === 1 ? (

@@ -73,6 +73,9 @@ export default function SiteHeader() {
               </div>
             ) : null}
           </div>
+          <Link href="/shade-finder" className="nav-underline hover:text-accent">
+            Shade Finder ✨
+          </Link>
           <Link href="/info" className="nav-underline hover:text-accent">
             How it works
           </Link>
@@ -119,7 +122,14 @@ export default function SiteHeader() {
                 </li>
               ))}
             </ul>
-            <div className="mt-3 flex items-center gap-3 border-t border-ink/10 pt-3 text-xs uppercase tracking-[0.18em]">
+            <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-ink/10 pt-3 text-xs uppercase tracking-[0.18em]">
+              <Link
+                href="/shade-finder"
+                onClick={() => setMobileOpen(false)}
+                className="text-ink hover:text-accent"
+              >
+                Shade Finder ✨
+              </Link>
               <Link
                 href="/info"
                 onClick={() => setMobileOpen(false)}
