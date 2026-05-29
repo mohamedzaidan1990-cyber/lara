@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { whatsappRequestLink } from "@/lib/links";
+import BespokeChat from "@/components/BespokeChat";
 
 export const metadata: Metadata = {
   title: "Bespoke Sourcing — Your Personal Shopper in London",
@@ -88,6 +89,21 @@ export default function BespokePage() {
               We typically respond within 2 hours
             </p>
           </div>
+        </div>
+      </section>
+
+      {/* Chat with Béa — embedded AI consultant */}
+      <section className="mx-auto max-w-2xl px-4 py-16 sm:px-6 lg:px-8">
+        <div className="text-center">
+          <p className="text-[11px] uppercase tracking-[0.32em] text-accent">AI consultant</p>
+          <h2 className="mt-2 font-serif text-3xl text-ink sm:text-4xl">Chat with Béa, our AI consultant</h2>
+          <p className="mx-auto mt-3 max-w-xl text-sm text-ink/70">
+            Tell Béa what you&apos;re looking for and she&apos;ll help shape your request — our team follows up on
+            WhatsApp within 2 hours.
+          </p>
+        </div>
+        <div className="mt-8">
+          <BespokeChat embedded />
         </div>
       </section>
 

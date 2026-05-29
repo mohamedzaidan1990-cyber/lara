@@ -5,6 +5,7 @@ export interface WhatsAppOrder {
   product_brand: string;
   product_name: string;
   price_usd: number | string;
+  items?: Array<{ brand: string; name: string; quantity: number }>;
 }
 
 export interface WhatsAppCustomer {
@@ -61,9 +62,13 @@ export async function sendWhatsAppAlert(order: WhatsAppOrder, customer: WhatsApp
     return;
   }
   const from = process.env.TWILIO_WHATSAPP_FROM!;
+  const lines =
+    order.items && order.items.length > 0
+      ? order.items.map((it) => `• ${it.brand} — ${it.name}${it.quantity > 1 ? ` ×${it.quantity}` : ""}`).join("\n")
+      : `${order.product_brand} — ${order.product_name}`;
   const body = `🛍 New order ${order.order_number}
-${order.product_brand} — ${order.product_name}
-${formatUsd(order.price_usd)}
+${lines}
+Total: ${formatUsd(order.price_usd)}
 Customer: ${customer.full_name}
 Phone: ${customer.phone}
 Address: ${customer.address}`;
@@ -76,6 +81,37 @@ Address: ${customer.address}`;
     });
   } catch (err) {
     console.error("[whatsapp] sendWhatsAppAlert failed", err);
+  }
+}
+
+// Notify the team of a new AI bespoke consultation request.
+export async function sendBespokeAlert(customerWhatsApp: string | null, summary: string): Promise<void> {
+  const client = getClient();
+  if (!client) {
+    console.warn("[whatsapp] Twilio not configured — skipping bespoke alert");
+    return;
+  }
+  const to = process.env.LARA_WHATSAPP_NUMBER;
+  if (!to) {
+    console.warn("[whatsapp] LARA_WHATSAPP_NUMBER not set — skipping bespoke alert");
+    return;
+  }
+  const from = process.env.TWILIO_WHATSAPP_FROM!;
+  const body = `🐝 New Bespoke Request — Seasons by B
+
+Customer WhatsApp: ${customerWhatsApp || "(not provided)"}
+Time: ${new Date().toISOString()}
+
+What they want:
+${summary}
+
+Full conversation available in admin dashboard.
+Reply to the customer on WhatsApp to follow up.`;
+
+  try {
+    await client.messages.create({ from, to: toWhatsAppAddress(to), body });
+  } catch (err) {
+    console.error("[whatsapp] sendBespokeAlert failed", err);
   }
 }
 

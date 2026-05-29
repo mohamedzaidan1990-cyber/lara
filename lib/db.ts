@@ -60,6 +60,39 @@ export const SCHEMA_STATEMENTS = [
     status text,
     results_count int,
     created_at timestamp default now()
+  )`,
+  // ----- Cart / multi-item orders -----
+  `alter table orders add column if not exists total_usd numeric`,
+  `alter table orders add column if not exists total_gbp numeric`,
+  `alter table orders add column if not exists items_count integer`,
+  // product_name/brand stay populated with a summary for backward compatibility,
+  // but allow null so this never blocks an insert.
+  `alter table orders alter column product_name drop not null`,
+  `alter table orders alter column product_brand drop not null`,
+  `alter table orders alter column price_gbp drop not null`,
+  `alter table orders alter column price_usd drop not null`,
+  `create table if not exists order_items (
+    id uuid default gen_random_uuid() primary key,
+    order_id uuid references orders(id),
+    product_name text not null,
+    product_brand text not null,
+    product_url text,
+    image_url text,
+    price_gbp numeric not null,
+    price_usd numeric not null,
+    quantity integer default 1,
+    created_at timestamp default now()
+  )`,
+  `create index if not exists order_items_order_id_idx on order_items (order_id)`,
+  // ----- Bespoke consultation requests (AI chat) -----
+  `create table if not exists bespoke_requests (
+    id uuid default gen_random_uuid() primary key,
+    session_id text not null,
+    customer_whatsapp text,
+    conversation_summary text not null,
+    full_conversation jsonb,
+    status text default 'new',
+    created_at timestamp default now()
   )`
 ];
 
@@ -127,12 +160,25 @@ export interface OrderRow {
   notes: string | null;
   created_at: string;
   updated_at: string;
+  total_usd?: string | number | null;
+  total_gbp?: string | number | null;
+  items_count?: number | null;
+}
+
+export interface OrderLineItem {
+  brand: string;
+  name: string;
+  quantity: number;
+  price_usd: string | number;
+  price_gbp: string | number;
+  product_url: string | null;
 }
 
 export interface OrderWithCustomer extends OrderRow {
   full_name: string;
   phone: string;
   address: string;
+  items?: OrderLineItem[];
 }
 
 export interface ProductRow {
@@ -151,4 +197,30 @@ export interface ProductRow {
 export function generateOrderNumber(): string {
   const digits = Math.floor(100000 + Math.random() * 900000);
   return `LARA-${digits}`;
+}
+
+export interface OrderItemRow {
+  id: string;
+  order_id: string;
+  product_name: string;
+  product_brand: string;
+  product_url: string | null;
+  image_url: string | null;
+  price_gbp: string | number;
+  price_usd: string | number;
+  quantity: number;
+}
+
+export type BespokeStatus = "new" | "contacted" | "fulfilled" | "declined";
+
+export const BESPOKE_STATUSES: BespokeStatus[] = ["new", "contacted", "fulfilled", "declined"];
+
+export interface BespokeRequestRow {
+  id: string;
+  session_id: string;
+  customer_whatsapp: string | null;
+  conversation_summary: string;
+  full_conversation: Array<{ role: string; content: string }> | null;
+  status: BespokeStatus;
+  created_at: string;
 }

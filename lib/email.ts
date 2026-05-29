@@ -9,6 +9,13 @@ const COLOR_INK_MUTED = "#5A6168";
 const COLOR_GOLD = "#F4D360";
 const COLOR_ACCENT = "#C0392B";
 
+export interface EmailOrderItem {
+  brand: string;
+  name: string;
+  price_usd: number | string;
+  quantity: number;
+}
+
 export interface EmailOrder {
   order_number: string;
   product_brand: string;
@@ -18,6 +25,8 @@ export interface EmailOrder {
   price_gbp?: number | string;
   payment_method?: string | null;
   notes?: string | null;
+  // When present, the order is a multi-item cart order.
+  items?: EmailOrderItem[];
 }
 
 export interface EmailCustomer {
@@ -162,13 +171,33 @@ function ctaButton(href: string, label: string, variant: "gold" | "accent" = "go
   return `<a class="cta" href="${href}" style="display:inline-block;background-color:${bg};color:${fg};text-decoration:none;padding:14px 28px;font-size:13px;text-transform:uppercase;letter-spacing:3px;font-weight:600;border:1px solid ${bg};">${label}</a>`;
 }
 
+function itemsList(items: EmailOrderItem[]): string {
+  return items
+    .map(
+      (it) =>
+        `<div style="display:flex;justify-content:space-between;font-family:Georgia,'Times New Roman',serif;font-size:15px;color:${COLOR_INK};margin-top:8px;">
+          <span>${it.brand} — ${it.name}${it.quantity > 1 ? ` ×${it.quantity}` : ""}</span>
+          <span style="white-space:nowrap;padding-left:12px;">${formatUsd(Number(it.price_usd) * it.quantity)}</span>
+        </div>`
+    )
+    .join("");
+}
+
 function orderCard(order: EmailOrder): string {
+  const body =
+    order.items && order.items.length > 0
+      ? `${itemsList(order.items)}
+    <div style="border-top:1px solid rgba(35,39,42,0.12);margin-top:14px;padding-top:12px;" class="price-big">
+      <span style="font-size:13px;text-transform:uppercase;letter-spacing:2px;color:${COLOR_INK_MUTED};">Total</span>
+      <span style="font-family:Georgia,'Times New Roman',serif;font-size:24px;color:${COLOR_INK};font-weight:700;float:right;">${formatUsd(order.price_usd)}</span>
+    </div>`
+      : `<div style="font-family:Georgia,'Times New Roman',serif;font-size:20px;color:${COLOR_INK};margin-top:10px;">${order.product_brand} — ${order.product_name}</div>
+    <div class="price-big" style="font-family:Georgia,'Times New Roman',serif;font-size:26px;color:${COLOR_INK};margin-top:10px;font-weight:700;">${formatUsd(order.price_usd)}</div>`;
   return `<table role="presentation" class="stack-block" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid rgba(35,39,42,0.08);background-color:${COLOR_CREAM};margin-top:24px;">
   <tr><td style="padding:22px;">
     <div class="order-number" style="font-family:Georgia,'Times New Roman',serif;font-size:18px;color:${COLOR_INK};letter-spacing:1px;font-weight:700;">Order ${order.order_number}</div>
-    <div style="font-family:Georgia,'Times New Roman',serif;font-size:20px;color:${COLOR_INK};margin-top:10px;">${order.product_brand} — ${order.product_name}</div>
-    <div class="price-big" style="font-family:Georgia,'Times New Roman',serif;font-size:26px;color:${COLOR_INK};margin-top:10px;font-weight:700;">${formatUsd(order.price_usd)}</div>
-    <div style="font-size:13px;color:${COLOR_INK_MUTED};margin-top:8px;">Payment method: ${paymentMethodLabel(order.payment_method)}</div>
+    ${body}
+    <div style="font-size:13px;color:${COLOR_INK_MUTED};margin-top:12px;">Payment method: ${paymentMethodLabel(order.payment_method)}</div>
   </td></tr>
 </table>`;
 }
@@ -325,9 +354,13 @@ export async function sendOrderNotification(order: EmailOrder, customer: EmailCu
 
     <table role="presentation" class="stack-block" width="100%" cellspacing="0" cellpadding="0" border="0" style="font-size:14px;line-height:1.8;color:${COLOR_INK};border:1px solid rgba(35,39,42,0.08);background-color:${COLOR_CREAM};margin-top:16px;">
       <tr><td style="padding:22px;">
-        <div style="font-size:11px;text-transform:uppercase;letter-spacing:3px;color:${COLOR_INK_MUTED};margin-bottom:8px;">Product</div>
-        <strong>${order.product_brand} — ${order.product_name}</strong><br />
-        Price: ${priceLabel}${order.price_gbp ? ` (£${order.price_gbp} GBP)` : ""}<br />
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:3px;color:${COLOR_INK_MUTED};margin-bottom:8px;">${order.items && order.items.length > 0 ? "Items" : "Product"}</div>
+        ${
+          order.items && order.items.length > 0
+            ? order.items.map((it) => `<div>${it.brand} — ${it.name}${it.quantity > 1 ? ` ×${it.quantity}` : ""} · ${formatUsd(Number(it.price_usd) * it.quantity)}</div>`).join("")
+            : `<strong>${order.product_brand} — ${order.product_name}</strong>`
+        }<br />
+        Total: ${priceLabel}${order.price_gbp ? ` (£${order.price_gbp} GBP)` : ""}<br />
         Payment method: ${paymentMethodLabel(order.payment_method)}<br />
         ${order.product_url ? `<div style="margin-top:8px;">Source: <a href="${order.product_url}" style="color:${COLOR_ACCENT};word-break:break-all;">${order.product_url}</a></div>` : ""}
         ${order.notes ? `<div style="margin-top:8px;">Notes: ${order.notes}</div>` : ""}

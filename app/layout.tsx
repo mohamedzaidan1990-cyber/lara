@@ -2,7 +2,8 @@ import type { Metadata, Viewport } from "next";
 import { DM_Sans, Playfair_Display } from "next/font/google";
 import Link from "next/link";
 import SiteHeader from "@/components/SiteHeader";
-import BespokeFloat from "@/components/BespokeFloat";
+import CartSidebar from "@/components/CartSidebar";
+import BespokeChat from "@/components/BespokeChat";
 import CustomCursor from "@/components/CustomCursor";
 import TitleCycler from "@/components/TitleCycler";
 import PageFade from "@/components/PageFade";
@@ -92,7 +93,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <PageFade>{children}</PageFade>
         </main>
         <SiteFooter />
-        <BespokeFloat />
+        <CartSidebar />
+        <BespokeChat />
       </body>
     </html>
   );

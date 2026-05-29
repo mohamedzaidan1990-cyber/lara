@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { productImageSrc } from "@/lib/images";
 import { BeeSvg } from "./BeeMascot";
+import { useCart } from "@/lib/cart";
 
 export interface ProductCardData {
   brand: string;
@@ -14,6 +15,7 @@ export interface ProductCardData {
   deliverable_lebanon: boolean;
   product_url: string;
   image_url: string;
+  category?: string;
 }
 
 interface Props {
@@ -49,8 +51,11 @@ function ImageFallback({ brand, name }: { brand: string; name: string }) {
 
 export default function ProductCard({ product, index = 0 }: Props) {
   const [imgFailed, setImgFailed] = useState(false);
+  const [added, setAdded] = useState(false);
+  const addItem = useCart((s) => s.addItem);
+  const openCart = useCart((s) => s.openCart);
 
-  const orderHref =
+  const detailHref =
     "/order?" +
     new URLSearchParams({
       brand: product.brand,
@@ -62,6 +67,21 @@ export default function ProductCard({ product, index = 0 }: Props) {
   const imgSrc = productImageSrc(product.image_url);
   const showImage = Boolean(imgSrc) && !imgFailed;
 
+  function addToCart() {
+    addItem({
+      id: product.product_url || `${product.brand}|${product.name}`,
+      brand: product.brand,
+      name: product.name,
+      price_usd: product.price_usd,
+      price_gbp: product.price_gbp,
+      image_url: product.image_url,
+      product_url: product.product_url,
+      category: product.category ?? ""
+    });
+    setAdded(true);
+    setTimeout(() => setAdded(false), 1600);
+  }
+
   return (
     <motion.article
       className="group flex flex-col"
@@ -71,7 +91,7 @@ export default function ProductCard({ product, index = 0 }: Props) {
       transition={{ duration: 0.45, delay: Math.min(index, 8) * 0.05, ease: [0.22, 1, 0.36, 1] }}
       whileHover={{ y: -4 }}
     >
-      <div className="relative aspect-[3/4] w-full overflow-hidden bg-ink/[0.03] transition-shadow duration-300 group-hover:shadow-soft">
+      <Link href={detailHref} className="relative block aspect-[3/4] w-full overflow-hidden bg-ink/[0.03] transition-shadow duration-300 group-hover:shadow-soft">
         {showImage ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -102,17 +122,44 @@ export default function ProductCard({ product, index = 0 }: Props) {
             </>
           )}
         </span>
-      </div>
+
+        {/* Added-to-cart confirmation */}
+        <AnimatePresence>
+          {added ? (
+            <motion.div
+              className="absolute inset-0 flex flex-col items-center justify-center gap-2"
+              style={{ backgroundColor: "rgba(255,253,245,0.82)" }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <span className="bee-anim-success inline-block">
+                <BeeSvg size={48} />
+              </span>
+              <span className="font-serif text-lg text-ink">Added! 🐝</span>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
+      </Link>
 
       <div className="mt-4 flex flex-1 flex-col">
         <p className="text-[11px] uppercase tracking-[0.24em] text-ink/60">{product.brand}</p>
-        <p className="mt-1 line-clamp-2 text-sm text-ink">{product.name}</p>
+        <Link href={detailHref} className="mt-1 line-clamp-2 text-sm text-ink hover:text-accent">
+          {product.name}
+        </Link>
         <p className="mt-3 font-serif text-lg text-ink">{formatUsd(product.price_usd)}</p>
 
-        <div className="mt-4 flex items-center gap-3">
-          <Link href={orderHref} className="btn-primary flex-1 text-center transition-transform hover:scale-[1.02]">
-            Order now
-          </Link>
+        <div className="mt-4">
+          <button
+            type="button"
+            onClick={() => {
+              addToCart();
+              openCart();
+            }}
+            className="btn-primary w-full justify-center transition-transform hover:scale-[1.02]"
+          >
+            Add to Cart
+          </button>
         </div>
       </div>
     </motion.article>

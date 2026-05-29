@@ -131,7 +131,25 @@ export default function AdminOrderRow({ order, onUpdated }: Props) {
                 </p>
               </div>
               <div>
-                <p className="text-[10px] uppercase tracking-[0.2em] text-ink/60">Product link</p>
+                {local.items && local.items.length > 0 ? (
+                  <>
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-ink/60">Items ({local.items.length})</p>
+                    <ul className="mt-2 space-y-1 text-sm text-ink">
+                      {local.items.map((it, i) => (
+                        <li key={i} className="flex justify-between gap-3">
+                          <span>
+                            <span className="text-ink/60">{it.brand}</span> {it.name}
+                            {it.quantity > 1 ? <span className="text-ink/50"> ×{it.quantity}</span> : null}
+                          </span>
+                          <span className="whitespace-nowrap">{formatUsd(Number(it.price_usd) * it.quantity)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="mt-4 text-[10px] uppercase tracking-[0.2em] text-ink/60">Product link</p>
+                  </>
+                ) : (
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-ink/60">Product link</p>
+                )}
                 {local.product_url ? (
                   <a
                     href={local.product_url}

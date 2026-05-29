@@ -2,7 +2,35 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { ShoppingBag } from "lucide-react";
 import { CATEGORY_DEFS } from "@/lib/categories";
+import { useCart } from "@/lib/cart";
+
+function CartButton({ className = "" }: { className?: string }) {
+  const [mounted, setMounted] = useState(false);
+  const count = useCart((s) => s.items.reduce((n, i) => n + i.quantity, 0));
+  const openCart = useCart((s) => s.openCart);
+  useEffect(() => setMounted(true), []);
+
+  return (
+    <button
+      type="button"
+      onClick={openCart}
+      aria-label={`Open cart${mounted && count > 0 ? `, ${count} items` : ""}`}
+      className={"relative inline-flex h-9 w-9 items-center justify-center text-ink hover:text-accent " + className}
+    >
+      <ShoppingBag className="h-5 w-5" />
+      {mounted && count > 0 ? (
+        <span
+          className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold text-ink"
+          style={{ backgroundColor: "#F4D360" }}
+        >
+          {count}
+        </span>
+      ) : null}
+    </button>
+  );
+}
 
 export default function SiteHeader() {
   const [shopOpen, setShopOpen] = useState(false);
@@ -90,19 +118,23 @@ export default function SiteHeader() {
           >
             WhatsApp
           </a>
+          <CartButton />
         </nav>
 
-        {/* Mobile menu toggle */}
-        <button
-          type="button"
-          aria-label="Open menu"
-          aria-expanded={mobileOpen}
-          onClick={() => setMobileOpen((v) => !v)}
-          className="inline-flex h-9 w-9 items-center justify-center border border-ink/15 text-ink sm:hidden"
-        >
-          <span className="sr-only">Menu</span>
-          {mobileOpen ? "✕" : "≡"}
-        </button>
+        {/* Mobile: cart + menu toggle */}
+        <div className="flex items-center gap-2 sm:hidden">
+          <CartButton />
+          <button
+            type="button"
+            aria-label="Open menu"
+            aria-expanded={mobileOpen}
+            onClick={() => setMobileOpen((v) => !v)}
+            className="inline-flex h-9 w-9 items-center justify-center border border-ink/15 text-ink"
+          >
+            <span className="sr-only">Menu</span>
+            {mobileOpen ? "✕" : "≡"}
+          </button>
+        </div>
       </div>
 
       {mobileOpen ? (
