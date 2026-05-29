@@ -179,8 +179,7 @@ async function bespokeRecommendations(input: ShadeFinderInput): Promise<BespokeR
       body: JSON.stringify({
         model,
         max_tokens: 1024,
-        // Static system prompt → cache it across requests for cheaper calls.
-        system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
+        system: SYSTEM_PROMPT,
         messages: [{ role: "user", content: userPrompt(input) }]
       }),
       signal: AbortSignal.timeout(20000)
