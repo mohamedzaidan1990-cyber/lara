@@ -1,49 +1,38 @@
-import { chromium } from "playwright-extra";
-import StealthPlugin from "puppeteer-extra-plugin-stealth";
-import type { Browser, BrowserContext, Page } from "playwright-core";
+import { fetch as undiciFetch, ProxyAgent } from "undici";
 import type { ScrapedProductRow } from "./db";
 import { convertGbpToUsd } from "./currency";
 
-// Register the stealth plugin once, at module load. The plugin's type comes
-// from the puppeteer-extra ecosystem and isn't structurally identical to
-// playwright-extra's expected plugin type, so we cast.
-chromium.use(StealthPlugin() as never);
+// =============================================================================
+// API-based scraper (no Playwright).
+//
+// Selfridges' Playwright/HTML scraping is reliably blocked even behind
+// residential proxies. Instead we hit JSON product APIs with plain `fetch`,
+// which is far cheaper to run and much harder for the retailer to fingerprint.
+//
+// Strategy, per category:
+//   1. Try Selfridges' own product APIs (several undocumented URL shapes).
+//   2. Fall back to Space NK's API (carries the same luxury beauty brands).
+//   3. Fall back to Cult Beauty's API (also identical brands).
+// The first endpoint that returns parseable product JSON wins; we then page
+// through that same endpoint shape. Source is irrelevant to customers — every
+// product is fulfilled through the personal-shopping service.
+//
+// All prices are GBP (UK storefronts), converted to USD via currency.ts.
+// =============================================================================
 
-const USER_AGENTS = [
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.3 Safari/605.1.15"
-];
-
-const LAUNCH_ARGS = [
-  "--no-sandbox",
-  "--disable-setuid-sandbox",
-  "--disable-dev-shm-usage",
-  "--disable-blink-features=AutomationControlled",
-  "--disable-features=IsolateOrigins,site-per-process",
-  "--flag-switches-begin",
-  "--disable-site-isolation-trials",
-  "--flag-switches-end"
-];
-
-const EXTRA_HEADERS: Record<string, string> = {
-  Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-  "Accept-Language": "en-GB,en;q=0.9",
-  "Accept-Encoding": "gzip, deflate, br",
-  "Cache-Control": "no-cache",
-  Pragma: "no-cache",
-  DNT: "1"
-};
-
-// Selfridges category slugs mapped to our internal category names.
-const SELFRIDGES_SLUGS: Record<string, string> = {
-  Makeup: "make-up",
-  Skincare: "skincare",
-  Bags: "bags-purses",
-  Haircare: "hair",
-  Accessories: "accessories",
-  "Beauty tools": "beauty-tools-and-accessories"
-};
+// ---------- Proxy dispatcher (same pattern as lib/selfridges-import.ts) ----------
+let cachedDispatcher: ProxyAgent | null = null;
+function getDispatcher(): ProxyAgent | undefined {
+  const url = process.env.PROXY_URL;
+  if (!url) return undefined;
+  if (!cachedDispatcher) {
+    cachedDispatcher = new ProxyAgent(url);
+    // Mask credentials so they never land in Railway logs.
+    const safe = url.replace(/(\/\/[^:@/]+):[^@]+@/, "$1:***@");
+    console.log(`[scraper] using proxy ${safe}`);
+  }
+  return cachedDispatcher;
+}
 
 export const SCRAPE_CATEGORIES = [
   "Makeup",
@@ -55,406 +44,395 @@ export const SCRAPE_CATEGORIES = [
 ] as const;
 
 const PAGES_PER_CATEGORY = 5;
-const PRODUCTS_PER_PAGE = 60;
+const PAGE_SIZE = 60;
 
-const BEAUTY_CATEGORIES = new Set(["Makeup", "Skincare", "Haircare", "Beauty tools"]);
+// ---------- Per-source category slugs ----------
+const SELFRIDGES_SLUGS: Record<string, string> = {
+  Makeup: "make-up",
+  Skincare: "skincare",
+  Bags: "bags-purses",
+  Haircare: "hair",
+  Accessories: "accessories",
+  "Beauty tools": "beauty-tools-and-accessories"
+};
 
-interface RawCard {
+const SPACENK_SLUGS: Record<string, string> = {
+  Makeup: "makeup",
+  Skincare: "skincare",
+  Haircare: "hair",
+  "Beauty tools": "tools-brushes"
+};
+
+const CULTBEAUTY_SLUGS: Record<string, string> = {
+  Makeup: "makeup",
+  Skincare: "skincare",
+  Haircare: "hair",
+  "Beauty tools": "tools-accessories"
+};
+
+// A common, realistic desktop UA. A fuller string blends in better than the
+// truncated one — bot filters flag obviously-trimmed UAs.
+const USER_AGENT =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
+
+function headersFor(referer: string): Record<string, string> {
+  return {
+    "User-Agent": USER_AGENT,
+    Accept: "application/json, text/plain, */*",
+    "Accept-Language": "en-GB,en;q=0.9",
+    Referer: referer,
+    "x-requested-with": "XMLHttpRequest"
+  };
+}
+
+// ---------- Endpoint templates ----------
+// Each template knows how to build a URL for a given (1-based) page number,
+// which headers to send, and the origin used to resolve relative product/image
+// URLs found in the response.
+interface EndpointTemplate {
+  label: string;
+  origin: string;
+  headers: Record<string, string>;
+  build: (page: number) => string;
+}
+
+function selfridgesTemplates(categoryName: string): EndpointTemplate[] {
+  const slug = SELFRIDGES_SLUGS[categoryName];
+  if (!slug) return [];
+  const origin = "https://www.selfridges.com";
+  const headers = headersFor(`https://www.selfridges.com/GB/en/cat/${slug}/`);
+  return [
+    {
+      label: `Selfridges[cms?country] ${categoryName}`,
+      origin,
+      headers,
+      build: (page) =>
+        `${origin}/api/cms/products/query?page=${page}&pageSize=${PAGE_SIZE}&category=${slug}&country=GB&lang=en`
+    },
+    {
+      label: `Selfridges[cms] ${categoryName}`,
+      origin,
+      headers,
+      build: (page) => `${origin}/api/cms/products/query?page=${page}&pageSize=${PAGE_SIZE}&category=${slug}`
+    },
+    {
+      label: `Selfridges[product/v1] ${categoryName}`,
+      origin,
+      headers,
+      build: (page) => `${origin}/api/product/v1/categories/${slug}/products?page=${page}&pageSize=${PAGE_SIZE}`
+    },
+    {
+      label: `Selfridges[features/api] ${categoryName}`,
+      origin,
+      headers,
+      build: (page) => `${origin}/GB/en/features/api/products?cat=${slug}&pageSize=${PAGE_SIZE}&page=${page}`
+    }
+  ];
+}
+
+function spacenkTemplates(categoryName: string): EndpointTemplate[] {
+  const slug = SPACENK_SLUGS[categoryName];
+  if (!slug) return [];
+  const origin = "https://www.spacenk.com";
+  const headers = headersFor(`https://www.spacenk.com/uk/${slug}`);
+  return [
+    {
+      label: `Space NK[api] ${categoryName}`,
+      origin,
+      headers,
+      build: (page) => `${origin}/uk/api/products?category=${slug}&page=${page}&pageSize=${PAGE_SIZE}`
+    },
+    {
+      label: `Space NK[demandware] ${categoryName}`,
+      origin,
+      headers,
+      build: (page) =>
+        `${origin}/on/demandware.store/Sites-SN-UK-Site/en_GB/Search-ProductGrid?cgid=${slug}&sz=${PAGE_SIZE}&start=${
+          (page - 1) * PAGE_SIZE
+        }`
+    }
+  ];
+}
+
+function cultbeautyTemplates(categoryName: string): EndpointTemplate[] {
+  const slug = CULTBEAUTY_SLUGS[categoryName];
+  if (!slug) return [];
+  const origin = "https://www.cultbeauty.co.uk";
+  const headers = headersFor(`https://www.cultbeauty.co.uk/${slug}.list`);
+  return [
+    {
+      label: `Cult Beauty[api] ${categoryName}`,
+      origin,
+      headers,
+      build: (page) => `${origin}/api/products?category=${slug}&page=${page}`
+    }
+  ];
+}
+
+// Selfridges first, then Space NK, then Cult Beauty.
+function candidateEndpoints(categoryName: string): EndpointTemplate[] {
+  return [
+    ...selfridgesTemplates(categoryName),
+    ...spacenkTemplates(categoryName),
+    ...cultbeautyTemplates(categoryName)
+  ];
+}
+
+// ---------- Generic JSON product extraction ----------
+// The exact response shapes are undocumented and differ per source, so rather
+// than hard-coding field paths we walk the JSON and pull out any object that
+// looks like a product (has both a name and a price). This makes the parser
+// resilient to the wrapper shape changing.
+interface RawProduct {
   brand: string;
   name: string;
-  priceText: string;
-  href: string;
-  img: string;
+  priceGbp: number;
+  image_url: string;
+  product_url: string;
 }
 
-function randomInt(min: number, max: number): number {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
-}
+const NAME_KEYS = ["name", "title", "productname", "displayname", "productdisplayname", "shortdescription", "label"];
+const BRAND_KEYS = ["brand", "brandname", "designer", "designername", "manufacturer", "marque"];
+const PRICE_KEYS = [
+  "price",
+  "saleprice",
+  "currentprice",
+  "nowprice",
+  "sellingprice",
+  "finalprice",
+  "amount",
+  "value",
+  "price_gbp",
+  "pricegbp"
+];
+const IMAGE_KEYS = ["image", "imageurl", "img", "thumbnail", "thumbnailurl", "mainimage", "primaryimage", "media", "imagesrc"];
+const URL_KEYS = ["url", "producturl", "href", "link", "seourl", "canonicalurl", "pdpurl", "slug"];
 
-function randomDelay(min = 2000, max = 5000): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, randomInt(min, max)));
-}
-
-function randomUA(): string {
-  return USER_AGENTS[randomInt(0, USER_AGENTS.length - 1)];
-}
-
-function randomViewport(): { width: number; height: number } {
-  return { width: randomInt(1280, 1920), height: randomInt(800, 1080) };
-}
-
-function parsePriceGbp(text: string): number | null {
-  const m = text.replace(/[, ]/g, (c) => (c === "," ? "" : c)).match(/£?\s?([\d]+(?:\.\d{1,2})?)/);
-  if (!m) return null;
-  const n = Number(m[1]);
-  return Number.isFinite(n) && n > 0 ? n : null;
-}
-
-function isFragrance(text: string): boolean {
-  const lower = text.toLowerCase();
-  return (
-    lower.includes("eau de parfum") ||
-    lower.includes("eau de toilette") ||
-    lower.includes("fragrance") ||
-    lower.includes("parfum") ||
-    lower.includes("perfume") ||
-    lower.includes("cologne")
-  );
-}
-
-function inferBeautyCategory(text: string, fallback: string): string {
-  const lower = text.toLowerCase();
-  if (
-    lower.includes("hair dryer") ||
-    lower.includes("straightener") ||
-    lower.includes("airwrap") ||
-    lower.includes("curling") ||
-    lower.includes("brush set") ||
-    lower.includes("makeup brush") ||
-    lower.includes("massage gun") ||
-    lower.includes("tweezer") ||
-    lower.includes("microcurrent") ||
-    lower.includes("device")
-  ) {
-    return "Beauty tools";
+// Case-insensitive own-key lookup.
+function getProp(obj: Record<string, unknown>, keys: string[]): unknown {
+  const lowerMap: Record<string, unknown> = {};
+  for (const k of Object.keys(obj)) lowerMap[k.toLowerCase()] = obj[k];
+  for (const k of keys) {
+    if (k in lowerMap && lowerMap[k] !== null && lowerMap[k] !== undefined) return lowerMap[k];
   }
-  if (
-    lower.includes("shampoo") ||
-    lower.includes("conditioner") ||
-    lower.includes("hair oil") ||
-    lower.includes("hair mask") ||
-    lower.includes("haircare")
-  ) {
-    return "Haircare";
-  }
-  if (
-    lower.includes("foundation") ||
-    lower.includes("concealer") ||
-    lower.includes("lipstick") ||
-    lower.includes("mascara") ||
-    lower.includes("eyeshadow") ||
-    lower.includes("blush") ||
-    lower.includes("makeup")
-  ) {
-    return "Makeup";
-  }
-  if (
-    lower.includes("serum") ||
-    lower.includes("cream") ||
-    lower.includes("moistur") ||
-    lower.includes("cleanser") ||
-    lower.includes("toner") ||
-    lower.includes("skincare")
-  ) {
-    return "Skincare";
-  }
-  return fallback;
+  return undefined;
 }
 
-async function newStealthPage(browser: Browser): Promise<{ context: BrowserContext; page: Page }> {
-  const context = await browser.newContext({
-    userAgent: randomUA(),
-    viewport: randomViewport(),
-    locale: "en-GB",
-    timezoneId: "Europe/London",
-    extraHTTPHeaders: EXTRA_HEADERS
-  });
-  const page = await context.newPage();
-  return { context, page };
+function asString(v: unknown): string {
+  return typeof v === "string" ? v.trim() : "";
 }
 
-// Realistic mouse movement + natural scrolling to look human before extracting.
-async function humanize(page: Page): Promise<void> {
-  try {
-    for (let i = 0; i < 3; i += 1) {
-      await page.mouse.move(randomInt(100, 1200), randomInt(100, 700), { steps: randomInt(5, 15) });
-      await randomDelay(200, 600);
+function pickName(obj: Record<string, unknown>): string {
+  const v = getProp(obj, NAME_KEYS);
+  return asString(v).slice(0, 200);
+}
+
+function pickBrand(obj: Record<string, unknown>): string {
+  const v = getProp(obj, BRAND_KEYS);
+  if (typeof v === "string") return v.trim();
+  if (v && typeof v === "object") {
+    const bn = getProp(v as Record<string, unknown>, ["name", "label", "title"]);
+    if (typeof bn === "string") return bn.trim();
+  }
+  return "";
+}
+
+// Pulls a positive number out of a value that might be a number, a numeric
+// string ("£42.00", "42"), or a nested object like {value: 42}/{amount: 42}.
+function coerceNumber(v: unknown, depth = 0): number | null {
+  if (typeof v === "number") return Number.isFinite(v) && v > 0 ? v : null;
+  if (typeof v === "string") {
+    const m = v.replace(/,/g, "").match(/([\d]+(?:\.\d{1,2})?)/);
+    if (!m) return null;
+    const n = Number(m[1]);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }
+  if (v && typeof v === "object" && depth < 2) {
+    const inner = getProp(v as Record<string, unknown>, ["value", "amount", "gbp", "now", "current", "min"]);
+    if (inner !== undefined) return coerceNumber(inner, depth + 1);
+  }
+  return null;
+}
+
+function pickPrice(obj: Record<string, unknown>): number | null {
+  for (const key of PRICE_KEYS) {
+    const v = getProp(obj, [key]);
+    if (v === undefined) continue;
+    const n = coerceNumber(v);
+    if (n !== null) return n;
+  }
+  return null;
+}
+
+function pickImage(obj: Record<string, unknown>): string {
+  const v = getProp(obj, IMAGE_KEYS);
+  if (typeof v === "string") return v.trim();
+  if (Array.isArray(v) && v.length > 0) {
+    const first = v[0];
+    if (typeof first === "string") return first.trim();
+    if (first && typeof first === "object") {
+      const u = getProp(first as Record<string, unknown>, ["url", "src", "href"]);
+      if (typeof u === "string") return u.trim();
     }
-    const steps = randomInt(4, 7);
-    for (let i = 0; i < steps; i += 1) {
-      await page.mouse.wheel(0, randomInt(500, 900));
-      await randomDelay(400, 1000);
-    }
-    // settle back near the top
-    await page.mouse.wheel(0, -randomInt(800, 1500));
-    await randomDelay(400, 800);
-  } catch {
-    // movement failures are non-fatal
   }
-}
-
-// Generic listing-page card extractor. `linkIncludes` narrows which anchors
-// count as product links for the target site.
-async function extractCards(page: Page, linkIncludes: string, max: number): Promise<RawCard[]> {
-  return page.evaluate(
-    ({ linkIncludes, max }) => {
-      const out: Array<{ brand: string; name: string; priceText: string; href: string; img: string }> = [];
-      const seen = new Set<string>();
-      const priceRe = /£\s?[\d,]+(?:\.\d{1,2})?/;
-      const nodes = document.querySelectorAll("article, li, div");
-      nodes.forEach((node) => {
-        const link = node.querySelector(`a[href*="${linkIncludes}"]`) as HTMLAnchorElement | null;
-        if (!link) return;
-        const href = link.href;
-        if (!href || seen.has(href)) return;
-
-        const brandEl = node.querySelector('[class*="brand" i], [data-testid*="brand" i]');
-        const nameEl = node.querySelector(
-          '[class*="name" i], [data-testid*="name" i], [class*="title" i], [class*="description" i]'
-        );
-        const priceEl = node.querySelector('[class*="price" i], [data-testid*="price" i]');
-        const img = node.querySelector("img") as HTMLImageElement | null;
-
-        const brand = (brandEl?.textContent ?? "").trim();
-        let name = (nameEl?.textContent ?? link.textContent ?? "").trim();
-        let priceText = (priceEl?.textContent ?? "").trim();
-
-        // Fall back to scanning the node's text for a £ price.
-        if (!priceText) {
-          const m = (node.textContent ?? "").match(priceRe);
-          if (m) priceText = m[0];
-        }
-        if (!priceText) return;
-        if (!name) return;
-        // Trim absurdly long captured text.
-        if (name.length > 160) name = name.slice(0, 160).trim();
-
-        const imgSrc = img?.getAttribute("src") || img?.getAttribute("data-src") || "";
-        seen.add(href);
-        out.push({ brand, name, priceText, href, img: imgSrc });
-      });
-      return out.slice(0, max);
-    },
-    { linkIncludes, max }
-  );
-}
-
-async function loadListing(page: Page, url: string, waitSelector?: string): Promise<boolean> {
-  try {
-    // 90s timeout — proxied requests through residential IPs can be slow.
-    // networkidle waits for the page to fully settle (incl. lazy product tiles).
-    await page.goto(url, { waitUntil: "networkidle", timeout: 90000 });
-    // Human-like settle pause.
-    await page.waitForTimeout(3000 + Math.random() * 3000);
-    if (waitSelector) {
-      // Best-effort: if the selector never appears we still try to extract.
-      await page.waitForSelector(waitSelector, { timeout: 30000 }).catch(() => {});
-    }
-    await humanize(page);
-    return true;
-  } catch (err) {
-    console.error(`[scraper] failed to load ${url}`, err);
-    return false;
+  if (v && typeof v === "object") {
+    const u = getProp(v as Record<string, unknown>, ["url", "src", "href"]);
+    if (typeof u === "string") return u.trim();
   }
+  return "";
 }
 
-function toRows(
-  cards: RawCard[],
-  categoryName: string,
-  opts: { inferBeauty?: boolean } = {}
-): Promise<ScrapedProductRow[]> {
-  return Promise.all(
-    cards
-      .map((c) => {
-        const priceGbp = parsePriceGbp(c.priceText);
-        if (priceGbp === null) return null;
-        const fullText = `${c.brand} ${c.name}`;
-        const category = opts.inferBeauty ? inferBeautyCategory(fullText, categoryName) : categoryName;
-        return { c, priceGbp, category, fullText };
-      })
-      .filter((x): x is NonNullable<typeof x> => x !== null)
-      .map(async ({ c, priceGbp, category, fullText }) => ({
-        brand: c.brand || "Selfridges",
-        name: c.name,
-        category,
-        price_gbp: priceGbp,
-        price_usd: await convertGbpToUsd(priceGbp),
-        deliverable_lebanon: !isFragrance(fullText),
-        product_url: c.href,
-        image_url: c.img
-      }))
-  );
+function pickUrl(obj: Record<string, unknown>): string {
+  const v = getProp(obj, URL_KEYS);
+  return asString(v);
 }
 
-function dedupeByUrl(rows: ScrapedProductRow[]): ScrapedProductRow[] {
+function resolveUrl(raw: string, origin: string): string {
+  if (!raw) return "";
+  if (raw.startsWith("http://") || raw.startsWith("https://")) return raw;
+  if (raw.startsWith("//")) return `https:${raw}`;
+  if (raw.startsWith("/")) return `${origin}${raw}`;
+  return `${origin}/${raw}`;
+}
+
+// Recursively collect product-like objects from arbitrary JSON.
+function collectProducts(node: unknown, origin: string, out: RawProduct[], depth = 0): void {
+  if (depth > 8 || node === null || typeof node !== "object") return;
+
+  if (Array.isArray(node)) {
+    for (const item of node) collectProducts(item, origin, out, depth + 1);
+    return;
+  }
+
+  const obj = node as Record<string, unknown>;
+  const name = pickName(obj);
+  const priceGbp = pickPrice(obj);
+
+  // Treat as a product only when it has both a name and a usable price.
+  if (name && priceGbp !== null) {
+    const product_url = resolveUrl(pickUrl(obj), origin);
+    const image_url = resolveUrl(pickImage(obj), origin);
+    out.push({ brand: pickBrand(obj), name, priceGbp, image_url, product_url });
+    // Don't descend into a confirmed product node — its children are details.
+    return;
+  }
+
+  for (const key of Object.keys(obj)) collectProducts(obj[key], origin, out, depth + 1);
+}
+
+function dedupeRaw(rows: RawProduct[]): RawProduct[] {
   const seen = new Set<string>();
-  const out: ScrapedProductRow[] = [];
+  const out: RawProduct[] = [];
   for (const r of rows) {
-    if (!r.product_url || seen.has(r.product_url)) continue;
-    seen.add(r.product_url);
+    const key = r.product_url || `${r.brand}|${r.name}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
     out.push(r);
   }
   return out;
 }
 
-// ---------- Primary source: Selfridges category pages ----------
-// Selectors that Selfridges uses for product tiles. Best-effort — the
-// extractor still runs even if none of these appear in the DOM.
-const SELFRIDGES_PRODUCT_SELECTOR = '.product-card, [data-test="product"], .cat-product';
+async function toRows(raws: RawProduct[], categoryName: string, sourceBrand: string): Promise<ScrapedProductRow[]> {
+  return Promise.all(
+    raws.map(async (r) => ({
+      brand: r.brand || sourceBrand,
+      name: r.name,
+      category: categoryName,
+      price_gbp: r.priceGbp,
+      price_usd: await convertGbpToUsd(r.priceGbp),
+      // Every product here is a standard beauty/accessory item — all deliverable.
+      deliverable_lebanon: true,
+      product_url: r.product_url,
+      image_url: r.image_url
+    }))
+  );
+}
 
-async function scrapeSelfridgesCategory(browser: Browser, categoryName: string): Promise<ScrapedProductRow[]> {
-  const slug = SELFRIDGES_SLUGS[categoryName];
-  if (!slug) return [];
+function delay(min: number, max: number): Promise<void> {
+  const ms = Math.floor(Math.random() * (max - min + 1)) + min;
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
-  const { context, page } = await newStealthPage(browser);
-  const collected: ScrapedProductRow[] = [];
-  try {
-    // Warm-up: hit the Selfridges homepage first so we pick up session
-    // cookies and look like a returning visitor before requesting a
-    // listing page. Cookies live on the context, so this benefits every
-    // subsequent page navigation in this run.
+function sourceBrandFor(label: string): string {
+  if (label.startsWith("Space NK")) return "Space NK";
+  if (label.startsWith("Cult Beauty")) return "Cult Beauty";
+  return "Selfridges";
+}
+
+// Page through a single endpoint shape. Logs HTTP status (and the first 500
+// chars of page 1) so it's easy to see in Railway logs which endpoint works.
+async function scrapeEndpoint(tpl: EndpointTemplate, categoryName: string): Promise<ScrapedProductRow[]> {
+  const collected: RawProduct[] = [];
+
+  for (let page = 1; page <= PAGES_PER_CATEGORY; page += 1) {
+    const url = tpl.build(page);
+    let status = 0;
+    let text = "";
     try {
-      console.log(`[scraper] Selfridges warm-up: homepage`);
-      await page.goto("https://www.selfridges.com/GB/en/", { waitUntil: "domcontentloaded", timeout: 60000 });
-      await page.waitForTimeout(2000 + Math.random() * 2000);
+      const res = await undiciFetch(url, {
+        headers: tpl.headers,
+        redirect: "follow",
+        dispatcher: getDispatcher()
+      });
+      status = res.status;
+      text = await res.text();
     } catch (err) {
-      console.warn(`[scraper] homepage warm-up failed — continuing to category pages anyway`, err);
+      console.error(`[scraper] ${tpl.label} page ${page} fetch error: ${(err as Error).message}`);
+      break;
     }
 
-    for (let pge = 1; pge <= PAGES_PER_CATEGORY; pge += 1) {
-      const url = `https://www.selfridges.com/GB/en/cat/${slug}/?pge=${pge}&ppp=${PRODUCTS_PER_PAGE}&sort=relevance`;
-      console.log(`[scraper] Selfridges ${categoryName} page ${pge}: ${url}`);
-      const ok = await loadListing(page, url, SELFRIDGES_PRODUCT_SELECTOR);
-      if (!ok) break;
-
-      const cards = await extractCards(page, "/GB/en/cat/", PRODUCTS_PER_PAGE);
-      if (cards.length === 0) {
-        console.log(`[scraper] Selfridges ${categoryName} page ${pge} → 0 cards (likely blocked or empty)`);
-        // No point paging further if a page yields nothing.
-        break;
-      }
-      const rows = await toRows(cards, categoryName);
-      collected.push(...rows);
-      console.log(`[scraper] Selfridges ${categoryName} page ${pge} → ${rows.length} products`);
-      await randomDelay(2500, 5000);
+    if (page === 1) {
+      const preview = text.slice(0, 500).replace(/\s+/g, " ").trim();
+      console.log(`[scraper] ${tpl.label} page 1 → HTTP ${status}; first 500 chars: ${preview}`);
+    } else {
+      console.log(`[scraper] ${tpl.label} page ${page} → HTTP ${status}`);
     }
-  } finally {
-    await context.close().catch(() => {});
-  }
-  return dedupeByUrl(collected);
-}
 
-// ---------- Fallback sources (weaker bot protection) ----------
-async function scrapeListingSite(
-  browser: Browser,
-  label: string,
-  url: string,
-  linkIncludes: string,
-  categoryName: string,
-  inferBeauty: boolean
-): Promise<ScrapedProductRow[]> {
-  const { context, page } = await newStealthPage(browser);
-  try {
-    console.log(`[scraper] ${label}: ${url}`);
-    const ok = await loadListing(page, url);
-    if (!ok) return [];
-    const cards = await extractCards(page, linkIncludes, PRODUCTS_PER_PAGE);
-    if (cards.length === 0) {
-      console.log(`[scraper] ${label} → 0 cards`);
-      return [];
+    if (status < 200 || status >= 300) break;
+
+    let json: unknown;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      console.log(`[scraper] ${tpl.label} page ${page} → response is not JSON, skipping this endpoint`);
+      break;
     }
-    const rows = await toRows(cards, categoryName, { inferBeauty });
-    console.log(`[scraper] ${label} → ${rows.length} products`);
-    return dedupeByUrl(rows);
-  } finally {
-    await context.close().catch(() => {});
-  }
-}
 
-// Best-effort listing URLs. These retailers change paths over time, so treat
-// these as starting points that may need occasional tuning.
-const SPACENK_PATHS: Record<string, string> = {
-  Makeup: "https://www.spacenk.com/uk/makeup",
-  Skincare: "https://www.spacenk.com/uk/skincare",
-  Haircare: "https://www.spacenk.com/uk/hair",
-  "Beauty tools": "https://www.spacenk.com/uk/tools-brushes"
-};
-
-const CULTBEAUTY_PATHS: Record<string, string> = {
-  Makeup: "https://www.cultbeauty.com/makeup.list",
-  Skincare: "https://www.cultbeauty.com/skincare.list",
-  Haircare: "https://www.cultbeauty.com/hair.list",
-  "Beauty tools": "https://www.cultbeauty.com/tools-accessories.list"
-};
-
-const BROWNS_PATHS: Record<string, string> = {
-  Bags: "https://www.brownsfashion.com/uk/shopping/womens-bags",
-  Accessories: "https://www.brownsfashion.com/uk/shopping/womens-accessories"
-};
-
-async function scrapeFallback(browser: Browser, categoryName: string): Promise<ScrapedProductRow[]> {
-  const collected: ScrapedProductRow[] = [];
-
-  if (BEAUTY_CATEGORIES.has(categoryName)) {
-    const spacenk = SPACENK_PATHS[categoryName];
-    if (spacenk) {
-      const rows = await scrapeListingSite(browser, `Space NK ${categoryName}`, spacenk, "/p/", categoryName, true);
-      collected.push(...rows);
+    const raws: RawProduct[] = [];
+    collectProducts(json, tpl.origin, raws);
+    if (raws.length === 0) {
+      console.log(`[scraper] ${tpl.label} page ${page} → JSON had no product-shaped objects`);
+      break;
     }
-    if (collected.length === 0) {
-      const cult = CULTBEAUTY_PATHS[categoryName];
-      if (cult) {
-        const rows = await scrapeListingSite(
-          browser,
-          `Cult Beauty ${categoryName}`,
-          cult,
-          ".html",
-          categoryName,
-          true
-        );
-        collected.push(...rows);
-      }
-    }
-  } else {
-    // Bags / Accessories → Browns
-    const browns = BROWNS_PATHS[categoryName];
-    if (browns) {
-      const rows = await scrapeListingSite(
-        browser,
-        `Browns ${categoryName}`,
-        browns,
-        "/shopping/",
-        categoryName,
-        false
-      );
-      collected.push(...rows);
-    }
+
+    collected.push(...raws);
+    console.log(`[scraper] ${tpl.label} page ${page} → ${raws.length} products`);
+    await delay(800, 1800);
   }
 
-  return dedupeByUrl(collected);
+  return toRows(dedupeRaw(collected), categoryName, sourceBrandFor(tpl.label));
 }
 
 // ---------- Public entry point ----------
 export async function scrapeCategory(categoryName: string): Promise<ScrapedProductRow[]> {
-  const launchOptions: Record<string, unknown> = {
-    headless: true,
-    args: LAUNCH_ARGS
-  };
-  if (process.env.PROXY_URL) {
-    launchOptions.proxy = { server: process.env.PROXY_URL };
-    // Mask the password so credentials don't show up in Railway logs.
-    const safe = process.env.PROXY_URL.replace(/(\/\/[^:@/]+):[^@]+@/, "$1:***@");
-    console.log(`[scraper] using proxy ${safe}`);
-  }
-
-  let browser: Browser | null = null;
-  try {
-    browser = (await chromium.launch(launchOptions)) as Browser;
-
-    let products = await scrapeSelfridgesCategory(browser, categoryName);
-
-    if (products.length === 0) {
-      console.log(`[scraper] Selfridges returned 0 for "${categoryName}" — trying fallback retailers`);
-      products = await scrapeFallback(browser, categoryName);
-    }
-
-    return products;
-  } catch (err) {
-    console.error(`[scraper] scrapeCategory failed for "${categoryName}"`, err);
+  const templates = candidateEndpoints(categoryName);
+  if (templates.length === 0) {
+    console.log(`[scraper] no API endpoints configured for "${categoryName}"`);
     return [];
-  } finally {
-    if (browser) {
-      await browser.close().catch(() => {});
+  }
+
+  for (const tpl of templates) {
+    try {
+      const rows = await scrapeEndpoint(tpl, categoryName);
+      if (rows.length > 0) {
+        console.log(`[scraper] "${categoryName}" → selected source ${tpl.label} (${rows.length} products)`);
+        return rows;
+      }
+    } catch (err) {
+      console.error(`[scraper] ${tpl.label} failed: ${(err as Error).message}`);
     }
   }
+
+  console.log(`[scraper] "${categoryName}" → no endpoint returned products`);
+  return [];
 }

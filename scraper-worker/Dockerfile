@@ -1,4 +1,6 @@
-FROM mcr.microsoft.com/playwright:v1.40.0-jammy
+# Plain Node image — no browser needed now that scraping is pure fetch().
+# This drops the image from ~2GB (Playwright/Chromium) to ~50MB.
+FROM node:20-alpine
 
 WORKDIR /app
 
@@ -9,8 +11,6 @@ COPY tsconfig.json ./
 COPY *.ts ./
 
 RUN npx tsc
-
-RUN npx playwright install chromium --with-deps
 
 ENV NODE_ENV=production
 

@@ -2,7 +2,7 @@
   "name": "seasons-by-b-scraper-worker",
   "version": "1.0.0",
   "private": true,
-  "description": "Selfridges scraper worker for Seasons by B — runs on Railway, populates the shared Neon products table.",
+  "description": "Beauty API scraper worker for Seasons by B — runs on Railway, populates the shared Neon products table via fetch-based product APIs (Selfridges → Space NK → Cult Beauty).",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
@@ -11,12 +11,9 @@
     "scrape:once": "tsx index.ts --once"
   },
   "dependencies": {
-    "@playwright/test": "latest",
     "node-cron": "latest",
     "pg": "^8.13.1",
-    "playwright-extra": "latest",
-    "puppeteer-extra": "latest",
-    "puppeteer-extra-plugin-stealth": "latest"
+    "undici": "^8.3.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
