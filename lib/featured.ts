@@ -48,15 +48,6 @@ const FALLBACK_DATA: FeaturedProductData[] = [
     image_url: "https://images.unsplash.com/photo-1631730486572-226d1f595b68?w=800&q=80"
   },
   {
-    brand: "Gucci",
-    name: "GG Marmont Small Shoulder Bag",
-    category: "Bags",
-    price_gbp: 1180,
-    deliverable_lebanon: true,
-    product_url: "https://www.selfridges.com/GB/en/cat/gucci/#fallback-gg-marmont-shoulder",
-    image_url: "https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=800&q=80"
-  },
-  {
     brand: "Olaplex",
     name: "No.3 Hair Perfector 100ml",
     category: "Haircare",
@@ -64,15 +55,6 @@ const FALLBACK_DATA: FeaturedProductData[] = [
     deliverable_lebanon: true,
     product_url: "https://www.selfridges.com/GB/en/cat/olaplex/#fallback-no-3-hair-perfector",
     image_url: "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=800&q=80"
-  },
-  {
-    brand: "Ray-Ban",
-    name: "Aviator Classic Metal Sunglasses",
-    category: "Accessories",
-    price_gbp: 166,
-    deliverable_lebanon: true,
-    product_url: "https://www.selfridges.com/GB/en/cat/ray-ban/#fallback-aviator-classic",
-    image_url: "https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=800&q=80"
   },
   {
     brand: "Dyson",
@@ -93,13 +75,13 @@ const FALLBACK_DATA: FeaturedProductData[] = [
     image_url: "https://images.unsplash.com/photo-1570194065650-d99fb4bedf0a?w=800&q=80"
   },
   {
-    brand: "Loewe",
-    name: "Puzzle Small Leather Bag",
-    category: "Bags",
-    price_gbp: 1650,
+    brand: "Sunday Riley",
+    name: "Good Genes All-In-One Lactic Acid Treatment",
+    category: "Skincare",
+    price_gbp: 85,
     deliverable_lebanon: true,
-    product_url: "https://www.selfridges.com/GB/en/cat/loewe/#fallback-puzzle-small",
-    image_url: "https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=800&q=80"
+    product_url: "https://www.spacenk.com/uk/skincare/treatment/serums/good-genes-all-in-one-lactic-acid-treatment",
+    image_url: ""
   }
 ];
 
@@ -116,21 +98,11 @@ export async function getFallbackProducts(): Promise<FeaturedProduct[]> {
   return withPrices(FALLBACK_DATA);
 }
 
-export const CATEGORIES: readonly Category[] = [
-  "All",
-  "Makeup",
-  "Skincare",
-  "Bags",
-  "Haircare",
-  "Accessories",
-  "Beauty tools"
-] as const;
+export const CATEGORIES: readonly Category[] = ["All", "Makeup", "Skincare", "Haircare", "Beauty tools"] as const;
 
 export const PRODUCT_CATEGORIES: readonly ProductCategory[] = [
   "Makeup",
   "Skincare",
-  "Bags",
   "Haircare",
-  "Accessories",
   "Beauty tools"
 ] as const;

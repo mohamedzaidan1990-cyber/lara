@@ -25,25 +25,11 @@ export const CATEGORY_DEFS: readonly CategoryDef[] = [
     defaultImage: "https://images.unsplash.com/photo-1631730486572-226d1f595b68?w=1200&q=80"
   },
   {
-    slug: "bags",
-    name: "Bags",
-    label: "Bags",
-    blurb: "Hand-picked luxury bags from Gucci, Loewe, Bottega and beyond.",
-    defaultImage: "https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=1200&q=80"
-  },
-  {
     slug: "haircare",
     name: "Haircare",
     label: "Haircare",
     blurb: "Olaplex, Kérastase, Oribe — salon-grade care for every routine.",
     defaultImage: "https://images.unsplash.com/photo-1626015449814-fcb3f72c1b14?w=1200&q=80"
-  },
-  {
-    slug: "accessories",
-    name: "Accessories",
-    label: "Accessories",
-    blurb: "Scarves, sunglasses, belts and small leather goods.",
-    defaultImage: "https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=1200&q=80"
   },
   {
     slug: "beauty-tools",

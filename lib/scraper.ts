@@ -15,14 +15,7 @@ export interface ScrapedProduct {
 const USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
-const ALLOWED_CATEGORIES = new Set([
-  "Makeup",
-  "Skincare",
-  "Bags",
-  "Haircare",
-  "Accessories",
-  "Beauty tools"
-]);
+const ALLOWED_CATEGORIES = new Set(["Makeup", "Skincare", "Haircare", "Beauty tools"]);
 
 function inferCategory(text: string, fallback: string): string {
   const lower = text.toLowerCase();
@@ -46,9 +39,6 @@ function inferCategory(text: string, fallback: string): string {
     lower.includes("cleansing device")
   ) {
     return "Beauty tools";
-  }
-  if (lower.includes("bag") || lower.includes("tote") || lower.includes("clutch") || lower.includes("pouch") || lower.includes("satchel") || lower.includes("crossbody") || lower.includes("cross-body")) {
-    return "Bags";
   }
   if (
     lower.includes("foundation") ||
@@ -96,24 +86,8 @@ function inferCategory(text: string, fallback: string): string {
   ) {
     return "Skincare";
   }
-  if (
-    lower.includes("scarf") ||
-    lower.includes("wallet") ||
-    lower.includes("belt") ||
-    lower.includes("sunglass") ||
-    lower.includes("card holder") ||
-    lower.includes("cardholder") ||
-    lower.includes("jewel") ||
-    lower.includes("necklace") ||
-    lower.includes("bracelet") ||
-    lower.includes("earring") ||
-    lower.includes("hair clip") ||
-    lower.includes("accessor")
-  ) {
-    return "Accessories";
-  }
   if (ALLOWED_CATEGORIES.has(fallback)) return fallback;
-  return "Accessories";
+  return "Beauty tools";
 }
 
 function randomDelay(min = 1500, max = 3000): Promise<void> {

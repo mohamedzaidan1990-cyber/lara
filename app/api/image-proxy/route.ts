@@ -11,13 +11,19 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 // Allowed image hosts (matched against the URL's hostname, suffix-safe — so
-// "spacenk.com" also allows "www.spacenk.com" but not "spacenk.com.evil.com").
+// "spacenk.com" also allows "www.spacenk.com" / "cdn.spacenk.com" but not
+// "spacenk.com.evil.com").
 const ALLOWED_HOSTS = [
-  "spacenk.com",
-  "cultbeauty.co.uk",
+  "spacenk.com", // covers cdn./media./images.spacenk.com
+  "cultbeauty.co.uk", // covers cdn./media./images.cultbeauty.co.uk
   "thcdn.com", // Cult Beauty (THG) image CDN
   "selfridges.com",
-  "scene7.com" // Selfridges image CDN
+  "scene7.com", // Selfridges image CDN
+  // Common beauty-retailer / generic image CDNs:
+  "cloudinary.com",
+  "imgix.net",
+  "cdn.shopify.com",
+  "shopify.com"
 ];
 
 const USER_AGENT =
@@ -56,6 +62,9 @@ export async function GET(request: Request): Promise<Response> {
     return new Response("Domain not allowed", { status: 403 });
   }
 
+  // Guard against a hung upstream tying up the function.
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12000);
   try {
     const upstream = await fetch(target.toString(), {
       headers: {
@@ -63,7 +72,8 @@ export async function GET(request: Request): Promise<Response> {
         "User-Agent": USER_AGENT,
         Accept: "image/avif,image/webp,image/jpeg,image/png,*/*;q=0.8"
       },
-      redirect: "follow"
+      redirect: "follow",
+      signal: controller.signal
     });
 
     if (!upstream.ok) {
@@ -82,5 +92,7 @@ export async function GET(request: Request): Promise<Response> {
     });
   } catch {
     return new Response("Failed to fetch image", { status: 502 });
+  } finally {
+    clearTimeout(timeout);
   }
 }
