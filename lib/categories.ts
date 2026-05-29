@@ -15,28 +15,28 @@ export const CATEGORY_DEFS: readonly CategoryDef[] = [
     name: "Makeup",
     label: "Makeup",
     blurb: "Lipsticks, foundations and palettes from the world's most coveted houses.",
-    defaultImage: "https://images.unsplash.com/photo-1586495777744-4413f21062fa?w=1200&q=80"
+    defaultImage: "https://images.unsplash.com/photo-1512496015851-a90fb38ba796?w=800&q=80"
   },
   {
     slug: "skincare",
     name: "Skincare",
     label: "Skincare",
     blurb: "Crèmes, serums and treatments — La Mer to Augustinus Bader.",
-    defaultImage: "https://images.unsplash.com/photo-1631730486572-226d1f595b68?w=1200&q=80"
+    defaultImage: "https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=800&q=80"
   },
   {
     slug: "haircare",
     name: "Haircare",
     label: "Haircare",
     blurb: "Olaplex, Kérastase, Oribe — salon-grade care for every routine.",
-    defaultImage: "https://images.unsplash.com/photo-1626015449814-fcb3f72c1b14?w=1200&q=80"
+    defaultImage: "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=800&q=80"
   },
   {
     slug: "beauty-tools",
     name: "Beauty tools",
     label: "Beauty tools",
     blurb: "Dyson Airwrap, GHD, Foreo, NuFace — the devices everyone wants.",
-    defaultImage: "https://images.unsplash.com/photo-1522338242992-e1a54906a8da?w=1200&q=80"
+    defaultImage: "https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=800&q=80"
   }
 ] as const;
 
