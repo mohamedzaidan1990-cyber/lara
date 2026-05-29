@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import ProductCard, { type ProductCardData } from "@/components/ProductCard";
 import type { CategoryStat } from "@/lib/categories";
+import { whatsappRequestLink } from "@/lib/links";
 
 interface SearchProduct extends ProductCardData {
   category?: string;
@@ -93,8 +94,64 @@ export default function HomeClient({ categories }: Props) {
         <CategoryCards categories={categories} />
       )}
 
+      <BespokeSection />
+
       <WhySeasons />
     </div>
+  );
+}
+
+function BespokeSection() {
+  const waHref = whatsappRequestLink();
+  const items = [
+    { icon: "👜", title: "Luxury Bags", body: "Gucci, Valentino, Loewe, Bottega Veneta and more" },
+    { icon: "💎", title: "Rare Finds", body: "Limited editions, sold-out pieces, exclusive collections" },
+    { icon: "🎁", title: "Gift Sourcing", body: "Special occasions, curated gifts, personalised selections" }
+  ];
+
+  return (
+    <section style={{ backgroundColor: "#23272A" }}>
+      <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
+        <div className="text-center">
+          <p className="text-[11px] uppercase tracking-[0.32em]" style={{ color: "#F4D360" }}>
+            Personal sourcing
+          </p>
+          <h2 className="mt-4 font-serif text-3xl leading-tight text-cream sm:text-4xl">
+            Can&apos;t find what you&apos;re looking for?
+          </h2>
+          <p className="mx-auto mt-5 max-w-2xl text-sm leading-relaxed text-cream/70 sm:text-base">
+            Bags, rare finds, limited editions, sold-out pieces — tell us exactly what you want and we&apos;ll source
+            it from London&apos;s finest boutiques. No request is too specific.
+          </p>
+        </div>
+
+        <div className="mx-auto mt-14 grid max-w-4xl gap-10 sm:grid-cols-3">
+          {items.map((item) => (
+            <div key={item.title} className="text-center">
+              <div
+                className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border text-2xl"
+                style={{ borderColor: "#F4D360" }}
+              >
+                <span aria-hidden>{item.icon}</span>
+              </div>
+              <h3 className="mt-5 font-serif text-xl" style={{ color: "#F4D360" }}>
+                {item.title}
+              </h3>
+              <p className="mt-2 text-sm text-cream/70">{item.body}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-14 text-center">
+          <a href={waHref} target="_blank" rel="noreferrer" className="btn-gold">
+            WhatsApp Us Your Request
+          </a>
+          <p className="mt-3 text-xs uppercase tracking-[0.2em] text-cream/50">
+            We typically respond within 2 hours
+          </p>
+        </div>
+      </div>
+    </section>
   );
 }
 

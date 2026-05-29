@@ -1,8 +1,9 @@
 import Link from "next/link";
+import { whatsappRequestLink } from "@/lib/links";
 
 export const metadata = {
   title: "How it works — Seasons by B",
-  description: "Delivery, payment and returns policy for Seasons by B personal shopping."
+  description: "Delivery, payment and returns policy for Seasons by B personal shopping and bespoke sourcing."
 };
 
 const STEPS = [
@@ -30,6 +31,7 @@ const STEPS = [
 
 export default function InfoPage() {
   const whish = process.env.WHISH_NUMBER ?? "";
+  const bespokeWa = whatsappRequestLink();
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-16 sm:px-6 lg:px-8">
@@ -53,6 +55,29 @@ export default function InfoPage() {
           </div>
         ))}
       </section>
+
+      <Section title="Bespoke sourcing">
+        <p>
+          Can&apos;t find it in the catalogue? Our bespoke sourcing service finds anything available in
+          London&apos;s boutiques and department stores — Selfridges, Harrods, Harvey Nichols and Liberty London.
+        </p>
+        <p>
+          Luxury bags, shoes, watches, jewellery, limited-edition beauty and gift sets: send us the brand and
+          product (a photo helps), we confirm availability and price, you pay upfront via Whish, and we deliver in
+          10–14 working days. If an item is out of stock, you get a full refund — no questions asked.
+        </p>
+        <div className="mt-4 flex flex-wrap items-center gap-4">
+          <a href={bespokeWa} target="_blank" rel="noreferrer" className="btn-gold w-fit">
+            WhatsApp your request
+          </a>
+          <Link
+            href="/bespoke"
+            className="text-xs uppercase tracking-[0.2em] text-ink/70 hover:text-accent"
+          >
+            Learn more about bespoke sourcing →
+          </Link>
+        </div>
+      </Section>
 
       <Section title="Delivery">
         <p>10–14 working days door to door, anywhere we ship.</p>

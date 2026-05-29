@@ -76,6 +76,9 @@ export default function SiteHeader() {
           <Link href="/info" className="hover:text-accent">
             How it works
           </Link>
+          <Link href="/bespoke" className="hover:text-accent">
+            Bespoke
+          </Link>
           <a
             href="https://wa.me/96103055491"
             target="_blank"
@@ -123,6 +126,13 @@ export default function SiteHeader() {
                 className="text-ink hover:text-accent"
               >
                 How it works
+              </Link>
+              <Link
+                href="/bespoke"
+                onClick={() => setMobileOpen(false)}
+                className="text-ink hover:text-accent"
+              >
+                Bespoke
               </Link>
               <a
                 href="https://wa.me/96103055491"

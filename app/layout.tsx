@@ -7,7 +7,7 @@ import "./globals.css";
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.seasonsbyb.co.uk";
 const SITE_TITLE = "Seasons by B — London's Finest, Delivered to Your Door";
 const SITE_DESCRIPTION =
-  "Shop luxury beauty, skincare, makeup and bags from London's finest retailers. Personal shopping service delivering to Lebanon and beyond.";
+  "Shop luxury beauty and skincare from London, delivered to your door. Personal shopping and bespoke sourcing for bags, rare finds and limited editions.";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
