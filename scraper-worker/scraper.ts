@@ -1,23 +1,31 @@
 import { fetch as undiciFetch, ProxyAgent } from "undici";
+import * as cheerio from "cheerio";
 import type { ScrapedProductRow } from "./db";
 import { convertGbpToUsd } from "./currency";
 
 // =============================================================================
-// API-based scraper (no Playwright).
+// API/fragment-based scraper (no Playwright).
 //
-// Selfridges' Playwright/HTML scraping is reliably blocked even behind
-// residential proxies. Instead we hit JSON product APIs with plain `fetch`,
-// which is far cheaper to run and much harder for the retailer to fingerprint.
+// Verified behaviour (probed 2026-05-29):
+//   * Selfridges  — every path (incl. the "public" API URLs) returns a
+//                   Cloudflare 403 "Attention Required!" challenge to plain
+//                   fetch from a datacenter/proxy IP. There is no usable JSON
+//                   API; we keep a single best-effort probe so the logs show
+//                   the block, then fall through.
+//   * Space NK    — Salesforce Commerce Cloud. The Search-UpdateGrid controller
+//                   returns an HTML fragment of 50-80 product tiles. Each tile
+//                   carries a clean JSON blob in `data-snk-e-cxt` with brand,
+//                   name and price. THIS IS THE PRIMARY SOURCE.
+//   * Cult Beauty — THG. Category `.list` pages embed a `"products":[...]` JSON
+//                   array with title/url/brand/price/image. Used as a fallback.
 //
-// Strategy, per category:
-//   1. Try Selfridges' own product APIs (several undocumented URL shapes).
-//   2. Fall back to Space NK's API (carries the same luxury beauty brands).
-//   3. Fall back to Cult Beauty's API (also identical brands).
-// The first endpoint that returns parseable product JSON wins; we then page
-// through that same endpoint shape. Source is irrelevant to customers — every
-// product is fulfilled through the personal-shopping service.
+// Space NK and Cult Beauty carry the same luxury beauty brands as Selfridges
+// (Charlotte Tilbury, La Mer, Dior, NARS, etc.) and every item is fulfilled
+// through the personal-shopping service, so the source is invisible to
+// customers. All prices are GBP, converted to USD via currency.ts.
 //
-// All prices are GBP (UK storefronts), converted to USD via currency.ts.
+// Note: Bags / Accessories have no working source here (Selfridges blocked;
+// Space NK / Cult Beauty are beauty-only) — those categories return 0.
 // =============================================================================
 
 // ---------- Proxy dispatcher (same pattern as lib/selfridges-import.ts) ----------
@@ -27,7 +35,6 @@ function getDispatcher(): ProxyAgent | undefined {
   if (!url) return undefined;
   if (!cachedDispatcher) {
     cachedDispatcher = new ProxyAgent(url);
-    // Mask credentials so they never land in Railway logs.
     const safe = url.replace(/(\/\/[^:@/]+):[^@]+@/, "$1:***@");
     console.log(`[scraper] using proxy ${safe}`);
   }
@@ -43,8 +50,8 @@ export const SCRAPE_CATEGORIES = [
   "Beauty tools"
 ] as const;
 
-const PAGES_PER_CATEGORY = 5;
 const PAGE_SIZE = 60;
+const MAX_PAGES = 5;
 
 // ---------- Per-source category slugs ----------
 const SELFRIDGES_SLUGS: Record<string, string> = {
@@ -56,133 +63,35 @@ const SELFRIDGES_SLUGS: Record<string, string> = {
   "Beauty tools": "beauty-tools-and-accessories"
 };
 
-const SPACENK_SLUGS: Record<string, string> = {
+// Space NK category-group IDs (verified to return products).
+const SPACENK_CGID: Record<string, string> = {
   Makeup: "makeup",
   Skincare: "skincare",
   Haircare: "hair",
-  "Beauty tools": "tools-brushes"
+  "Beauty tools": "brushes-tools"
 };
 
+// Cult Beauty `.list` slugs (verified). Only slugs that actually resolve are
+// listed — unmapped categories simply skip this fallback.
 const CULTBEAUTY_SLUGS: Record<string, string> = {
-  Makeup: "makeup",
-  Skincare: "skincare",
-  Haircare: "hair",
-  "Beauty tools": "tools-accessories"
+  Makeup: "make-up",
+  Skincare: "skin-care"
 };
 
-// A common, realistic desktop UA. A fuller string blends in better than the
-// truncated one — bot filters flag obviously-trimmed UAs.
 const USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
 
 function headersFor(referer: string): Record<string, string> {
   return {
     "User-Agent": USER_AGENT,
-    Accept: "application/json, text/plain, */*",
+    Accept: "text/html,application/xhtml+xml,application/json,*/*;q=0.9",
     "Accept-Language": "en-GB,en;q=0.9",
     Referer: referer,
     "x-requested-with": "XMLHttpRequest"
   };
 }
 
-// ---------- Endpoint templates ----------
-// Each template knows how to build a URL for a given (1-based) page number,
-// which headers to send, and the origin used to resolve relative product/image
-// URLs found in the response.
-interface EndpointTemplate {
-  label: string;
-  origin: string;
-  headers: Record<string, string>;
-  build: (page: number) => string;
-}
-
-function selfridgesTemplates(categoryName: string): EndpointTemplate[] {
-  const slug = SELFRIDGES_SLUGS[categoryName];
-  if (!slug) return [];
-  const origin = "https://www.selfridges.com";
-  const headers = headersFor(`https://www.selfridges.com/GB/en/cat/${slug}/`);
-  return [
-    {
-      label: `Selfridges[cms?country] ${categoryName}`,
-      origin,
-      headers,
-      build: (page) =>
-        `${origin}/api/cms/products/query?page=${page}&pageSize=${PAGE_SIZE}&category=${slug}&country=GB&lang=en`
-    },
-    {
-      label: `Selfridges[cms] ${categoryName}`,
-      origin,
-      headers,
-      build: (page) => `${origin}/api/cms/products/query?page=${page}&pageSize=${PAGE_SIZE}&category=${slug}`
-    },
-    {
-      label: `Selfridges[product/v1] ${categoryName}`,
-      origin,
-      headers,
-      build: (page) => `${origin}/api/product/v1/categories/${slug}/products?page=${page}&pageSize=${PAGE_SIZE}`
-    },
-    {
-      label: `Selfridges[features/api] ${categoryName}`,
-      origin,
-      headers,
-      build: (page) => `${origin}/GB/en/features/api/products?cat=${slug}&pageSize=${PAGE_SIZE}&page=${page}`
-    }
-  ];
-}
-
-function spacenkTemplates(categoryName: string): EndpointTemplate[] {
-  const slug = SPACENK_SLUGS[categoryName];
-  if (!slug) return [];
-  const origin = "https://www.spacenk.com";
-  const headers = headersFor(`https://www.spacenk.com/uk/${slug}`);
-  return [
-    {
-      label: `Space NK[api] ${categoryName}`,
-      origin,
-      headers,
-      build: (page) => `${origin}/uk/api/products?category=${slug}&page=${page}&pageSize=${PAGE_SIZE}`
-    },
-    {
-      label: `Space NK[demandware] ${categoryName}`,
-      origin,
-      headers,
-      build: (page) =>
-        `${origin}/on/demandware.store/Sites-SN-UK-Site/en_GB/Search-ProductGrid?cgid=${slug}&sz=${PAGE_SIZE}&start=${
-          (page - 1) * PAGE_SIZE
-        }`
-    }
-  ];
-}
-
-function cultbeautyTemplates(categoryName: string): EndpointTemplate[] {
-  const slug = CULTBEAUTY_SLUGS[categoryName];
-  if (!slug) return [];
-  const origin = "https://www.cultbeauty.co.uk";
-  const headers = headersFor(`https://www.cultbeauty.co.uk/${slug}.list`);
-  return [
-    {
-      label: `Cult Beauty[api] ${categoryName}`,
-      origin,
-      headers,
-      build: (page) => `${origin}/api/products?category=${slug}&page=${page}`
-    }
-  ];
-}
-
-// Selfridges first, then Space NK, then Cult Beauty.
-function candidateEndpoints(categoryName: string): EndpointTemplate[] {
-  return [
-    ...selfridgesTemplates(categoryName),
-    ...spacenkTemplates(categoryName),
-    ...cultbeautyTemplates(categoryName)
-  ];
-}
-
-// ---------- Generic JSON product extraction ----------
-// The exact response shapes are undocumented and differ per source, so rather
-// than hard-coding field paths we walk the JSON and pull out any object that
-// looks like a product (has both a name and a price). This makes the parser
-// resilient to the wrapper shape changing.
+// ---------- Shared helpers ----------
 interface RawProduct {
   brand: string;
   name: string;
@@ -191,100 +100,15 @@ interface RawProduct {
   product_url: string;
 }
 
-const NAME_KEYS = ["name", "title", "productname", "displayname", "productdisplayname", "shortdescription", "label"];
-const BRAND_KEYS = ["brand", "brandname", "designer", "designername", "manufacturer", "marque"];
-const PRICE_KEYS = [
-  "price",
-  "saleprice",
-  "currentprice",
-  "nowprice",
-  "sellingprice",
-  "finalprice",
-  "amount",
-  "value",
-  "price_gbp",
-  "pricegbp"
-];
-const IMAGE_KEYS = ["image", "imageurl", "img", "thumbnail", "thumbnailurl", "mainimage", "primaryimage", "media", "imagesrc"];
-const URL_KEYS = ["url", "producturl", "href", "link", "seourl", "canonicalurl", "pdpurl", "slug"];
-
-// Case-insensitive own-key lookup.
-function getProp(obj: Record<string, unknown>, keys: string[]): unknown {
-  const lowerMap: Record<string, unknown> = {};
-  for (const k of Object.keys(obj)) lowerMap[k.toLowerCase()] = obj[k];
-  for (const k of keys) {
-    if (k in lowerMap && lowerMap[k] !== null && lowerMap[k] !== undefined) return lowerMap[k];
-  }
-  return undefined;
-}
-
-function asString(v: unknown): string {
-  return typeof v === "string" ? v.trim() : "";
-}
-
-function pickName(obj: Record<string, unknown>): string {
-  const v = getProp(obj, NAME_KEYS);
-  return asString(v).slice(0, 200);
-}
-
-function pickBrand(obj: Record<string, unknown>): string {
-  const v = getProp(obj, BRAND_KEYS);
-  if (typeof v === "string") return v.trim();
-  if (v && typeof v === "object") {
-    const bn = getProp(v as Record<string, unknown>, ["name", "label", "title"]);
-    if (typeof bn === "string") return bn.trim();
-  }
-  return "";
-}
-
-// Pulls a positive number out of a value that might be a number, a numeric
-// string ("£42.00", "42"), or a nested object like {value: 42}/{amount: 42}.
-function coerceNumber(v: unknown, depth = 0): number | null {
-  if (typeof v === "number") return Number.isFinite(v) && v > 0 ? v : null;
-  if (typeof v === "string") {
-    const m = v.replace(/,/g, "").match(/([\d]+(?:\.\d{1,2})?)/);
+function parsePrice(raw: unknown): number | null {
+  if (typeof raw === "number") return Number.isFinite(raw) && raw > 0 ? raw : null;
+  if (typeof raw === "string") {
+    const m = raw.replace(/,/g, "").match(/([\d]+(?:\.\d{1,2})?)/);
     if (!m) return null;
     const n = Number(m[1]);
     return Number.isFinite(n) && n > 0 ? n : null;
   }
-  if (v && typeof v === "object" && depth < 2) {
-    const inner = getProp(v as Record<string, unknown>, ["value", "amount", "gbp", "now", "current", "min"]);
-    if (inner !== undefined) return coerceNumber(inner, depth + 1);
-  }
   return null;
-}
-
-function pickPrice(obj: Record<string, unknown>): number | null {
-  for (const key of PRICE_KEYS) {
-    const v = getProp(obj, [key]);
-    if (v === undefined) continue;
-    const n = coerceNumber(v);
-    if (n !== null) return n;
-  }
-  return null;
-}
-
-function pickImage(obj: Record<string, unknown>): string {
-  const v = getProp(obj, IMAGE_KEYS);
-  if (typeof v === "string") return v.trim();
-  if (Array.isArray(v) && v.length > 0) {
-    const first = v[0];
-    if (typeof first === "string") return first.trim();
-    if (first && typeof first === "object") {
-      const u = getProp(first as Record<string, unknown>, ["url", "src", "href"]);
-      if (typeof u === "string") return u.trim();
-    }
-  }
-  if (v && typeof v === "object") {
-    const u = getProp(v as Record<string, unknown>, ["url", "src", "href"]);
-    if (typeof u === "string") return u.trim();
-  }
-  return "";
-}
-
-function pickUrl(obj: Record<string, unknown>): string {
-  const v = getProp(obj, URL_KEYS);
-  return asString(v);
 }
 
 function resolveUrl(raw: string, origin: string): string {
@@ -295,34 +119,21 @@ function resolveUrl(raw: string, origin: string): string {
   return `${origin}/${raw}`;
 }
 
-// Recursively collect product-like objects from arbitrary JSON.
-function collectProducts(node: unknown, origin: string, out: RawProduct[], depth = 0): void {
-  if (depth > 8 || node === null || typeof node !== "object") return;
-
-  if (Array.isArray(node)) {
-    for (const item of node) collectProducts(item, origin, out, depth + 1);
-    return;
-  }
-
-  const obj = node as Record<string, unknown>;
-  const name = pickName(obj);
-  const priceGbp = pickPrice(obj);
-
-  // Treat as a product only when it has both a name and a usable price.
-  if (name && priceGbp !== null) {
-    const product_url = resolveUrl(pickUrl(obj), origin);
-    const image_url = resolveUrl(pickImage(obj), origin);
-    out.push({ brand: pickBrand(obj), name, priceGbp, image_url, product_url });
-    // Don't descend into a confirmed product node — its children are details.
-    return;
-  }
-
-  for (const key of Object.keys(obj)) collectProducts(obj[key], origin, out, depth + 1);
-}
-
 function dedupeRaw(rows: RawProduct[]): RawProduct[] {
   const seen = new Set<string>();
   const out: RawProduct[] = [];
+  for (const r of rows) {
+    const key = r.product_url || `${r.brand}|${r.name}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(r);
+  }
+  return out;
+}
+
+function dedupeRows(rows: ScrapedProductRow[]): ScrapedProductRow[] {
+  const seen = new Set<string>();
+  const out: ScrapedProductRow[] = [];
   for (const r of rows) {
     const key = r.product_url || `${r.brand}|${r.name}`;
     if (seen.has(key)) continue;
@@ -340,7 +151,7 @@ async function toRows(raws: RawProduct[], categoryName: string, sourceBrand: str
       category: categoryName,
       price_gbp: r.priceGbp,
       price_usd: await convertGbpToUsd(r.priceGbp),
-      // Every product here is a standard beauty/accessory item — all deliverable.
+      // Every product here is a standard beauty item — all deliverable.
       deliverable_lebanon: true,
       product_url: r.product_url,
       image_url: r.image_url
@@ -353,86 +164,276 @@ function delay(min: number, max: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function sourceBrandFor(label: string): string {
-  if (label.startsWith("Space NK")) return "Space NK";
-  if (label.startsWith("Cult Beauty")) return "Cult Beauty";
-  return "Selfridges";
+async function fetchText(
+  url: string,
+  headers: Record<string, string>
+): Promise<{ status: number; text: string } | null> {
+  try {
+    const res = await undiciFetch(url, { headers, redirect: "follow", dispatcher: getDispatcher() });
+    return { status: res.status, text: await res.text() };
+  } catch (err) {
+    console.error(`[scraper] fetch error for ${url}: ${(err as Error).message}`);
+    return null;
+  }
 }
 
-// Page through a single endpoint shape. Logs HTTP status (and the first 500
-// chars of page 1) so it's easy to see in Railway logs which endpoint works.
-async function scrapeEndpoint(tpl: EndpointTemplate, categoryName: string): Promise<ScrapedProductRow[]> {
+// ---------- Source 1: Selfridges (best-effort first probe; expected 403) ----------
+async function scrapeSelfridges(categoryName: string): Promise<ScrapedProductRow[]> {
+  const slug = SELFRIDGES_SLUGS[categoryName];
+  if (!slug) return [];
+  const url = `https://www.selfridges.com/api/cms/products/query?page=1&pageSize=${PAGE_SIZE}&category=${slug}&country=GB&lang=en`;
+  const res = await fetchText(url, headersFor(`https://www.selfridges.com/GB/en/cat/${slug}/`));
+  if (!res) return [];
+  const preview = res.text.slice(0, 200).replace(/\s+/g, " ").trim();
+  console.log(`[scraper] Selfridges ${categoryName} → HTTP ${res.status}; ${preview}`);
+  if (res.status < 200 || res.status >= 300) return [];
+  // If Selfridges ever serves JSON again, try to read an array of products.
+  try {
+    const json = JSON.parse(res.text) as unknown;
+    const raws = extractGenericProducts(json, "https://www.selfridges.com");
+    return toRows(dedupeRaw(raws), categoryName, "Selfridges");
+  } catch {
+    return [];
+  }
+}
+
+// Minimal generic JSON product extractor — only used for the Selfridges probe.
+function extractGenericProducts(node: unknown, origin: string, out: RawProduct[] = [], depth = 0): RawProduct[] {
+  if (depth > 6 || node === null || typeof node !== "object") return out;
+  if (Array.isArray(node)) {
+    for (const item of node) extractGenericProducts(item, origin, out, depth + 1);
+    return out;
+  }
+  const obj = node as Record<string, unknown>;
+  const name = typeof obj.name === "string" ? obj.name : typeof obj.title === "string" ? obj.title : "";
+  const price = parsePrice(obj.price ?? obj.priceGBP ?? obj.amount);
+  if (name && price !== null) {
+    const url = typeof obj.url === "string" ? obj.url : typeof obj.href === "string" ? obj.href : "";
+    const img = typeof obj.image === "string" ? obj.image : "";
+    const brandRaw = obj.brand;
+    const brand =
+      typeof brandRaw === "string"
+        ? brandRaw
+        : brandRaw && typeof brandRaw === "object" && typeof (brandRaw as Record<string, unknown>).name === "string"
+          ? ((brandRaw as Record<string, unknown>).name as string)
+          : "";
+    out.push({ brand, name, priceGbp: price, image_url: resolveUrl(img, origin), product_url: resolveUrl(url, origin) });
+    return out;
+  }
+  for (const key of Object.keys(obj)) extractGenericProducts(obj[key], origin, out, depth + 1);
+  return out;
+}
+
+// ---------- Source 2: Space NK (PRIMARY) ----------
+// Salesforce Commerce Cloud "Search-UpdateGrid" returns an HTML fragment of
+// product tiles. Each tile's `data-snk-e-cxt` attribute holds a JSON array
+// like: [{"$entity":"product","brand":"Charlotte Tilbury","name":"Magic Cream",
+//         "price":195,"priceGBP":195,"currency":"GBP",...}]
+const SPACENK_ORIGIN = "https://www.spacenk.com";
+
+interface SnkCxt {
+  $entity?: string;
+  name?: string;
+  brand?: string;
+  price?: number;
+  priceGBP?: number;
+}
+
+function parseSpaceNkFragment(html: string): RawProduct[] {
+  const $ = cheerio.load(html);
+  const out: RawProduct[] = [];
+  $(".product[data-pid]").each((_, el) => {
+    const tile = $(el);
+    const cxtRaw =
+      tile.find('[data-snk-e="productImpression"]').first().attr("data-snk-e-cxt") ||
+      tile.find("[data-snk-e-cxt]").first().attr("data-snk-e-cxt");
+    if (!cxtRaw) return;
+
+    let cxt: SnkCxt | undefined;
+    try {
+      const parsed = JSON.parse(cxtRaw) as unknown;
+      const entry = Array.isArray(parsed) ? parsed.find((e) => (e as SnkCxt)?.$entity === "product") ?? parsed[0] : parsed;
+      cxt = entry as SnkCxt;
+    } catch {
+      return;
+    }
+    if (!cxt) return;
+
+    const name = (cxt.name ?? "").trim();
+    const priceGbp = parsePrice(cxt.priceGBP ?? cxt.price);
+    if (!name || priceGbp === null) return;
+
+    const href = tile.find("a.link").first().attr("href") || tile.find("a[href]").first().attr("href") || "";
+    const img =
+      tile.find("img.tile-image").first().attr("src") ||
+      tile.find("img").first().attr("src") ||
+      tile.find("img").first().attr("data-src") ||
+      "";
+
+    out.push({
+      brand: (cxt.brand ?? "").trim(),
+      name,
+      priceGbp,
+      image_url: resolveUrl(img, SPACENK_ORIGIN),
+      product_url: resolveUrl(href, SPACENK_ORIGIN)
+    });
+  });
+  return out;
+}
+
+async function scrapeSpaceNk(categoryName: string): Promise<ScrapedProductRow[]> {
+  const cgid = SPACENK_CGID[categoryName];
+  if (!cgid) return [];
+  const headers = headersFor(`${SPACENK_ORIGIN}/uk/${cgid}`);
+
+  // Only the first batch of tiles is server-rendered with price data; the
+  // `start` param is ignored for anonymous requests (the rest hydrate
+  // client-side), so a single request is all that's useful here.
+  const url = `${SPACENK_ORIGIN}/on/demandware.store/Sites-spacenkgb-Site/en_GB/Search-UpdateGrid?cgid=${cgid}&sz=${PAGE_SIZE}&start=0`;
+  const res = await fetchText(url, headers);
+  if (!res) return [];
+  console.log(`[scraper] Space NK ${categoryName} → HTTP ${res.status} (${res.text.length} bytes)`);
+  if (res.status < 200 || res.status >= 300) return [];
+
+  const raws = parseSpaceNkFragment(res.text);
+  console.log(`[scraper] Space NK ${categoryName} → ${raws.length} products`);
+  return toRows(dedupeRaw(raws), categoryName, "Space NK");
+}
+
+// ---------- Source 3: Cult Beauty (FALLBACK) ----------
+// THG `.list` pages embed a `"products":[...]` JSON array in the page state.
+const CULTBEAUTY_ORIGIN = "https://www.cultbeauty.co.uk";
+
+interface CbProduct {
+  title?: string;
+  url?: string;
+  cheapestVariant?: { price?: { price?: { amount?: string | number } } };
+  content?: Array<{ key?: string; value?: { stringListValue?: string[] } }>;
+  images?: Array<{ original?: string }>;
+}
+
+// Extracts a JSON array that starts at `"<key>":[` using balanced-bracket
+// scanning (the array is embedded in a much larger state blob). `fromIndex`
+// lets the caller anchor the search after a known parent key.
+function extractJsonArray(html: string, key: string, fromIndex = 0): unknown[] | null {
+  const marker = `"${key}":`;
+  const start = html.indexOf(marker, fromIndex);
+  if (start < 0) return null;
+  const open = html.indexOf("[", start);
+  if (open < 0) return null;
+
+  let depth = 0;
+  let inStr = false;
+  let esc = false;
+  for (let i = open; i < html.length; i += 1) {
+    const ch = html[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (ch === "\\") esc = true;
+      else if (ch === '"') inStr = false;
+      continue;
+    }
+    if (ch === '"') inStr = true;
+    else if (ch === "[") depth += 1;
+    else if (ch === "]") {
+      depth -= 1;
+      if (depth === 0) {
+        try {
+          return JSON.parse(html.slice(open, i + 1)) as unknown[];
+        } catch {
+          return null;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+function parseCultBeautyProducts(products: unknown[]): RawProduct[] {
+  const out: RawProduct[] = [];
+  for (const p of products) {
+    if (!p || typeof p !== "object") continue;
+    const cb = p as CbProduct;
+    const name = (cb.title ?? "").trim();
+    const priceGbp = parsePrice(cb.cheapestVariant?.price?.price?.amount);
+    if (!name || priceGbp === null) continue;
+
+    let brand = "";
+    for (const c of cb.content ?? []) {
+      if (c.key === "brand") {
+        const v = c.value?.stringListValue;
+        if (Array.isArray(v) && typeof v[0] === "string") brand = v[0];
+      }
+    }
+
+    out.push({
+      brand,
+      name,
+      priceGbp,
+      image_url: cb.images?.[0]?.original ?? "",
+      product_url: resolveUrl(cb.url ?? "", CULTBEAUTY_ORIGIN)
+    });
+  }
+  return out;
+}
+
+async function scrapeCultBeauty(categoryName: string): Promise<ScrapedProductRow[]> {
+  const slug = CULTBEAUTY_SLUGS[categoryName];
+  if (!slug) return [];
+  const headers = headersFor(`${CULTBEAUTY_ORIGIN}/${slug}.list`);
   const collected: RawProduct[] = [];
 
-  for (let page = 1; page <= PAGES_PER_CATEGORY; page += 1) {
-    const url = tpl.build(page);
-    let status = 0;
-    let text = "";
-    try {
-      const res = await undiciFetch(url, {
-        headers: tpl.headers,
-        redirect: "follow",
-        dispatcher: getDispatcher()
-      });
-      status = res.status;
-      text = await res.text();
-    } catch (err) {
-      console.error(`[scraper] ${tpl.label} page ${page} fetch error: ${(err as Error).message}`);
-      break;
-    }
+  for (let page = 1; page <= MAX_PAGES; page += 1) {
+    const url = `${CULTBEAUTY_ORIGIN}/${slug}.list?pageNumber=${page}`;
+    const res = await fetchText(url, headers);
+    if (!res) break;
 
     if (page === 1) {
-      const preview = text.slice(0, 500).replace(/\s+/g, " ").trim();
-      console.log(`[scraper] ${tpl.label} page 1 → HTTP ${status}; first 500 chars: ${preview}`);
-    } else {
-      console.log(`[scraper] ${tpl.label} page ${page} → HTTP ${status}`);
+      console.log(`[scraper] Cult Beauty ${categoryName} page 1 → HTTP ${res.status} (${res.text.length} bytes)`);
     }
+    if (res.status < 200 || res.status >= 300) break;
 
-    if (status < 200 || status >= 300) break;
-
-    let json: unknown;
-    try {
-      json = JSON.parse(text);
-    } catch {
-      console.log(`[scraper] ${tpl.label} page ${page} → response is not JSON, skipping this endpoint`);
+    // Anchor on the main "productList" object so we don't pick up a smaller
+    // "you may also like" widget array that appears elsewhere on the page.
+    const listAnchor = res.text.indexOf('"productList"');
+    const products = extractJsonArray(res.text, "products", listAnchor >= 0 ? listAnchor : 0);
+    if (!products || products.length === 0) {
+      console.log(`[scraper] Cult Beauty ${categoryName} page ${page} → no products JSON (end of results)`);
       break;
     }
-
-    const raws: RawProduct[] = [];
-    collectProducts(json, tpl.origin, raws);
-    if (raws.length === 0) {
-      console.log(`[scraper] ${tpl.label} page ${page} → JSON had no product-shaped objects`);
-      break;
-    }
-
+    const raws = parseCultBeautyProducts(products);
+    if (raws.length === 0) break;
     collected.push(...raws);
-    console.log(`[scraper] ${tpl.label} page ${page} → ${raws.length} products`);
+    console.log(`[scraper] Cult Beauty ${categoryName} page ${page} → ${raws.length} products`);
     await delay(800, 1800);
   }
 
-  return toRows(dedupeRaw(collected), categoryName, sourceBrandFor(tpl.label));
+  return toRows(dedupeRaw(collected), categoryName, "Cult Beauty");
 }
 
 // ---------- Public entry point ----------
 export async function scrapeCategory(categoryName: string): Promise<ScrapedProductRow[]> {
-  const templates = candidateEndpoints(categoryName);
-  if (templates.length === 0) {
-    console.log(`[scraper] no API endpoints configured for "${categoryName}"`);
-    return [];
+  // 1. Selfridges first (per spec). Expected to be Cloudflare-blocked; if it
+  //    ever serves JSON again we take it and stop.
+  const selfridges = await scrapeSelfridges(categoryName);
+  if (selfridges.length > 0) {
+    console.log(`[scraper] "${categoryName}" → ${selfridges.length} products from Selfridges`);
+    return selfridges;
   }
 
-  for (const tpl of templates) {
-    try {
-      const rows = await scrapeEndpoint(tpl, categoryName);
-      if (rows.length > 0) {
-        console.log(`[scraper] "${categoryName}" → selected source ${tpl.label} (${rows.length} products)`);
-        return rows;
-      }
-    } catch (err) {
-      console.error(`[scraper] ${tpl.label} failed: ${(err as Error).message}`);
-    }
-  }
+  // 2. Combine Space NK + Cult Beauty. Each only server-renders ~10-20 priced
+  //    products per category via plain fetch, so we union both (they carry the
+  //    same brands) to build the widest catalog, then dedupe.
+  const spacenk = await scrapeSpaceNk(categoryName);
+  const cult = await scrapeCultBeauty(categoryName);
+  const merged = dedupeRows([...spacenk, ...cult]);
 
-  console.log(`[scraper] "${categoryName}" → no endpoint returned products`);
-  return [];
+  if (merged.length > 0) {
+    console.log(
+      `[scraper] "${categoryName}" → ${merged.length} products (Space NK ${spacenk.length} + Cult Beauty ${cult.length}, deduped)`
+    );
+  } else {
+    console.log(`[scraper] "${categoryName}" → no source returned products`);
+  }
+  return merged;
 }
