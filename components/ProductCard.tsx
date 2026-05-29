@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
+import { productImageSrc } from "@/lib/images";
 
 export interface ProductCardData {
   brand: string;
@@ -24,7 +26,24 @@ function formatUsd(value: number): string {
   }).format(value);
 }
 
+// Clean branded fallback shown when an image is missing or fails to load:
+// gold ground, dark serif brand initial — keeps the grid tidy and on-brand.
+function ImageFallback({ brand, name }: { brand: string; name: string }) {
+  const initial = (brand || name || "?").trim().charAt(0).toUpperCase() || "?";
+  return (
+    <div
+      className="flex h-full w-full flex-col items-center justify-center font-serif"
+      style={{ backgroundColor: "#F4D360", color: "#23272A" }}
+    >
+      <span className="text-6xl leading-none">{initial}</span>
+      <span className="mt-3 px-4 text-center text-[10px] uppercase tracking-[0.24em]">{brand || name}</span>
+    </div>
+  );
+}
+
 export default function ProductCard({ product }: Props) {
+  const [imgFailed, setImgFailed] = useState(false);
+
   const orderHref =
     "/order?" +
     new URLSearchParams({
@@ -34,21 +53,23 @@ export default function ProductCard({ product }: Props) {
       usd: String(product.price_usd)
     }).toString();
 
+  const imgSrc = productImageSrc(product.image_url);
+  const showImage = Boolean(imgSrc) && !imgFailed;
+
   return (
     <article className="group flex flex-col">
       <div className="relative aspect-[3/4] w-full overflow-hidden bg-ink/[0.03]">
-        {product.image_url ? (
+        {showImage ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={product.image_url}
+            src={imgSrc}
             alt={`${product.brand} ${product.name}`}
             className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
             loading="lazy"
+            onError={() => setImgFailed(true)}
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-xs uppercase tracking-[0.2em] text-ink/40">
-            No image
-          </div>
+          <ImageFallback brand={product.brand} name={product.name} />
         )}
         <span
           className={

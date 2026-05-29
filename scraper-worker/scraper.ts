@@ -175,6 +175,23 @@ interface SnkCxt {
   priceGBP?: number;
 }
 
+// Space NK serves dynamically-sized images (SFCC), e.g. ...UK200061926.jpg?sw=292&sh=292.
+// Upgrade the listing thumbnail to a high-resolution render and guarantee an
+// absolute https URL.
+function spaceNkImageUrl(src: string): string {
+  const url = resolveUrl(src, SPACENK_ORIGIN);
+  if (!url || !/^https:\/\//i.test(url)) return "";
+  // Bump the SFCC width/height sizing params to a crisp product-card resolution.
+  let out = url.replace(/([?&]s[wh]=)\d+/gi, (_m, prefix: string) =>
+    prefix.toLowerCase().includes("sw=") ? `${prefix}900` : `${prefix}1200`
+  );
+  // If no sizing params were present, request a larger render explicitly.
+  if (!/[?&]sw=/i.test(out)) {
+    out += `${out.includes("?") ? "&" : "?"}sw=900&sh=1200`;
+  }
+  return out;
+}
+
 function parseSpaceNkTiles(html: string): RawProduct[] {
   const $ = cheerio.load(html);
   const out: RawProduct[] = [];
@@ -212,7 +229,7 @@ function parseSpaceNkTiles(html: string): RawProduct[] {
       brand: (cxt.brand ?? "").trim(),
       name,
       priceGbp,
-      image_url: resolveUrl(img, SPACENK_ORIGIN),
+      image_url: spaceNkImageUrl(img),
       product_url: resolveUrl(href, SPACENK_ORIGIN)
     });
   });
