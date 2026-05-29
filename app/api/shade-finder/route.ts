@@ -160,13 +160,23 @@ function normalizeRec(raw: unknown): BespokeRec | null {
   };
 }
 
-async function bespokeRecommendations(input: ShadeFinderInput): Promise<BespokeRec[]> {
+interface Diag {
+  reason?: string;
+  status?: number;
+  model?: string;
+  error?: string;
+  recs?: number;
+}
+
+async function bespokeRecommendations(input: ShadeFinderInput, diag: Diag = {}): Promise<BespokeRec[]> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
+    diag.reason = "no_key";
     console.warn("[shade-finder] ANTHROPIC_API_KEY not set — using rule-based fallback");
     return fallbackBespoke(input);
   }
   const model = process.env.ANTHROPIC_MODEL ?? "claude-haiku-4-5-20251001";
+  diag.model = model;
 
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -184,9 +194,10 @@ async function bespokeRecommendations(input: ShadeFinderInput): Promise<BespokeR
       }),
       signal: AbortSignal.timeout(20000)
     });
+    diag.status = res.status;
     if (!res.ok) {
       const detail = await res.text().catch(() => "");
-      // Status front-loaded so it survives log-column truncation.
+      diag.error = detail.slice(0, 500);
       console.warn(`[sf] anthropic ${res.status} model=${model} ${detail.slice(0, 300)}`);
       return fallbackBespoke(input);
     }
@@ -194,32 +205,39 @@ async function bespokeRecommendations(input: ShadeFinderInput): Promise<BespokeR
     const text = data.content?.find((c) => c.type === "text")?.text ?? "";
     const arr = extractJsonArray(text);
     if (!arr) {
+      diag.reason = "unparseable";
       console.warn("[shade-finder] Anthropic returned unparseable content — using fallback");
       return fallbackBespoke(input);
     }
     const recs = arr.map(normalizeRec).filter((r): r is BespokeRec => r !== null).slice(0, 4);
     if (recs.length === 0) {
+      diag.reason = "empty";
       console.warn("[shade-finder] Anthropic returned no usable recs — using fallback");
       return fallbackBespoke(input);
     }
+    diag.recs = recs.length;
     console.log(`[shade-finder] Anthropic OK (model=${model}) → ${recs.length} recs`);
     return recs;
   } catch (err) {
+    diag.error = (err as Error).message;
     console.warn(`[shade-finder] Anthropic call failed: ${(err as Error).message}`);
     return fallbackBespoke(input);
   }
 }
 
 export async function POST(req: Request): Promise<Response> {
+  const debug = new URL(req.url).searchParams.get("debug") === "1";
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
   const input = sanitize(body);
+  const diag: Diag = {};
 
-  const [catalog, bespoke] = await Promise.all([catalogMatches(input), bespokeRecommendations(input)]);
+  const [catalog, bespoke] = await Promise.all([catalogMatches(input), bespokeRecommendations(input, diag)]);
 
   return NextResponse.json({
     input,
     skinToneDescription: describeSkinTone(input.skinToneHex),
     catalogMatches: catalog,
-    bespokeRecommendations: bespoke
+    bespokeRecommendations: bespoke,
+    ...(debug ? { _diag: diag } : {})
   });
 }
