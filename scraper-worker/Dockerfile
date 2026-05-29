@@ -1,6 +1,8 @@
 # Plain Node image — no browser needed now that scraping is pure fetch().
 # This drops the image from ~2GB (Playwright/Chromium) to ~50MB.
-FROM node:20-alpine
+# Node 22: undici 8 calls webidl.util.markAsUncloneable, which only exists
+# on Node 22+ (Node 20 crashes at require time with "is not a function").
+FROM node:22-alpine
 
 WORKDIR /app
 
