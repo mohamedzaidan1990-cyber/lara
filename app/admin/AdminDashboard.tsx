@@ -14,19 +14,38 @@ interface Props {
 
 type Tab = "orders" | "bespoke";
 
+interface Group {
+  key: string;
+  label: string;
+  color: string;
+  match: (o: OrderWithCustomer) => boolean;
+}
+
+const GROUPS: Group[] = [
+  { key: "pending", label: "Pending Payment", color: "#C0392B", match: (o) => !o.payment_confirmed && o.status === "pending" },
+  { key: "payment_confirmed", label: "Payment Confirmed", color: "#E08B45", match: (o) => o.status === "payment_confirmed" },
+  { key: "ordered_selfridges", label: "Ordered on Selfridges", color: "#3A6EA5", match: (o) => o.status === "ordered_selfridges" },
+  { key: "shipped", label: "Shipped", color: "#7A4FB0", match: (o) => o.status === "shipped" || o.status === "in_lebanon" },
+  { key: "delivered", label: "Delivered", color: "#277C43", match: (o) => o.status === "delivered" }
+];
+
 export default function AdminDashboard({ initialOrders, initialBespoke = [] }: Props) {
   const router = useRouter();
   const [orders, setOrders] = useState(initialOrders);
   const [tab, setTab] = useState<Tab>("orders");
+  const [filter, setFilter] = useState<string | null>(null);
 
-  const stats = useMemo(() => {
-    const total = orders.length;
-    const pendingPayment = orders.filter((o) => !o.payment_confirmed && o.status === "pending").length;
-    const paymentConfirmed = orders.filter((o) => o.payment_confirmed && o.status === "payment_confirmed").length;
-    const shipped = orders.filter((o) => o.status === "shipped" || o.status === "in_lebanon").length;
-    const delivered = orders.filter((o) => o.status === "delivered").length;
-    return { total, pendingPayment, paymentConfirmed, shipped, delivered };
+  const counts = useMemo(() => {
+    const c: Record<string, number> = {};
+    for (const g of GROUPS) c[g.key] = orders.filter(g.match).length;
+    return c;
   }, [orders]);
+
+  const visibleOrders = useMemo(() => {
+    if (!filter) return orders;
+    const g = GROUPS.find((x) => x.key === filter);
+    return g ? orders.filter(g.match) : orders;
+  }, [orders, filter]);
 
   function handleUpdated(next: OrderWithCustomer) {
     setOrders((prev) => prev.map((o) => (o.id === next.id ? next : o)));
@@ -47,15 +66,9 @@ export default function AdminDashboard({ initialOrders, initialBespoke = [] }: P
           <h1 className="mt-1 font-serif text-3xl text-ink">Dashboard</h1>
         </div>
         <nav className="flex items-center gap-5 text-xs uppercase tracking-[0.18em] text-ink/70">
-          <Link href="/admin" className="text-ink hover:text-accent">
-            Dashboard
-          </Link>
-          <Link href="/admin/import" className="hover:text-accent">
-            Import Products
-          </Link>
-          <button type="button" onClick={logout} className="text-ink/60 hover:text-accent">
-            Sign out
-          </button>
+          <Link href="/admin" className="text-ink hover:text-accent">Dashboard</Link>
+          <Link href="/admin/import" className="hover:text-accent">Import Products</Link>
+          <button type="button" onClick={logout} className="text-ink/60 hover:text-accent">Sign out</button>
         </nav>
       </header>
 
@@ -71,14 +84,34 @@ export default function AdminDashboard({ initialOrders, initialBespoke = [] }: P
       {tab === "orders" ? (
         <>
           <section className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-5">
-            <Stat label="Total" value={stats.total} />
-            <Stat label="Pending payment" value={stats.pendingPayment} />
-            <Stat label="Payment confirmed" value={stats.paymentConfirmed} />
-            <Stat label="Shipped" value={stats.shipped} />
-            <Stat label="Delivered" value={stats.delivered} />
+            {GROUPS.map((g) => {
+              const active = filter === g.key;
+              return (
+                <button
+                  key={g.key}
+                  type="button"
+                  onClick={() => setFilter(active ? null : g.key)}
+                  className={"border p-4 text-left transition-all " + (active ? "shadow-soft" : "border-ink/10 hover:-translate-y-0.5")}
+                  style={active ? { borderColor: g.color } : undefined}
+                >
+                  <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: g.color }} />
+                  <p className="mt-2 text-[10px] uppercase tracking-[0.18em] text-ink/60">{g.label}</p>
+                  <p className="mt-1 font-serif text-3xl text-ink">{counts[g.key]}</p>
+                </button>
+              );
+            })}
           </section>
 
-          <section className="mt-8 overflow-x-auto border border-ink/10">
+          {filter ? (
+            <p className="mt-4 text-xs text-ink/60">
+              Showing {GROUPS.find((g) => g.key === filter)?.label}.{" "}
+              <button type="button" onClick={() => setFilter(null)} className="text-accent hover:underline">
+                Clear filter
+              </button>
+            </p>
+          ) : null}
+
+          <section className="mt-6 overflow-x-auto border border-ink/10">
             <table className="min-w-full">
               <thead>
                 <tr className="border-b border-ink/10 bg-ink/[0.02] text-left text-[10px] uppercase tracking-[0.18em] text-ink/60">
@@ -93,14 +126,12 @@ export default function AdminDashboard({ initialOrders, initialBespoke = [] }: P
                 </tr>
               </thead>
               <tbody>
-                {orders.length === 0 ? (
+                {visibleOrders.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-12 text-center text-sm text-ink/50">
-                      No orders yet.
-                    </td>
+                    <td colSpan={8} className="px-4 py-12 text-center text-sm text-ink/50">No orders here.</td>
                   </tr>
                 ) : (
-                  orders.map((o) => <AdminOrderRow key={o.id} order={o} onUpdated={handleUpdated} />)
+                  visibleOrders.map((o) => <AdminOrderRow key={o.id} order={o} onUpdated={handleUpdated} />)
                 )}
               </tbody>
             </table>
@@ -121,9 +152,7 @@ export default function AdminDashboard({ initialOrders, initialBespoke = [] }: P
             <tbody>
               {initialBespoke.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-12 text-center text-sm text-ink/50">
-                    No bespoke requests yet.
-                  </td>
+                  <td colSpan={5} className="px-4 py-12 text-center text-sm text-ink/50">No bespoke requests yet.</td>
                 </tr>
               ) : (
                 initialBespoke.map((b) => <AdminBespokeRow key={b.id} request={b} />)
@@ -148,14 +177,5 @@ function TabButton({ active, onClick, label }: { active: boolean; onClick: () =>
     >
       {label}
     </button>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="border border-ink/10 p-4">
-      <p className="text-[10px] uppercase tracking-[0.2em] text-ink/60">{label}</p>
-      <p className="mt-2 font-serif text-3xl text-ink">{value}</p>
-    </div>
   );
 }

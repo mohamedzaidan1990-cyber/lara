@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { ORDER_STATUSES, ORDER_STATUS_LABELS, type OrderStatus, type OrderWithCustomer } from "@/lib/db";
+import { ORDER_STATUS_LABELS, type OrderStatus, type OrderWithCustomer } from "@/lib/db";
+import { BeeSvg } from "@/components/BeeMascot";
 
 interface Props {
   order: OrderWithCustomer;
@@ -9,14 +10,11 @@ interface Props {
 }
 
 function formatUsd(value: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0
-  }).format(value);
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value);
 }
 
-function formatDate(value: string): string {
+function formatDate(value: string | null | undefined): string {
+  if (!value) return "—";
   return new Date(value).toLocaleString("en-GB", {
     day: "2-digit",
     month: "short",
@@ -32,36 +30,88 @@ function whatsappLink(phone: string): string {
   return `https://wa.me/${lebanon}`;
 }
 
+function selfridgesSearch(brand: string, name: string): string {
+  return `https://www.selfridges.com/GB/en/cat/?term=${encodeURIComponent(`${brand} ${name}`.trim())}`;
+}
+
 export default function AdminOrderRow({ order, onUpdated }: Props) {
   const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
   const [local, setLocal] = useState(order);
 
-  async function patch(body: { status?: OrderStatus; payment_confirmed?: boolean }) {
-    setBusy(true);
+  function apply(next: Partial<OrderWithCustomer>) {
+    const merged = { ...local, ...next } as OrderWithCustomer;
+    setLocal(merged);
+    onUpdated?.(merged);
+  }
+
+  async function generateInvoice() {
+    if (!window.confirm("Confirm payment received and send the invoice to the customer?")) return;
+    setBusy("invoice");
     try {
-      const res = await fetch(`/api/orders/${order.id}`, {
-        method: "PATCH",
+      const res = await fetch("/api/admin/generate-invoice", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
+        body: JSON.stringify({ orderId: local.id })
       });
-      if (!res.ok) throw new Error("Update failed");
-      const next: OrderWithCustomer = { ...local, ...body } as OrderWithCustomer;
-      setLocal(next);
-      onUpdated?.(next);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Failed to generate invoice");
+      apply({ payment_confirmed: true, status: "payment_confirmed", invoice_sent_at: data.invoice_sent_at });
     } catch (err) {
       alert((err as Error).message);
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   }
 
+  async function patch(bodyObj: { status?: OrderStatus; tracking_number?: string }, confirmMsg: string, optimistic: Partial<OrderWithCustomer>) {
+    if (!window.confirm(confirmMsg)) return;
+    setBusy(bodyObj.status ?? "patch");
+    try {
+      const res = await fetch(`/api/orders/${local.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(bodyObj)
+      });
+      if (!res.ok) throw new Error("Update failed");
+      apply(optimistic);
+    } catch (err) {
+      alert((err as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  function markOrdered() {
+    void patch(
+      { status: "ordered_selfridges" },
+      "Mark as ordered on Selfridges? The customer will be notified on WhatsApp.",
+      { status: "ordered_selfridges" }
+    );
+  }
+
+  function markShipped() {
+    const tn = window.prompt("Enter the tracking number:");
+    if (tn === null || !tn.trim()) return;
+    void patch(
+      { status: "shipped", tracking_number: tn.trim() },
+      "Mark as shipped and notify the customer with this tracking number?",
+      { status: "shipped", tracking_number: tn.trim() }
+    );
+  }
+
+  function markDelivered() {
+    void patch({ status: "delivered" }, "Mark as delivered? The customer will be notified on WhatsApp.", {
+      status: "delivered"
+    });
+  }
+
+  const status = local.status;
+  const usdValue = Number(local.total_usd ?? local.price_usd);
+
   return (
     <>
-      <tr
-        className="cursor-pointer border-b border-ink/10 hover:bg-ink/[0.02]"
-        onClick={() => setOpen((v) => !v)}
-      >
+      <tr className="cursor-pointer border-b border-ink/10 hover:bg-ink/[0.02]" onClick={() => setOpen((v) => !v)}>
         <td className="px-4 py-3 font-mono text-xs text-ink">{local.order_number}</td>
         <td className="px-4 py-3 text-sm text-ink">{local.full_name}</td>
         <td className="px-4 py-3 text-sm text-ink/70">{local.phone}</td>
@@ -70,39 +120,10 @@ export default function AdminOrderRow({ order, onUpdated }: Props) {
           <span className="mx-1 text-ink/30">·</span>
           <span>{local.product_name}</span>
         </td>
-        <td className="px-4 py-3 text-sm font-medium text-ink">{formatUsd(Number(local.price_usd))}</td>
-        <td className="px-4 py-3 text-sm" onClick={(e) => e.stopPropagation()}>
-          <select
-            disabled={busy}
-            value={local.status}
-            onChange={(e) => patch({ status: e.target.value as OrderStatus })}
-            className="border border-ink/15 bg-white px-2 py-1 text-xs uppercase tracking-[0.12em] focus:border-accent focus:outline-none"
-          >
-            {ORDER_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {ORDER_STATUS_LABELS[s]}
-              </option>
-            ))}
-          </select>
-        </td>
-        <td className="px-4 py-3 text-sm" onClick={(e) => e.stopPropagation()}>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => patch({ payment_confirmed: !local.payment_confirmed })}
-            className={
-              "inline-flex h-6 w-11 items-center rounded-full transition-colors " +
-              (local.payment_confirmed ? "bg-gold" : "bg-ink/20")
-            }
-            aria-label="Toggle payment confirmed"
-          >
-            <span
-              className={
-                "inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform " +
-                (local.payment_confirmed ? "translate-x-5" : "translate-x-1")
-              }
-            />
-          </button>
+        <td className="px-4 py-3 text-sm font-medium text-ink">{formatUsd(usdValue)}</td>
+        <td className="px-4 py-3 text-xs uppercase tracking-[0.12em] text-ink/70">{ORDER_STATUS_LABELS[status]}</td>
+        <td className="px-4 py-3">
+          <span className={"inline-block h-2.5 w-2.5 rounded-full " + (local.payment_confirmed ? "bg-gold" : "bg-ink/20")} aria-label={local.payment_confirmed ? "Paid" : "Unpaid"} />
         </td>
         <td className="px-4 py-3 text-xs text-ink/60">{formatDate(local.created_at)}</td>
       </tr>
@@ -111,87 +132,114 @@ export default function AdminOrderRow({ order, onUpdated }: Props) {
         <tr className="border-b border-ink/10 bg-ink/[0.02]">
           <td colSpan={8} className="px-6 py-6">
             <div className="grid gap-6 lg:grid-cols-3">
+              {/* Customer */}
               <div>
                 <p className="text-[10px] uppercase tracking-[0.2em] text-ink/60">Delivery address</p>
                 <p className="mt-2 whitespace-pre-line text-sm text-ink">{local.address}</p>
                 {local.customer_email ? (
                   <>
                     <p className="mt-4 text-[10px] uppercase tracking-[0.2em] text-ink/60">Email</p>
-                    <a
-                      href={`mailto:${local.customer_email}`}
-                      className="mt-2 inline-block break-all text-sm text-accent hover:underline"
-                    >
+                    <a href={`mailto:${local.customer_email}`} className="mt-2 inline-block break-all text-sm text-accent hover:underline">
                       {local.customer_email}
                     </a>
                   </>
                 ) : null}
                 <p className="mt-4 text-[10px] uppercase tracking-[0.2em] text-ink/60">Notes</p>
-                <p className="mt-2 whitespace-pre-line text-sm text-ink">
-                  {local.notes ? local.notes : <span className="text-ink/40">None</span>}
-                </p>
+                <p className="mt-2 whitespace-pre-line text-sm text-ink">{local.notes || <span className="text-ink/40">None</span>}</p>
+                <a href={whatsappLink(local.phone)} target="_blank" rel="noreferrer" className="btn-gold mt-5 inline-block text-xs">
+                  WhatsApp customer
+                </a>
               </div>
-              <div>
-                {local.items && local.items.length > 0 ? (
-                  <>
-                    <p className="text-[10px] uppercase tracking-[0.2em] text-ink/60">Items ({local.items.length})</p>
-                    <ul className="mt-2 space-y-1 text-sm text-ink">
-                      {local.items.map((it, i) => (
-                        <li key={i} className="flex justify-between gap-3">
-                          <span>
-                            <span className="text-ink/60">{it.brand}</span> {it.name}
-                            {it.quantity > 1 ? <span className="text-ink/50"> ×{it.quantity}</span> : null}
-                          </span>
-                          <span className="whitespace-nowrap">{formatUsd(Number(it.price_usd) * it.quantity)}</span>
-                        </li>
-                      ))}
-                    </ul>
-                    <p className="mt-4 text-[10px] uppercase tracking-[0.2em] text-ink/60">Product link</p>
-                  </>
-                ) : (
-                  <p className="text-[10px] uppercase tracking-[0.2em] text-ink/60">Product link</p>
-                )}
-                {local.product_url ? (
-                  <a
-                    href={local.product_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-2 inline-block break-all text-sm text-accent hover:underline"
-                  >
-                    {local.product_url}
-                  </a>
-                ) : (
-                  <p className="mt-2 text-sm text-ink/40">No URL captured</p>
-                )}
-                <p className="mt-4 text-[10px] uppercase tracking-[0.2em] text-ink/60">Pricing</p>
-                <p className="mt-2 text-sm">
-                  £{Number(local.price_gbp).toLocaleString()} GBP
-                  <span className="mx-2 text-ink/30">·</span>
-                  {formatUsd(Number(local.price_usd))}
-                </p>
 
-                <div className="mt-6 flex flex-wrap gap-3">
-                  <a
-                    href={whatsappLink(local.phone)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="btn-gold text-xs"
-                  >
-                    WhatsApp customer
-                  </a>
-                </div>
-              </div>
+              {/* Items + Selfridges search */}
               <div>
-                <p className="text-[10px] uppercase tracking-[0.2em] text-ink/60">Payment screenshot</p>
-                {local.payment_screenshot ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={local.payment_screenshot}
-                    alt="Payment screenshot"
-                    className="mt-2 max-h-64 w-full rounded border border-ink/10 object-contain"
-                  />
+                <p className="text-[10px] uppercase tracking-[0.2em] text-ink/60">
+                  Items{local.items && local.items.length ? ` (${local.items.length})` : ""}
+                </p>
+                {local.items && local.items.length > 0 ? (
+                  <ul className="mt-2 space-y-2 text-sm text-ink">
+                    {local.items.map((it, i) => (
+                      <li key={i} className="flex items-start justify-between gap-3">
+                        <span>
+                          <span className="text-ink/60">{it.brand}</span> {it.name}
+                          {it.quantity > 1 ? <span className="text-ink/50"> ×{it.quantity}</span> : null}
+                          <a href={selfridgesSearch(it.brand, it.name)} target="_blank" rel="noreferrer" className="ml-2 text-xs text-accent hover:underline">
+                            Find on Selfridges 🔍
+                          </a>
+                        </span>
+                        <span className="whitespace-nowrap">{formatUsd(Number(it.price_usd) * it.quantity)}</span>
+                      </li>
+                    ))}
+                  </ul>
                 ) : (
-                  <p className="mt-2 text-sm text-ink/40">Not uploaded</p>
+                  <a href={selfridgesSearch(local.product_brand ?? "", local.product_name ?? "")} target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs text-accent hover:underline">
+                    Find on Selfridges 🔍
+                  </a>
                 )}
+                <p className="mt-4 text-[10px] uppercase tracking-[0.2em] text-ink/60">Total</p>
+                <p className="mt-1 text-sm">{formatUsd(usdValue)}</p>
+                {local.tracking_number ? (
+                  <>
+                    <p className="mt-4 text-[10px] uppercase tracking-[0.2em] text-ink/60">Tracking</p>
+                    <p className="mt-1 font-mono text-sm text-ink">{local.tracking_number}</p>
+                  </>
+                ) : null}
+              </div>
+
+              {/* Workflow actions */}
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.2em] text-ink/60">Workflow</p>
+                <div className="mt-3 flex flex-col gap-3">
+                  {!local.payment_confirmed ? (
+                    <button type="button" onClick={generateInvoice} disabled={busy !== null} className="btn-primary text-xs disabled:opacity-50">
+                      {busy === "invoice" ? (
+                        <span className="inline-flex items-center gap-2"><span className="bee-wings inline-block"><BeeSvg size={16} /></span> Generating…</span>
+                      ) : (
+                        "Confirm Payment & Send Invoice"
+                      )}
+                    </button>
+                  ) : (
+                    <>
+                      <span className="inline-flex items-center gap-2 text-sm font-medium" style={{ color: "#277C43" }}>
+                        Invoice Sent ✓
+                      </span>
+                      {local.invoice_sent_at ? <span className="text-[11px] text-ink/50">Invoice sent on {formatDate(local.invoice_sent_at)}</span> : null}
+                      <a href={`/api/admin/invoice/${local.id}`} className="btn-outline text-xs">
+                        Download Invoice
+                      </a>
+                    </>
+                  )}
+
+                  {local.payment_confirmed && status === "payment_confirmed" ? (
+                    <button type="button" onClick={markOrdered} disabled={busy !== null} className="btn-gold text-xs disabled:opacity-50">
+                      Mark as Ordered on Selfridges
+                    </button>
+                  ) : null}
+
+                  {status === "ordered_selfridges" ? (
+                    <button type="button" onClick={markShipped} disabled={busy !== null} className="btn-gold text-xs disabled:opacity-50">
+                      Mark as Shipped
+                    </button>
+                  ) : null}
+
+                  {status === "shipped" || status === "in_lebanon" ? (
+                    <button type="button" onClick={markDelivered} disabled={busy !== null} className="btn-gold text-xs disabled:opacity-50">
+                      Mark as Delivered
+                    </button>
+                  ) : null}
+
+                  {status === "delivered" ? (
+                    <span className="text-sm font-medium" style={{ color: "#277C43" }}>Delivered ✓</span>
+                  ) : null}
+                </div>
+
+                {local.payment_screenshot ? (
+                  <>
+                    <p className="mt-5 text-[10px] uppercase tracking-[0.2em] text-ink/60">Payment screenshot</p>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={local.payment_screenshot} alt="Payment screenshot" className="mt-2 max-h-48 w-full rounded border border-ink/10 object-contain" />
+                  </>
+                ) : null}
               </div>
             </div>
           </td>

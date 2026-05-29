@@ -224,7 +224,8 @@ export async function POST(req: Request) {
           product_brand: summaryBrand,
           product_name: summaryName,
           price_usd: totalUSD,
-          items: isCart ? items.map((it) => ({ brand: it.brand, name: it.name, quantity: it.quantity })) : undefined
+          payment_method: body.payment_method ?? null,
+          items: items.map((it) => ({ brand: it.brand, name: it.name, quantity: it.quantity, price_usd: it.price_usd }))
         },
         emailCustomer
       ).catch((err) => console.error("sendWhatsAppAlert error", err))

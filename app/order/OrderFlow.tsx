@@ -650,6 +650,11 @@ function Step4Confirmation({
           Back to shop
         </Link>
       </div>
+      <p className="mt-4 text-xs text-ink/60">
+        <Link href={`/track?order=${order.order_number}`} className="uppercase tracking-[0.18em] hover:text-accent">
+          Track your order →
+        </Link>
+      </p>
     </section>
   );
 }

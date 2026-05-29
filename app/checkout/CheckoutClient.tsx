@@ -334,6 +334,11 @@ function Confirmation({ confirmation }: { confirmation: Confirmation }) {
         </a>
         <Link href="/" className="btn-outline">Continue Shopping</Link>
       </div>
+      <p className="mt-4 text-xs text-ink/60">
+        <Link href={`/track?order=${confirmation.order_number}`} className="uppercase tracking-[0.18em] hover:text-accent">
+          Track your order →
+        </Link>
+      </p>
     </motion.section>
   );
 }

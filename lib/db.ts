@@ -84,6 +84,13 @@ export const SCHEMA_STATEMENTS = [
     created_at timestamp default now()
   )`,
   `create index if not exists order_items_order_id_idx on order_items (order_id)`,
+  // ----- Invoice + operational workflow timestamps -----
+  `alter table orders add column if not exists invoice_pdf text`,
+  `alter table orders add column if not exists invoice_sent_at timestamp`,
+  `alter table orders add column if not exists ordered_selfridges_at timestamp`,
+  `alter table orders add column if not exists shipped_at timestamp`,
+  `alter table orders add column if not exists tracking_number text`,
+  `alter table orders add column if not exists delivered_at timestamp`,
   // ----- Bespoke consultation requests (AI chat) -----
   `create table if not exists bespoke_requests (
     id uuid default gen_random_uuid() primary key,
@@ -163,6 +170,11 @@ export interface OrderRow {
   total_usd?: string | number | null;
   total_gbp?: string | number | null;
   items_count?: number | null;
+  invoice_sent_at?: string | null;
+  ordered_selfridges_at?: string | null;
+  shipped_at?: string | null;
+  delivered_at?: string | null;
+  tracking_number?: string | null;
 }
 
 export interface OrderLineItem {

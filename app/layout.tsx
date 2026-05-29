@@ -124,6 +124,11 @@ function SiteFooter() {
               </Link>
             </li>
             <li>
+              <Link href="/track" className="hover:text-gold">
+                Track your order
+              </Link>
+            </li>
+            <li>
               <Link href="/info#returns" className="hover:text-gold">
                 Returns policy
               </Link>

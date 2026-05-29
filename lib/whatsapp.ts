@@ -5,13 +5,21 @@ export interface WhatsAppOrder {
   product_brand: string;
   product_name: string;
   price_usd: number | string;
-  items?: Array<{ brand: string; name: string; quantity: number }>;
+  payment_method?: string | null;
+  items?: Array<{ brand: string; name: string; quantity: number; price_usd?: number | string }>;
 }
 
 export interface WhatsAppCustomer {
   full_name: string;
   phone: string;
   address: string;
+  email?: string;
+}
+
+function paymentLabel(method?: string | null): string {
+  if (method === "whish_link") return "Whish payment link";
+  if (method === "whish_direct" || method === "whish") return "Direct Whish transfer";
+  return method ?? "—";
 }
 
 function isConfigured(): boolean {
@@ -62,16 +70,33 @@ export async function sendWhatsAppAlert(order: WhatsAppOrder, customer: WhatsApp
     return;
   }
   const from = process.env.TWILIO_WHATSAPP_FROM!;
+  const adminUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://seasonsbyb.co.uk").replace(/\/$/, "") + "/admin";
   const lines =
     order.items && order.items.length > 0
-      ? order.items.map((it) => `• ${it.brand} — ${it.name}${it.quantity > 1 ? ` ×${it.quantity}` : ""}`).join("\n")
-      : `${order.product_brand} — ${order.product_name}`;
-  const body = `🛍 New order ${order.order_number}
-${lines}
-Total: ${formatUsd(order.price_usd)}
+      ? order.items
+          .map(
+            (it) =>
+              `* ${it.brand} — ${it.name} x${it.quantity}${it.price_usd != null ? ` — ${formatUsd(it.price_usd)}` : ""}`
+          )
+          .join("\n")
+      : `* ${order.product_brand} — ${order.product_name}`;
+  const body = `🛍️ NEW ORDER — Seasons by B
+
+Order: ${order.order_number}
 Customer: ${customer.full_name}
 Phone: ${customer.phone}
-Address: ${customer.address}`;
+Email: ${customer.email ?? "—"}
+Address: ${customer.address}
+
+Items ordered:
+${lines}
+
+ORDER TOTAL: ${formatUsd(order.price_usd)}
+Payment: ${paymentLabel(order.payment_method)}
+
+⚡ ACTION REQUIRED: Check Whish app to confirm payment, then go to admin to generate invoice.
+
+Admin: ${adminUrl}`;
 
   try {
     await client.messages.create({
@@ -81,6 +106,22 @@ Address: ${customer.address}`;
     });
   } catch (err) {
     console.error("[whatsapp] sendWhatsAppAlert failed", err);
+  }
+}
+
+// Generic outbound WhatsApp to a customer (workflow + invoice notifications).
+export async function sendWhatsAppText(customerPhone: string, body: string): Promise<void> {
+  const client = getClient();
+  if (!client) {
+    console.warn("[whatsapp] Twilio not configured — skipping customer message");
+    return;
+  }
+  if (!customerPhone) return;
+  const from = process.env.TWILIO_WHATSAPP_FROM!;
+  try {
+    await client.messages.create({ from, to: toWhatsAppAddress(customerPhone), body });
+  } catch (err) {
+    console.error("[whatsapp] sendWhatsAppText failed", err);
   }
 }
 

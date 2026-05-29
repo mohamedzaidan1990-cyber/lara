@@ -333,8 +333,8 @@ export async function sendOrderNotification(order: EmailOrder, customer: EmailCu
   }
   const cfg = getEmailConfig();
   const priceLabel = formatUsd(order.price_usd);
-  const subject = `New order — ${order.order_number} — ${priceLabel}`;
-  const preheader = `${customer.full_name} just placed an order for ${priceLabel}.`;
+  const subject = `🛍️ New Order ${order.order_number} — ${priceLabel} — ACTION REQUIRED`;
+  const preheader = `${customer.full_name} just placed an order for ${priceLabel}. Confirm payment & generate the invoice.`;
 
   const html = baseLayout(
     subject,
@@ -354,10 +354,16 @@ export async function sendOrderNotification(order: EmailOrder, customer: EmailCu
 
     <table role="presentation" class="stack-block" width="100%" cellspacing="0" cellpadding="0" border="0" style="font-size:14px;line-height:1.8;color:${COLOR_INK};border:1px solid rgba(35,39,42,0.08);background-color:${COLOR_CREAM};margin-top:16px;">
       <tr><td style="padding:22px;">
-        <div style="font-size:11px;text-transform:uppercase;letter-spacing:3px;color:${COLOR_INK_MUTED};margin-bottom:8px;">${order.items && order.items.length > 0 ? "Items" : "Product"}</div>
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:3px;color:${COLOR_INK_MUTED};margin-bottom:8px;">${order.items && order.items.length > 0 ? "Items — find each on Selfridges" : "Product"}</div>
         ${
           order.items && order.items.length > 0
-            ? order.items.map((it) => `<div>${it.brand} — ${it.name}${it.quantity > 1 ? ` ×${it.quantity}` : ""} · ${formatUsd(Number(it.price_usd) * it.quantity)}</div>`).join("")
+            ? order.items
+                .map((it) => {
+                  const term = encodeURIComponent(`${it.brand} ${it.name}`);
+                  const sel = `https://www.selfridges.com/GB/en/cat/?term=${term}`;
+                  return `<div style="margin-bottom:4px;">${it.brand} — ${it.name}${it.quantity > 1 ? ` ×${it.quantity}` : ""} · ${formatUsd(Number(it.price_usd) * it.quantity)} · <a href="${sel}" style="color:${COLOR_ACCENT};">Find on Selfridges 🔍</a></div>`;
+                })
+                .join("")
             : `<strong>${order.product_brand} — ${order.product_name}</strong>`
         }<br />
         Total: ${priceLabel}${order.price_gbp ? ` (£${order.price_gbp} GBP)` : ""}<br />
@@ -367,7 +373,8 @@ export async function sendOrderNotification(order: EmailOrder, customer: EmailCu
       </td></tr>
     </table>
 
-    <p style="margin:28px 0 0;">${ctaButton(cfg.adminUrl, "Open admin dashboard", "accent")}</p>
+    <p style="margin:28px 0 0;">${ctaButton(cfg.adminUrl, "VIEW IN ADMIN", "accent")}</p>
+    <p style="font-size:13px;color:${COLOR_INK_MUTED};margin:14px 0 0;">⚡ Action required: check Whish to confirm payment, then generate the invoice in admin.</p>
     `,
     preheader
   );
@@ -395,6 +402,60 @@ Admin: ${cfg.adminUrl}`;
     });
   } catch (err) {
     console.error("[email] sendOrderNotification failed", err);
+  }
+}
+
+export async function sendInvoiceEmail(args: {
+  orderNumber: string;
+  customerEmail: string;
+  customerName: string;
+  pdfBase64: string;
+}): Promise<void> {
+  const resend = getResend();
+  if (!resend) {
+    console.warn("[email] RESEND_API_KEY not configured — skipping invoice email");
+    return;
+  }
+  const cfg = getEmailConfig();
+  const subject = `Your Seasons by B Invoice — ${args.orderNumber}`;
+  const firstName = args.customerName.split(" ")[0] || "there";
+  const waUrl = whatsappLink(cfg.whatsappNumber, `Hi Seasons by B, this is order ${args.orderNumber}.`);
+  const preheader = `Payment confirmed for ${args.orderNumber}. Your invoice is attached.`;
+
+  const html = baseLayout(
+    subject,
+    `
+    <div style="font-size:11px;text-transform:uppercase;letter-spacing:3px;color:${COLOR_ACCENT};font-weight:600;">Payment confirmed</div>
+    <h1 style="font-family:Georgia,'Times New Roman',serif;font-size:30px;line-height:1.2;margin:8px 0 16px;color:${COLOR_INK};font-weight:700;">Your invoice, ${firstName} ✓</h1>
+    <p style="font-size:15px;line-height:1.65;color:${COLOR_INK};margin:0 0 8px;">
+      We&rsquo;ve confirmed your payment for order <strong>${args.orderNumber}</strong>. Your invoice is attached as a PDF.
+    </p>
+    <p style="font-size:15px;line-height:1.65;color:${COLOR_INK};margin:0;">
+      We&rsquo;re now sourcing your items from London — estimated delivery <strong>10–14 working days</strong>.
+    </p>
+    <p style="margin:24px 0 0;">${ctaButton(waUrl, "Questions? WhatsApp us", "gold")}</p>
+    `,
+    preheader
+  );
+
+  const text = `Seasons by B — Invoice ${args.orderNumber}
+
+Your payment has been confirmed. Your invoice is attached as a PDF.
+We're now sourcing your items from London — estimated delivery 10-14 working days.
+
+Questions? ${waUrl}`;
+
+  try {
+    await resend.emails.send({
+      from: FROM_ADDRESS,
+      to: args.customerEmail,
+      subject,
+      html,
+      text,
+      attachments: [{ filename: `seasons-by-b-${args.orderNumber}.pdf`, content: args.pdfBase64 }]
+    });
+  } catch (err) {
+    console.error("[email] sendInvoiceEmail failed", err);
   }
 }
 
