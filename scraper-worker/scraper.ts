@@ -4,28 +4,23 @@ import type { ScrapedProductRow } from "./db";
 import { convertGbpToUsd } from "./currency";
 
 // =============================================================================
-// API/fragment-based scraper (no Playwright).
+// Beauty-only product scraper (no Playwright).
 //
-// Verified behaviour (probed 2026-05-29):
-//   * Selfridges  — every path (incl. the "public" API URLs) returns a
-//                   Cloudflare 403 "Attention Required!" challenge to plain
-//                   fetch from a datacenter/proxy IP. There is no usable JSON
-//                   API; we keep a single best-effort probe so the logs show
-//                   the block, then fall through.
-//   * Space NK    — Salesforce Commerce Cloud. The Search-UpdateGrid controller
-//                   returns an HTML fragment of 50-80 product tiles. Each tile
-//                   carries a clean JSON blob in `data-snk-e-cxt` with brand,
-//                   name and price. THIS IS THE PRIMARY SOURCE.
-//   * Cult Beauty — THG. Category `.list` pages embed a `"products":[...]` JSON
-//                   array with title/url/brand/price/image. Used as a fallback.
+// Focus: makeup, skincare, haircare and beauty tools — all deliverable to
+// Lebanon via the personal-shopping service. Selfridges is fully Cloudflare-
+// blocked to plain fetch, so it is not used. The catalog is built from two
+// reachable retailers that carry the same luxury beauty brands:
 //
-// Space NK and Cult Beauty carry the same luxury beauty brands as Selfridges
-// (Charlotte Tilbury, La Mer, Dior, NARS, etc.) and every item is fulfilled
-// through the personal-shopping service, so the source is invisible to
-// customers. All prices are GBP, converted to USD via currency.ts.
+//   * Space NK (PRIMARY) — Salesforce Commerce Cloud. Each category/sub-
+//     category PAGE server-renders ~10-12 product tiles, each carrying a JSON
+//     blob in `data-snk-e-cxt` (brand/name/price). We crawl the category
+//     landing page plus every sub-category it links to, which multiplies the
+//     volume well past the ~10 a single grid returns.
+//   * Cult Beauty (SECONDARY for makeup/skincare) — THG. `.list` pages embed a
+//     `productList.products` JSON array, paginated via `?pageNumber`.
 //
-// Note: Bags / Accessories have no working source here (Selfridges blocked;
-// Space NK / Cult Beauty are beauty-only) — those categories return 0.
+// All scraped items are standard beauty products → deliverable_lebanon: true.
+// Prices are GBP, converted to USD (with service markup) via currency.ts.
 // =============================================================================
 
 // ---------- Proxy dispatcher (same pattern as lib/selfridges-import.ts) ----------
@@ -41,42 +36,13 @@ function getDispatcher(): ProxyAgent | undefined {
   return cachedDispatcher;
 }
 
-export const SCRAPE_CATEGORIES = [
-  "Makeup",
-  "Skincare",
-  "Bags",
-  "Haircare",
-  "Accessories",
-  "Beauty tools"
-] as const;
+// Beauty-only. (Bags/Accessories have no reachable source and are intentionally
+// excluded so runs stay focused on deliverable beauty products.)
+export const SCRAPE_CATEGORIES = ["Makeup", "Skincare", "Haircare", "Beauty tools"] as const;
 
-const PAGE_SIZE = 60;
-const MAX_PAGES = 5;
-
-// ---------- Per-source category slugs ----------
-const SELFRIDGES_SLUGS: Record<string, string> = {
-  Makeup: "make-up",
-  Skincare: "skincare",
-  Bags: "bags-purses",
-  Haircare: "hair",
-  Accessories: "accessories",
-  "Beauty tools": "beauty-tools-and-accessories"
-};
-
-// Space NK category-group IDs (verified to return products).
-const SPACENK_CGID: Record<string, string> = {
-  Makeup: "makeup",
-  Skincare: "skincare",
-  Haircare: "hair",
-  "Beauty tools": "brushes-tools"
-};
-
-// Cult Beauty `.list` slugs (verified). Only slugs that actually resolve are
-// listed — unmapped categories simply skip this fallback.
-const CULTBEAUTY_SLUGS: Record<string, string> = {
-  Makeup: "make-up",
-  Skincare: "skin-care"
-};
+// Cap on how many sub-category pages to crawl per top category (keeps run time
+// bounded; categories expose ~29-32 sub-pages today).
+const MAX_SUBCATEGORIES = 45;
 
 const USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
@@ -151,7 +117,6 @@ async function toRows(raws: RawProduct[], categoryName: string, sourceBrand: str
       category: categoryName,
       price_gbp: r.priceGbp,
       price_usd: await convertGbpToUsd(r.priceGbp),
-      // Every product here is a standard beauty item — all deliverable.
       deliverable_lebanon: true,
       product_url: r.product_url,
       image_url: r.image_url
@@ -177,59 +142,30 @@ async function fetchText(
   }
 }
 
-// ---------- Source 1: Selfridges (best-effort first probe; expected 403) ----------
-async function scrapeSelfridges(categoryName: string): Promise<ScrapedProductRow[]> {
-  const slug = SELFRIDGES_SLUGS[categoryName];
-  if (!slug) return [];
-  const url = `https://www.selfridges.com/api/cms/products/query?page=1&pageSize=${PAGE_SIZE}&category=${slug}&country=GB&lang=en`;
-  const res = await fetchText(url, headersFor(`https://www.selfridges.com/GB/en/cat/${slug}/`));
-  if (!res) return [];
-  const preview = res.text.slice(0, 200).replace(/\s+/g, " ").trim();
-  console.log(`[scraper] Selfridges ${categoryName} → HTTP ${res.status}; ${preview}`);
-  if (res.status < 200 || res.status >= 300) return [];
-  // If Selfridges ever serves JSON again, try to read an array of products.
-  try {
-    const json = JSON.parse(res.text) as unknown;
-    const raws = extractGenericProducts(json, "https://www.selfridges.com");
-    return toRows(dedupeRaw(raws), categoryName, "Selfridges");
-  } catch {
-    return [];
-  }
+function ok(status: number): boolean {
+  return status >= 200 && status < 300;
 }
 
-// Minimal generic JSON product extractor — only used for the Selfridges probe.
-function extractGenericProducts(node: unknown, origin: string, out: RawProduct[] = [], depth = 0): RawProduct[] {
-  if (depth > 6 || node === null || typeof node !== "object") return out;
-  if (Array.isArray(node)) {
-    for (const item of node) extractGenericProducts(item, origin, out, depth + 1);
-    return out;
-  }
-  const obj = node as Record<string, unknown>;
-  const name = typeof obj.name === "string" ? obj.name : typeof obj.title === "string" ? obj.title : "";
-  const price = parsePrice(obj.price ?? obj.priceGBP ?? obj.amount);
-  if (name && price !== null) {
-    const url = typeof obj.url === "string" ? obj.url : typeof obj.href === "string" ? obj.href : "";
-    const img = typeof obj.image === "string" ? obj.image : "";
-    const brandRaw = obj.brand;
-    const brand =
-      typeof brandRaw === "string"
-        ? brandRaw
-        : brandRaw && typeof brandRaw === "object" && typeof (brandRaw as Record<string, unknown>).name === "string"
-          ? ((brandRaw as Record<string, unknown>).name as string)
-          : "";
-    out.push({ brand, name, priceGbp: price, image_url: resolveUrl(img, origin), product_url: resolveUrl(url, origin) });
-    return out;
-  }
-  for (const key of Object.keys(obj)) extractGenericProducts(obj[key], origin, out, depth + 1);
-  return out;
-}
-
-// ---------- Source 2: Space NK (PRIMARY) ----------
-// Salesforce Commerce Cloud "Search-UpdateGrid" returns an HTML fragment of
-// product tiles. Each tile's `data-snk-e-cxt` attribute holds a JSON array
-// like: [{"$entity":"product","brand":"Charlotte Tilbury","name":"Magic Cream",
-//         "price":195,"priceGBP":195,"currency":"GBP",...}]
+// ---------- Space NK (PRIMARY) ----------
+// SFCC category/sub-category pages render product tiles whose `data-snk-e-cxt`
+// attribute holds JSON like:
+//   [{"$entity":"product","brand":"Charlotte Tilbury","name":"Magic Cream",
+//     "price":195,"priceGBP":195,"currency":"GBP",...}]
 const SPACENK_ORIGIN = "https://www.spacenk.com";
+
+// Top category → landing path on Space NK (note: haircare lives under /haircare).
+const SPACENK_LANDINGS: Record<string, string> = {
+  Makeup: "makeup",
+  Skincare: "skincare",
+  Haircare: "haircare"
+};
+
+// Beauty tools are scattered across the tool sub-pages of each section.
+const SPACENK_TOOL_PATHS = [
+  "/uk/makeup/brushes-tools",
+  "/uk/skincare/skincare-tools",
+  "/uk/haircare/hair-tools"
+];
 
 interface SnkCxt {
   $entity?: string;
@@ -239,7 +175,7 @@ interface SnkCxt {
   priceGBP?: number;
 }
 
-function parseSpaceNkFragment(html: string): RawProduct[] {
+function parseSpaceNkTiles(html: string): RawProduct[] {
   const $ = cheerio.load(html);
   const out: RawProduct[] = [];
   $(".product[data-pid]").each((_, el) => {
@@ -252,7 +188,9 @@ function parseSpaceNkFragment(html: string): RawProduct[] {
     let cxt: SnkCxt | undefined;
     try {
       const parsed = JSON.parse(cxtRaw) as unknown;
-      const entry = Array.isArray(parsed) ? parsed.find((e) => (e as SnkCxt)?.$entity === "product") ?? parsed[0] : parsed;
+      const entry = Array.isArray(parsed)
+        ? (parsed.find((e) => (e as SnkCxt)?.$entity === "product") ?? parsed[0])
+        : parsed;
       cxt = entry as SnkCxt;
     } catch {
       return;
@@ -281,28 +219,76 @@ function parseSpaceNkFragment(html: string): RawProduct[] {
   return out;
 }
 
-async function scrapeSpaceNk(categoryName: string): Promise<ScrapedProductRow[]> {
-  const cgid = SPACENK_CGID[categoryName];
-  if (!cgid) return [];
-  const headers = headersFor(`${SPACENK_ORIGIN}/uk/${cgid}`);
-
-  // Only the first batch of tiles is server-rendered with price data; the
-  // `start` param is ignored for anonymous requests (the rest hydrate
-  // client-side), so a single request is all that's useful here.
-  const url = `${SPACENK_ORIGIN}/on/demandware.store/Sites-spacenkgb-Site/en_GB/Search-UpdateGrid?cgid=${cgid}&sz=${PAGE_SIZE}&start=0`;
-  const res = await fetchText(url, headers);
-  if (!res) return [];
-  console.log(`[scraper] Space NK ${categoryName} → HTTP ${res.status} (${res.text.length} bytes)`);
-  if (res.status < 200 || res.status >= 300) return [];
-
-  const raws = parseSpaceNkFragment(res.text);
-  console.log(`[scraper] Space NK ${categoryName} → ${raws.length} products`);
-  return toRows(dedupeRaw(raws), categoryName, "Space NK");
+// Pull sub-category page links (up to 2 levels deep) out of a landing page.
+function extractSpaceNkSublinks(html: string, base: string): string[] {
+  const set = new Set<string>();
+  const re = new RegExp(`href="(/uk/${base}/[a-z0-9-]+(?:/[a-z0-9-]+)?)"`, "g");
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    const path = m[1].split("?")[0];
+    if (path.endsWith(".html")) continue; // skip product detail pages
+    set.add(path);
+  }
+  return [...set];
 }
 
-// ---------- Source 3: Cult Beauty (FALLBACK) ----------
-// THG `.list` pages embed a `"products":[...]` JSON array in the page state.
+// Crawl a section: landing page + every sub-category page it links to.
+async function crawlSpaceNkSection(base: string, label: string): Promise<RawProduct[]> {
+  const headers = headersFor(`${SPACENK_ORIGIN}/uk/${base}`);
+  const collected: RawProduct[] = [];
+
+  const landing = await fetchText(`${SPACENK_ORIGIN}/uk/${base}`, headers);
+  let subs: string[] = [];
+  if (landing && ok(landing.status)) {
+    collected.push(...parseSpaceNkTiles(landing.text));
+    subs = extractSpaceNkSublinks(landing.text, base).slice(0, MAX_SUBCATEGORIES);
+  }
+  console.log(
+    `[scraper] Space NK ${label}: landing → ${collected.length} products, ${subs.length} sub-categories to crawl`
+  );
+
+  for (const path of subs) {
+    const res = await fetchText(`${SPACENK_ORIGIN}${path}`, headers);
+    if (res && ok(res.status)) collected.push(...parseSpaceNkTiles(res.text));
+    await delay(400, 1000);
+  }
+  return collected;
+}
+
+// Fetch a fixed list of pages (used for the scattered Beauty-tools pages).
+async function crawlSpaceNkPages(paths: string[], label: string): Promise<RawProduct[]> {
+  const headers = headersFor(`${SPACENK_ORIGIN}/uk/`);
+  const collected: RawProduct[] = [];
+  for (const path of paths) {
+    const res = await fetchText(`${SPACENK_ORIGIN}${path}`, headers);
+    if (res && ok(res.status)) collected.push(...parseSpaceNkTiles(res.text));
+    await delay(400, 1000);
+  }
+  console.log(`[scraper] Space NK ${label}: ${dedupeRaw(collected).length} products from ${paths.length} pages`);
+  return collected;
+}
+
+async function scrapeSpaceNk(categoryName: string): Promise<ScrapedProductRow[]> {
+  let raws: RawProduct[];
+  if (categoryName === "Beauty tools") {
+    raws = await crawlSpaceNkPages(SPACENK_TOOL_PATHS, categoryName);
+  } else {
+    const base = SPACENK_LANDINGS[categoryName];
+    if (!base) return [];
+    raws = await crawlSpaceNkSection(base, categoryName);
+  }
+  const deduped = dedupeRaw(raws);
+  console.log(`[scraper] Space NK ${categoryName} → ${deduped.length} unique products`);
+  return toRows(deduped, categoryName, "Space NK");
+}
+
+// ---------- Cult Beauty (SECONDARY) ----------
 const CULTBEAUTY_ORIGIN = "https://www.cultbeauty.co.uk";
+const CULTBEAUTY_SLUGS: Record<string, string> = {
+  Makeup: "make-up",
+  Skincare: "skin-care"
+};
+const CULTBEAUTY_MAX_PAGES = 8;
 
 interface CbProduct {
   title?: string;
@@ -313,11 +299,9 @@ interface CbProduct {
 }
 
 // Extracts a JSON array that starts at `"<key>":[` using balanced-bracket
-// scanning (the array is embedded in a much larger state blob). `fromIndex`
-// lets the caller anchor the search after a known parent key.
+// scanning. `fromIndex` anchors the search after a known parent key.
 function extractJsonArray(html: string, key: string, fromIndex = 0): unknown[] | null {
-  const marker = `"${key}":`;
-  const start = html.indexOf(marker, fromIndex);
+  const start = html.indexOf(`"${key}":`, fromIndex);
   if (start < 0) return null;
   const open = html.indexOf("[", start);
   if (open < 0) return null;
@@ -383,47 +367,30 @@ async function scrapeCultBeauty(categoryName: string): Promise<ScrapedProductRow
   const headers = headersFor(`${CULTBEAUTY_ORIGIN}/${slug}.list`);
   const collected: RawProduct[] = [];
 
-  for (let page = 1; page <= MAX_PAGES; page += 1) {
+  for (let page = 1; page <= CULTBEAUTY_MAX_PAGES; page += 1) {
     const url = `${CULTBEAUTY_ORIGIN}/${slug}.list?pageNumber=${page}`;
     const res = await fetchText(url, headers);
-    if (!res) break;
+    if (!res || !ok(res.status)) break;
 
-    if (page === 1) {
-      console.log(`[scraper] Cult Beauty ${categoryName} page 1 → HTTP ${res.status} (${res.text.length} bytes)`);
-    }
-    if (res.status < 200 || res.status >= 300) break;
+    // Anchor on the main "productList" object (avoids smaller widget arrays).
+    const anchor = res.text.indexOf('"productList"');
+    const products = extractJsonArray(res.text, "products", anchor >= 0 ? anchor : 0);
+    if (!products || products.length === 0) break;
 
-    // Anchor on the main "productList" object so we don't pick up a smaller
-    // "you may also like" widget array that appears elsewhere on the page.
-    const listAnchor = res.text.indexOf('"productList"');
-    const products = extractJsonArray(res.text, "products", listAnchor >= 0 ? listAnchor : 0);
-    if (!products || products.length === 0) {
-      console.log(`[scraper] Cult Beauty ${categoryName} page ${page} → no products JSON (end of results)`);
-      break;
-    }
     const raws = parseCultBeautyProducts(products);
     if (raws.length === 0) break;
     collected.push(...raws);
-    console.log(`[scraper] Cult Beauty ${categoryName} page ${page} → ${raws.length} products`);
-    await delay(800, 1800);
+    await delay(400, 1000);
   }
 
-  return toRows(dedupeRaw(collected), categoryName, "Cult Beauty");
+  const deduped = dedupeRaw(collected);
+  if (deduped.length > 0) console.log(`[scraper] Cult Beauty ${categoryName} → ${deduped.length} unique products`);
+  return toRows(deduped, categoryName, "Cult Beauty");
 }
 
 // ---------- Public entry point ----------
 export async function scrapeCategory(categoryName: string): Promise<ScrapedProductRow[]> {
-  // 1. Selfridges first (per spec). Expected to be Cloudflare-blocked; if it
-  //    ever serves JSON again we take it and stop.
-  const selfridges = await scrapeSelfridges(categoryName);
-  if (selfridges.length > 0) {
-    console.log(`[scraper] "${categoryName}" → ${selfridges.length} products from Selfridges`);
-    return selfridges;
-  }
-
-  // 2. Combine Space NK + Cult Beauty. Each only server-renders ~10-20 priced
-  //    products per category via plain fetch, so we union both (they carry the
-  //    same brands) to build the widest catalog, then dedupe.
+  // Space NK is the primary source; Cult Beauty adds extra makeup/skincare.
   const spacenk = await scrapeSpaceNk(categoryName);
   const cult = await scrapeCultBeauty(categoryName);
   const merged = dedupeRows([...spacenk, ...cult]);
@@ -433,7 +400,7 @@ export async function scrapeCategory(categoryName: string): Promise<ScrapedProdu
       `[scraper] "${categoryName}" → ${merged.length} products (Space NK ${spacenk.length} + Cult Beauty ${cult.length}, deduped)`
     );
   } else {
-    console.log(`[scraper] "${categoryName}" → no source returned products`);
+    console.log(`[scraper] "${categoryName}" → no products`);
   }
   return merged;
 }
