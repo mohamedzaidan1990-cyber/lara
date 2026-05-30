@@ -1,6 +1,12 @@
 import cron from "node-cron";
 import { ensureSchema, logScrape, upsertProducts, type ScrapedProductRow } from "./db";
-import { scrapeCategory, scrapeLookfantasticBrands, SCRAPE_CATEGORIES } from "./scraper";
+import {
+  scrapeCategory,
+  scrapeLookfantasticBrands,
+  scrapeBootsBrands,
+  scrapeJohnLewisBrands,
+  SCRAPE_CATEGORIES
+} from "./scraper";
 
 const CRON_SCHEDULE = process.env.CRON_SCHEDULE ?? "0 */6 * * *";
 
@@ -80,6 +86,31 @@ async function runOnce(): Promise<void> {
   } catch (err) {
     failedCategories += 1;
     console.error("[worker] Lookfantastic brand scrape failed — continuing", err);
+  }
+
+  // Boots + John Lewis brand pages (fill gaps: Huda, Rare, Rhode, K18, Gisou…).
+  for (const src of [
+    { name: "Boots", run: scrapeBootsBrands },
+    { name: "John Lewis", run: scrapeJohnLewisBrands }
+  ]) {
+    try {
+      console.log(`[worker] scraping ${src.name} brand pages…`);
+      const products = await src.run();
+      totalProducts += products.length;
+      totalDeliverable += products.filter((p) => p.deliverable_lebanon).length;
+      if (products.length > 0) {
+        const n = await upsertProducts(products);
+        totalUpserted += n;
+        await logScrape(`${src.name.toLowerCase().replace(/\s+/g, "_")}_brands`, "ok", products.length);
+        console.log(`[worker] ${src.name} brands → ${products.length} products, upserted ${n}`);
+      } else {
+        await logScrape(`${src.name.toLowerCase().replace(/\s+/g, "_")}_brands`, "empty", 0).catch(() => {});
+        console.log(`[worker] ${src.name} brands → 0 products (likely bot-blocked)`);
+      }
+    } catch (err) {
+      failedCategories += 1;
+      console.error(`[worker] ${src.name} brand scrape failed — continuing`, err);
+    }
   }
 
   const finishedAt = new Date();

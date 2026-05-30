@@ -519,6 +519,193 @@ export async function scrapeLookfantasticBrands(): Promise<ScrapedProductRow[]> 
   return dedupeRows(all);
 }
 
+// ---------- Boots & John Lewis (HTML brand pages, defensive) ----------
+// Both are heavily bot-protected (Boots = PerimeterX "Pardon Our Interruption",
+// John Lewis = Akamai). Plain fetch from a datacenter IP is blocked; a
+// residential PROXY_URL may get through. We parse cheerio tiles with a JSON-LD
+// fallback and detect block/JS-gate pages so we never store garbage.
+
+interface TileSelectors {
+  container: string;
+  name: string;
+  brand?: string;
+  price: string;
+  image: string;
+  link: string;
+}
+
+function looksBlocked(html: string): boolean {
+  const lower = html.toLowerCase();
+  if (
+    lower.includes("pardon our interruption") ||
+    lower.includes("access denied") ||
+    lower.includes("are you a human") ||
+    lower.includes("captcha") ||
+    lower.includes("enable javascript to continue")
+  ) {
+    return true;
+  }
+  return html.length < 8000 && !lower.includes("product");
+}
+
+function parseTiles($: cheerio.CheerioAPI, origin: string, sel: TileSelectors, brandFallback: string): RawProduct[] {
+  const out: RawProduct[] = [];
+  $(sel.container).each((_, el) => {
+    const node = $(el);
+    const name = node.find(sel.name).first().text().trim();
+    const priceGbp = parsePrice(node.find(sel.price).first().text().trim());
+    if (!name || priceGbp === null) return;
+    const brand = (sel.brand ? node.find(sel.brand).first().text().trim() : "") || brandFallback;
+    const imgEl = node.find(sel.image).first();
+    const img = imgEl.attr("src") || imgEl.attr("data-src") || (imgEl.attr("srcset") ?? "").split(" ")[0] || "";
+    const href = node.find(sel.link).first().attr("href") || "";
+    out.push({ brand, name, priceGbp, image_url: resolveUrl(img, origin), product_url: resolveUrl(href, origin) });
+  });
+  return out;
+}
+
+// Universal JSON-LD fallback: Product / ItemList nodes.
+function parseJsonLdProducts(html: string, origin: string, brandFallback: string): RawProduct[] {
+  const $ = cheerio.load(html);
+  const out: RawProduct[] = [];
+  $('script[type="application/ld+json"]').each((_, el) => {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse($(el).contents().text());
+    } catch {
+      return;
+    }
+    const stack: unknown[] = [parsed];
+    while (stack.length) {
+      const node = stack.pop();
+      if (!node || typeof node !== "object") continue;
+      if (Array.isArray(node)) {
+        stack.push(...node);
+        continue;
+      }
+      const obj = node as Record<string, unknown>;
+      if (Array.isArray(obj["@graph"])) stack.push(...(obj["@graph"] as unknown[]));
+      if (Array.isArray(obj.itemListElement)) stack.push(...(obj.itemListElement as unknown[]));
+      if (obj.item) stack.push(obj.item);
+      const type = obj["@type"];
+      const isProduct = type === "Product" || (Array.isArray(type) && type.includes("Product"));
+      if (!isProduct) continue;
+      const name = typeof obj.name === "string" ? obj.name.trim() : "";
+      const offers = Array.isArray(obj.offers) ? obj.offers[0] : obj.offers;
+      const priceGbp =
+        offers && typeof offers === "object" ? parsePrice((offers as Record<string, unknown>).price) : null;
+      if (!name || priceGbp === null) continue;
+      let brand = brandFallback;
+      const b = obj.brand;
+      if (typeof b === "string") brand = b;
+      else if (b && typeof b === "object" && typeof (b as Record<string, unknown>).name === "string")
+        brand = (b as Record<string, unknown>).name as string;
+      const image = typeof obj.image === "string" ? obj.image : Array.isArray(obj.image) ? (obj.image[0] as string) : "";
+      const url = typeof obj.url === "string" ? obj.url : "";
+      out.push({ brand, name, priceGbp, image_url: resolveUrl(image, origin), product_url: resolveUrl(url, origin) });
+    }
+  });
+  return out;
+}
+
+async function scrapeRetailerBrandPage(
+  source: string,
+  origin: string,
+  brand: string,
+  url: string,
+  category: string,
+  sel: TileSelectors
+): Promise<ScrapedProductRow[]> {
+  const headers = {
+    ...headersFor(`${origin}/`),
+    Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+  };
+  const res = await fetchText(url, headers);
+  if (!res) return [];
+  if (!ok(res.status)) {
+    console.log(`[scraper] ${source} ${brand} → HTTP ${res.status}`);
+    return [];
+  }
+  if (looksBlocked(res.text)) {
+    console.log(`[scraper] ${source} ${brand} → blocked / JS-gated (${res.text.length}b)`);
+    return [];
+  }
+  const $ = cheerio.load(res.text);
+  let raws = parseTiles($, origin, sel, brand);
+  if (raws.length === 0) raws = parseJsonLdProducts(res.text, origin, brand);
+  const deduped = dedupeRaw(raws).slice(0, 60);
+  if (deduped.length > 0) console.log(`[scraper] ${source} brand ${brand} → ${deduped.length} products`);
+  else console.log(`[scraper] ${source} ${brand} → 0 products parsed`);
+  return toRows(deduped, category, source);
+}
+
+const BOOTS_ORIGIN = "https://www.boots.com";
+const BOOTS_SELECTORS: TileSelectors = {
+  container: '[data-test="product-tile"], .product-grid article, li.product_tile',
+  name: '[data-test="product-title"], h2.product-title, .product_name',
+  brand: '[data-test="brand-name"], .brand-name',
+  price: '[data-test="price"], .product-price .price, .product_price',
+  image: 'img.product-image, [data-test="product-image"], img',
+  link: 'a[data-test="product-link"], a'
+};
+export const BOOTS_BRAND_PAGES: Array<{ brand: string; url: string; category: string }> = [
+  { brand: "Huda Beauty", url: "https://www.boots.com/beauty/makeup/brands/huda-beauty", category: "Makeup" },
+  { brand: "Rare Beauty", url: "https://www.boots.com/beauty/makeup/brands/rare-beauty", category: "Makeup" },
+  { brand: "REFY", url: "https://www.boots.com/beauty/makeup/brands/refy", category: "Makeup" },
+  { brand: "Rhode", url: "https://www.boots.com/beauty/skincare/brands/rhode", category: "Skincare" },
+  { brand: "e.l.f. Cosmetics", url: "https://www.boots.com/beauty/makeup/brands/elf-cosmetics", category: "Makeup" },
+  { brand: "NYX", url: "https://www.boots.com/beauty/makeup/brands/nyx-professional-makeup", category: "Makeup" },
+  { brand: "MAC", url: "https://www.boots.com/beauty/makeup/brands/mac", category: "Makeup" },
+  { brand: "Urban Decay", url: "https://www.boots.com/beauty/makeup/brands/urban-decay", category: "Makeup" },
+  { brand: "Too Faced", url: "https://www.boots.com/beauty/makeup/brands/too-faced", category: "Makeup" },
+  { brand: "Benefit", url: "https://www.boots.com/beauty/makeup/brands/benefit", category: "Makeup" },
+  { brand: "CeraVe", url: "https://www.boots.com/beauty/skincare/brands/cerave", category: "Skincare" },
+  { brand: "La Roche-Posay", url: "https://www.boots.com/beauty/skincare/brands/la-roche-posay", category: "Skincare" },
+  { brand: "Vichy", url: "https://www.boots.com/beauty/skincare/brands/vichy", category: "Skincare" },
+  { brand: "Sunday Riley", url: "https://www.boots.com/beauty/skincare/brands/sunday-riley", category: "Skincare" },
+  { brand: "Gisou", url: "https://www.boots.com/beauty/hair/brands/gisou", category: "Haircare" },
+  { brand: "K18", url: "https://www.boots.com/beauty/hair/brands/k18", category: "Haircare" },
+  { brand: "Redken", url: "https://www.boots.com/beauty/hair/brands/redken", category: "Haircare" },
+  { brand: "Head & Shoulders", url: "https://www.boots.com/beauty/hair/brands/head-and-shoulders", category: "Haircare" },
+  { brand: "Pantene", url: "https://www.boots.com/beauty/hair/brands/pantene", category: "Haircare" }
+];
+
+export async function scrapeBootsBrands(): Promise<ScrapedProductRow[]> {
+  const all: ScrapedProductRow[] = [];
+  for (const bp of BOOTS_BRAND_PAGES) {
+    const rows = await scrapeRetailerBrandPage("Boots", BOOTS_ORIGIN, bp.brand, bp.url, bp.category, BOOTS_SELECTORS);
+    all.push(...rows);
+    await delay(600, 1400);
+  }
+  return dedupeRows(all);
+}
+
+const JOHN_LEWIS_ORIGIN = "https://www.johnlewis.com";
+const JOHN_LEWIS_SELECTORS: TileSelectors = {
+  container: '[data-test="product-card"], article.lw-product-card',
+  name: '[data-test="product-title"]',
+  price: '[data-test="product-price"], .lw-product-price',
+  image: 'img[data-test="product-image"], img',
+  link: "a"
+};
+export const JOHN_LEWIS_BRAND_PAGES: Array<{ brand: string; url: string; category: string }> = [
+  { brand: "Huda Beauty", url: "https://www.johnlewis.com/brands/huda-beauty", category: "Makeup" },
+  { brand: "Gisou", url: "https://www.johnlewis.com/brands/gisou", category: "Haircare" },
+  { brand: "Charlotte Tilbury", url: "https://www.johnlewis.com/brands/charlotte-tilbury", category: "Makeup" },
+  { brand: "La Mer", url: "https://www.johnlewis.com/brands/la-mer", category: "Skincare" },
+  { brand: "Dior Beauty", url: "https://www.johnlewis.com/brands/dior", category: "Makeup" }
+];
+
+export async function scrapeJohnLewisBrands(): Promise<ScrapedProductRow[]> {
+  const all: ScrapedProductRow[] = [];
+  for (const bp of JOHN_LEWIS_BRAND_PAGES) {
+    const rows = await scrapeRetailerBrandPage("John Lewis", JOHN_LEWIS_ORIGIN, bp.brand, bp.url, bp.category, JOHN_LEWIS_SELECTORS);
+    all.push(...rows);
+    await delay(600, 1400);
+  }
+  return dedupeRows(all);
+}
+
 // ---------- Public entry point ----------
 export async function scrapeCategory(categoryName: string): Promise<ScrapedProductRow[]> {
   // Space NK is the primary source; Cult Beauty + Lookfantastic add more.

@@ -23,6 +23,12 @@ const ALLOWED_HOSTS = [
   "lookfantastic.com",
   "hearstapps.com",
   "fimgs.net",
+  // Boots (boots.scene7.com is covered by scene7.com):
+  "boots.com",
+  "bootsstatic.com",
+  // John Lewis:
+  "johnlewis.com",
+  "johnlewis.scene7.com",
   // Common beauty-retailer / generic image CDNs:
   "cloudinary.com",
   "imgix.net",
@@ -47,6 +53,12 @@ function refererFor(hostname: string): string {
   }
   if (hostname.endsWith("lookfantastic.com")) {
     return "https://www.lookfantastic.com/";
+  }
+  if (hostname.includes("boots")) {
+    return "https://www.boots.com/";
+  }
+  if (hostname.includes("johnlewis")) {
+    return "https://www.johnlewis.com/";
   }
   return "https://www.spacenk.com/";
 }
