@@ -1,8 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ORDER_STATUS_LABELS, type OrderStatus, type OrderWithCustomer } from "@/lib/db";
 import { BeeSvg } from "@/components/BeeMascot";
+
+function usd(value: number): string {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 }).format(value);
+}
 
 interface Props {
   order: OrderWithCustomer;
@@ -30,6 +34,15 @@ function whatsappLink(phone: string): string {
   return `https://wa.me/${lebanon}`;
 }
 
+function PnlLine({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between text-ink/80">
+      <span>{label}</span>
+      <span>{value}</span>
+    </div>
+  );
+}
+
 function selfridgesSearch(brand: string, name: string): string {
   return `https://www.selfridges.com/GB/en/cat/?term=${encodeURIComponent(`${brand} ${name}`.trim())}`;
 }
@@ -38,6 +51,51 @@ export default function AdminOrderRow({ order, onUpdated }: Props) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [local, setLocal] = useState(order);
+
+  // Profit & loss
+  const [pnlOpen, setPnlOpen] = useState(false);
+  const [rate, setRate] = useState(1.34);
+  const [costGbp, setCostGbp] = useState(local.cost_gbp != null ? String(local.cost_gbp) : "");
+  const [platformFee, setPlatformFee] = useState(local.platform_fee_usd != null ? String(local.platform_fee_usd) : "");
+  const [savingPnl, setSavingPnl] = useState(false);
+
+  useEffect(() => {
+    if (!pnlOpen) return;
+    fetch("/api/exchange-rate")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d && Number.isFinite(d.rate) && d.rate > 0) setRate(d.rate);
+      })
+      .catch(() => {});
+  }, [pnlOpen]);
+
+  async function savePnl() {
+    const cg = Number(costGbp);
+    if (!Number.isFinite(cg) || cg < 0) {
+      alert("Enter a valid GBP cost.");
+      return;
+    }
+    setSavingPnl(true);
+    try {
+      const res = await fetch(`/api/admin/orders/${local.id}/costs`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cost_gbp: cg, platform_fee_usd: Number(platformFee) || 0 })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Save failed");
+      apply({
+        cost_gbp: data.cost_gbp,
+        cost_usd: data.cost_usd,
+        platform_fee_usd: data.platform_fee_usd,
+        profit_usd: data.profit_usd
+      });
+    } catch (err) {
+      alert((err as Error).message);
+    } finally {
+      setSavingPnl(false);
+    }
+  }
 
   function apply(next: Partial<OrderWithCustomer>) {
     const merged = { ...local, ...next } as OrderWithCustomer;
@@ -241,6 +299,77 @@ export default function AdminOrderRow({ order, onUpdated }: Props) {
                   </>
                 ) : null}
               </div>
+            </div>
+
+            {/* Profit & Loss */}
+            <div className="mt-6 border-t border-ink/10 pt-4">
+              <button
+                type="button"
+                onClick={() => setPnlOpen((v) => !v)}
+                className="text-[10px] uppercase tracking-[0.2em] text-ink/60 hover:text-accent"
+              >
+                {pnlOpen ? "▾" : "▸"} Profit &amp; Loss
+              </button>
+              {pnlOpen ? (
+                <div className="mt-3 grid gap-6 lg:grid-cols-2">
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-[0.18em] text-ink/60">
+                      What we paid on Selfridges (GBP)
+                    </label>
+                    <input
+                      type="number"
+                      value={costGbp}
+                      onChange={(e) => setCostGbp(e.target.value)}
+                      className="mt-1 w-full border border-ink/15 bg-white px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                      placeholder="0.00"
+                    />
+                    <p className="mt-1 text-xs text-ink/50">
+                      ≈ {usd(Number(costGbp) * rate || 0)} (rate {rate.toFixed(4)})
+                    </p>
+                    <label className="mt-4 block text-[10px] uppercase tracking-[0.18em] text-ink/60">
+                      Platform fees (USD)
+                    </label>
+                    <input
+                      type="number"
+                      value={platformFee}
+                      onChange={(e) => setPlatformFee(e.target.value)}
+                      className="mt-1 w-full border border-ink/15 bg-white px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                      placeholder="0.00"
+                    />
+                    <button type="button" onClick={savePnl} disabled={savingPnl} className="btn-primary mt-4 text-xs disabled:opacity-50">
+                      {savingPnl ? "Saving…" : "Save P&L"}
+                    </button>
+                  </div>
+
+                  <div className="border border-ink/10 bg-cream p-4 text-sm">
+                    {(() => {
+                      const revenue = Number(local.total_usd ?? local.price_usd) || 0;
+                      const costUsd = local.cost_usd != null ? Number(local.cost_usd) : Number(costGbp) * rate || 0;
+                      const fee = local.platform_fee_usd != null ? Number(local.platform_fee_usd) : Number(platformFee) || 0;
+                      const profit = local.profit_usd != null ? Number(local.profit_usd) : revenue - costUsd - fee;
+                      const margin = revenue > 0 ? (profit / revenue) * 100 : 0;
+                      return (
+                        <>
+                          <PnlLine label="Revenue" value={usd(revenue)} />
+                          <PnlLine label="Cost (Selfridges)" value={usd(costUsd)} />
+                          <PnlLine label="Platform fees" value={usd(fee)} />
+                          <div className="mt-2 flex justify-between border-t border-ink/10 pt-2 font-medium">
+                            <span>Net Profit</span>
+                            <span style={{ color: profit >= 0 ? "#277C43" : "#C0392B" }}>{usd(profit)}</span>
+                          </div>
+                          <div className="flex justify-between text-xs text-ink/60">
+                            <span>Margin</span>
+                            <span>{margin.toFixed(0)}%</span>
+                          </div>
+                          {local.cost_usd == null ? (
+                            <p className="mt-2 text-[11px] text-ink/40">Live preview — not yet saved.</p>
+                          ) : null}
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+              ) : null}
             </div>
           </td>
         </tr>

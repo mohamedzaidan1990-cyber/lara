@@ -621,13 +621,89 @@ async function scrapeShopifyJson(
 
 interface DirectBrandPage {
   brand: string;
-  url: string;
+  url?: string;
+  // Full Shopify products.json URLs (e.g. locale-specific collection feeds).
+  urls?: string[];
   category: string;
   currency: string;
+  // Optional sanity bounds (in the store currency) to drop bundles / mispriced
+  // outliers — e.g. Huda's flaky feed.
+  priceRange?: [number, number];
   selectors?: TileSelectors;
 }
 
+// Scrape a full Shopify products.json URL (already ends in /products.json…).
+// `productBase` is the locale base used to build product URLs.
+async function scrapeShopifyJsonUrl(
+  jsonUrl: string,
+  productBase: string,
+  brand: string,
+  category: string,
+  currency: string,
+  priceRange?: [number, number]
+): Promise<ScrapedProductRow[]> {
+  const res = await fetchText(jsonUrl, headersFor(`${productBase}/`));
+  if (!res || !ok(res.status)) return [];
+  let data: { products?: ShopifyProduct[] };
+  try {
+    data = JSON.parse(res.text);
+  } catch {
+    return [];
+  }
+  const products = data.products ?? [];
+  const rows: ScrapedProductRow[] = [];
+  for (const p of products) {
+    const name = (p.title ?? "").trim();
+    const value = parseFloat(p.variants?.[0]?.price ?? "0");
+    if (!name || !(value > 0)) continue;
+    if (/gift card/i.test(name)) continue;
+    if (priceRange && (value < priceRange[0] || value > priceRange[1])) continue;
+    const image = p.images?.[0]?.src ?? "";
+    const productUrl = p.handle ? `${productBase}/products/${p.handle}` : productBase;
+    rows.push(await buildDirectRow(brand, name, value, currency, image, productUrl, category));
+    if (rows.length >= 60) break;
+  }
+  return rows;
+}
+
 async function scrapeDirectBrandWebsite(page: DirectBrandPage): Promise<ScrapedProductRow[]> {
+  // Multi-URL Shopify products.json feeds (e.g. Huda UK locale collections).
+  if (page.urls && page.urls.length > 0) {
+    const all: ScrapedProductRow[] = [];
+    for (const jsonUrl of page.urls) {
+      const base = jsonUrl.split("/collections/")[0];
+      all.push(...(await scrapeShopifyJsonUrl(jsonUrl, base, page.brand, page.category, page.currency, page.priceRange)));
+      await delay(300, 800);
+    }
+    const deduped = dedupeRows(all).slice(0, 80);
+    if (deduped.length > 0) {
+      console.log(`[scraper] Direct ${page.brand} (Shopify collections) → ${deduped.length} products`);
+      return deduped;
+    }
+    // HTML fallback: embedded JSON-LD on the first collection page.
+    const htmlUrl = page.urls[0].split("/products.json")[0];
+    const base = htmlUrl.split("/collections/")[0];
+    const res = await fetchText(htmlUrl, {
+      ...headersFor(`${base}/`),
+      Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+    });
+    if (res && ok(res.status) && !looksBlocked(res.text)) {
+      const raws = parseJsonLdProducts(res.text, base, page.brand);
+      const rows: ScrapedProductRow[] = [];
+      for (const raw of dedupeRaw(raws).slice(0, 60)) {
+        if (page.priceRange && (raw.priceGbp < page.priceRange[0] || raw.priceGbp > page.priceRange[1])) continue;
+        rows.push(await buildDirectRow(raw.brand || page.brand, raw.name, raw.priceGbp, page.currency, raw.image_url, raw.product_url, page.category));
+      }
+      if (rows.length > 0) {
+        console.log(`[scraper] Direct ${page.brand} (HTML ld+json) → ${rows.length} products`);
+        return rows;
+      }
+    }
+    console.log(`[scraper] Direct ${page.brand} → 0 products`);
+    return [];
+  }
+
+  if (!page.url) return [];
   let origin: string;
   try {
     origin = new URL(page.url).origin;
@@ -682,9 +758,21 @@ const SHOPIFY_SELECTORS: TileSelectors = {
 };
 
 export const DIRECT_BRAND_PAGES: DirectBrandPage[] = [
-  // Huda Beauty intentionally omitted: hudabeauty.com/products.json is flaky and
-  // returns prices in an ambiguous currency (UAE brand). It's still attempted via
-  // the Boots / John Lewis brand-page lists.
+  // Huda Beauty via the UK locale collection feeds (priced in GBP when the
+  // request geo-resolves to the UK store). priceRange drops bundles / mispriced
+  // outliers if the feed ever returns a non-GBP value.
+  {
+    brand: "Huda Beauty",
+    urls: [
+      "https://hudabeauty.com/gb/en_GB/collections/face/products.json?limit=250",
+      "https://hudabeauty.com/gb/en_GB/collections/eyes/products.json?limit=250",
+      "https://hudabeauty.com/gb/en_GB/collections/lips/products.json?limit=250",
+      "https://hudabeauty.com/gb/en_GB/collections/cheeks/products.json?limit=250"
+    ],
+    category: "Makeup",
+    currency: "GBP",
+    priceRange: [5, 150]
+  },
   { brand: "Rare Beauty", url: "https://www.rarebeauty.com/collections/all-makeup", category: "Makeup", currency: "USD", selectors: SHOPIFY_SELECTORS },
   { brand: "Rhode", url: "https://rhode.com/collections/all", category: "Skincare", currency: "USD", selectors: SHOPIFY_SELECTORS },
   { brand: "Gisou", url: "https://gisou.com/collections/all", category: "Haircare", currency: "EUR", selectors: SHOPIFY_SELECTORS },

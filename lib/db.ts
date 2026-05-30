@@ -91,6 +91,12 @@ export const SCHEMA_STATEMENTS = [
   `alter table orders add column if not exists shipped_at timestamp`,
   `alter table orders add column if not exists tracking_number text`,
   `alter table orders add column if not exists delivered_at timestamp`,
+  // ----- Profit & loss tracking -----
+  `alter table orders add column if not exists cost_gbp numeric`,
+  `alter table orders add column if not exists cost_usd numeric`,
+  `alter table orders add column if not exists platform_fee_usd numeric`,
+  `alter table orders add column if not exists profit_usd numeric`,
+  `alter table orders add column if not exists profit_notes text`,
   // ----- Bespoke consultation requests (AI chat) -----
   `create table if not exists bespoke_requests (
     id uuid default gen_random_uuid() primary key,
@@ -175,6 +181,11 @@ export interface OrderRow {
   shipped_at?: string | null;
   delivered_at?: string | null;
   tracking_number?: string | null;
+  cost_gbp?: string | number | null;
+  cost_usd?: string | number | null;
+  platform_fee_usd?: string | number | null;
+  profit_usd?: string | number | null;
+  profit_notes?: string | null;
 }
 
 export interface OrderLineItem {

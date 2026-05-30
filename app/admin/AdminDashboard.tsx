@@ -47,6 +47,17 @@ export default function AdminDashboard({ initialOrders, initialBespoke = [] }: P
     return g ? orders.filter(g.match) : orders;
   }, [orders, filter]);
 
+  const pnl = useMemo(() => {
+    const num = (v: unknown) => Number(v) || 0;
+    const revenue = orders.filter((o) => o.payment_confirmed).reduce((s, o) => s + num(o.total_usd ?? o.price_usd), 0);
+    const costed = orders.filter((o) => o.cost_usd != null && o.cost_usd !== "");
+    const cost = costed.reduce((s, o) => s + num(o.cost_usd), 0);
+    const profit = costed.reduce((s, o) => s + num(o.profit_usd), 0);
+    const costedRevenue = costed.reduce((s, o) => s + num(o.total_usd ?? o.price_usd), 0);
+    const margin = costedRevenue > 0 ? (profit / costedRevenue) * 100 : 0;
+    return { revenue, cost, profit, margin, hasCost: costed.length > 0 };
+  }, [orders]);
+
   function handleUpdated(next: OrderWithCustomer) {
     setOrders((prev) => prev.map((o) => (o.id === next.id ? next : o)));
   }
@@ -101,6 +112,15 @@ export default function AdminDashboard({ initialOrders, initialBespoke = [] }: P
               );
             })}
           </section>
+
+          {pnl.hasCost ? (
+            <section className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <PnlStat label="Total Revenue" value={fmtUsd(pnl.revenue)} />
+              <PnlStat label="Total Cost" value={fmtUsd(pnl.cost)} />
+              <PnlStat label="Total Profit" value={fmtUsd(pnl.profit)} color={pnl.profit >= 0 ? "#277C43" : "#C0392B"} />
+              <PnlStat label="Avg Margin" value={`${pnl.margin.toFixed(0)}%`} />
+            </section>
+          ) : null}
 
           {filter ? (
             <p className="mt-4 text-xs text-ink/60">
@@ -161,6 +181,21 @@ export default function AdminDashboard({ initialOrders, initialBespoke = [] }: P
           </table>
         </section>
       )}
+    </div>
+  );
+}
+
+function fmtUsd(value: number): string {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value);
+}
+
+function PnlStat({ label, value, color }: { label: string; value: string; color?: string }) {
+  return (
+    <div className="border border-ink/10 bg-gold/10 p-4">
+      <p className="text-[10px] uppercase tracking-[0.2em] text-ink/60">{label}</p>
+      <p className="mt-2 font-serif text-2xl" style={{ color: color ?? "#23272A" }}>
+        {value}
+      </p>
     </div>
   );
 }
