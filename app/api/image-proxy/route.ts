@@ -29,6 +29,16 @@ const ALLOWED_HOSTS = [
   // John Lewis:
   "johnlewis.com",
   "johnlewis.scene7.com",
+  // Direct brand sites (most serve images via cdn.shopify.com, already allowed):
+  "hudabeauty.com",
+  "rarebeauty.com",
+  "rhode.com",
+  "gisou.com",
+  "fentybeauty.com",
+  "refy.beauty",
+  "k18hair.com",
+  "kyliecosmetics.com",
+  "soldejaneiro.com",
   // Common beauty-retailer / generic image CDNs:
   "cloudinary.com",
   "imgix.net",

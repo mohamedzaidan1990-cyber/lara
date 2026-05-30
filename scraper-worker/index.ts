@@ -3,6 +3,7 @@ import { ensureSchema, logScrape, upsertProducts, type ScrapedProductRow } from 
 import {
   scrapeCategory,
   scrapeLookfantasticBrands,
+  scrapeDirectBrands,
   scrapeBootsBrands,
   scrapeJohnLewisBrands,
   SCRAPE_CATEGORIES
@@ -86,6 +87,26 @@ async function runOnce(): Promise<void> {
   } catch (err) {
     failedCategories += 1;
     console.error("[worker] Lookfantastic brand scrape failed — continuing", err);
+  }
+
+  // Direct brand websites (Shopify JSON) — fill gaps: Gisou, Rare Beauty, Fenty,
+  // K18, Kylie, Sol de Janeiro, etc.
+  try {
+    console.log(`[worker] scraping direct brand websites…`);
+    const direct = await scrapeDirectBrands();
+    totalProducts += direct.length;
+    totalDeliverable += direct.filter((p) => p.deliverable_lebanon).length;
+    if (direct.length > 0) {
+      const n = await upsertProducts(direct);
+      totalUpserted += n;
+      await logScrape("direct_brands", "ok", direct.length);
+      console.log(`[worker] direct brands → ${direct.length} products, upserted ${n}`);
+    } else {
+      await logScrape("direct_brands", "empty", 0).catch(() => {});
+    }
+  } catch (err) {
+    failedCategories += 1;
+    console.error("[worker] direct brand scrape failed — continuing", err);
   }
 
   // Boots + John Lewis brand pages (fill gaps: Huda, Rare, Rhode, K18, Gisou…).

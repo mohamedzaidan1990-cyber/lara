@@ -1,7 +1,7 @@
 import { fetch as undiciFetch, ProxyAgent } from "undici";
 import * as cheerio from "cheerio";
 import type { ScrapedProductRow } from "./db";
-import { convertGbpToUsd } from "./currency";
+import { convertGbpToUsd, getGBPtoUSD } from "./currency";
 
 // =============================================================================
 // Beauty-only product scraper (no Playwright).
@@ -513,6 +513,196 @@ export async function scrapeLookfantasticBrands(): Promise<ScrapedProductRow[]> 
     if (raws.length > 0) {
       console.log(`[scraper] Lookfantastic brand ${bp.brand} → ${raws.length} products`);
       all.push(...(await toRows(raws, bp.category, "Lookfantastic")));
+    }
+    await delay(500, 1200);
+  }
+  return dedupeRows(all);
+}
+
+// ---------- Direct brand websites (Shopify JSON + HTML fallback) ----------
+// Brands missing from Space NK / Lookfantastic. Most are Shopify stores whose
+// /products.json is a public, unprotected endpoint. Prices come back in the
+// store's own currency (USD / EUR / GBP), so we convert correctly.
+
+function tierMultiplierUsd(usd: number): number {
+  return usd < 30 ? 1.2 : usd < 50 ? 1.15 : 1.1;
+}
+
+const FX_FALLBACK: Record<string, number> = { USD: 1, GBP: 1.33, EUR: 1.08 };
+const fxCache: Record<string, number> = {};
+// Multiplier to convert `currency` → USD.
+async function rateToUsd(currency: string): Promise<number> {
+  const cur = (currency || "USD").toUpperCase();
+  if (cur === "USD") return 1;
+  if (fxCache[cur]) return fxCache[cur];
+  try {
+    const res = await undiciFetch(`https://api.frankfurter.app/latest?from=${cur}&to=USD`, {
+      dispatcher: getDispatcher()
+    });
+    if (res.ok) {
+      const d = (await res.json()) as { rates?: { USD?: number } };
+      const r = d.rates?.USD;
+      if (typeof r === "number" && r > 0) {
+        fxCache[cur] = r;
+        return r;
+      }
+    }
+  } catch {
+    /* fall through */
+  }
+  return FX_FALLBACK[cur] ?? 1;
+}
+
+// Build a row from a storefront price in any currency. price_usd is the displayed
+// price converted to USD + tiered markup; price_gbp is the GBP equivalent.
+async function buildDirectRow(
+  brand: string,
+  name: string,
+  value: number,
+  currency: string,
+  image: string,
+  productUrl: string,
+  category: string
+): Promise<ScrapedProductRow> {
+  const r = await rateToUsd(currency);
+  const usdBase = value * r;
+  const priceUsd = Math.round(usdBase * tierMultiplierUsd(usdBase) * 100) / 100;
+  const gbpRate = await getGBPtoUSD();
+  const priceGbp = Math.round((usdBase / gbpRate) * 100) / 100;
+  return {
+    brand,
+    name,
+    category,
+    price_gbp: priceGbp,
+    price_usd: priceUsd,
+    deliverable_lebanon: true,
+    product_url: productUrl,
+    image_url: image
+  };
+}
+
+interface ShopifyProduct {
+  title?: string;
+  handle?: string;
+  variants?: Array<{ price?: string }>;
+  images?: Array<{ src?: string }>;
+}
+
+async function scrapeShopifyJson(
+  origin: string,
+  brand: string,
+  category: string,
+  currency: string
+): Promise<ScrapedProductRow[]> {
+  const res = await fetchText(`${origin}/products.json?limit=250`, headersFor(`${origin}/`));
+  if (!res || !ok(res.status)) return [];
+  let data: { products?: ShopifyProduct[] };
+  try {
+    data = JSON.parse(res.text);
+  } catch {
+    return [];
+  }
+  const products = data.products ?? [];
+  if (products.length === 0) return [];
+
+  const rows: ScrapedProductRow[] = [];
+  for (const p of products) {
+    const name = (p.title ?? "").trim();
+    const value = parseFloat(p.variants?.[0]?.price ?? "0");
+    if (!name || !(value > 0)) continue; // skip £0 samples / freebies
+    if (/gift card/i.test(name)) continue;
+    const image = p.images?.[0]?.src ?? "";
+    const productUrl = p.handle ? `${origin}/products/${p.handle}` : origin;
+    rows.push(await buildDirectRow(brand, name, value, currency, image, productUrl, category));
+    if (rows.length >= 60) break;
+  }
+  return rows;
+}
+
+interface DirectBrandPage {
+  brand: string;
+  url: string;
+  category: string;
+  currency: string;
+  selectors?: TileSelectors;
+}
+
+async function scrapeDirectBrandWebsite(page: DirectBrandPage): Promise<ScrapedProductRow[]> {
+  let origin: string;
+  try {
+    origin = new URL(page.url).origin;
+  } catch {
+    return [];
+  }
+
+  // 1. Shopify JSON API first — clean and unprotected.
+  const shop = await scrapeShopifyJson(origin, page.brand, page.category, page.currency);
+  if (shop.length > 0) {
+    console.log(`[scraper] Direct ${page.brand} (Shopify JSON) → ${shop.length} products`);
+    return shop;
+  }
+
+  // 2. HTML fallback (non-Shopify or JSON unavailable).
+  if (page.selectors) {
+    const headers = {
+      ...headersFor(`${origin}/`),
+      Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+    };
+    const res = await fetchText(page.url, headers);
+    if (res && ok(res.status) && !looksBlocked(res.text)) {
+      const $ = cheerio.load(res.text);
+      let raws = parseTiles($, origin, page.selectors, page.brand);
+      if (raws.length === 0) raws = parseJsonLdProducts(res.text, origin, page.brand);
+      const deduped = dedupeRaw(raws).slice(0, 60);
+      const rows: ScrapedProductRow[] = [];
+      for (const raw of deduped) {
+        rows.push(
+          await buildDirectRow(raw.brand || page.brand, raw.name, raw.priceGbp, page.currency, raw.image_url, raw.product_url, page.category)
+        );
+      }
+      if (rows.length > 0) {
+        console.log(`[scraper] Direct ${page.brand} (HTML) → ${rows.length} products`);
+        return rows;
+      }
+    } else if (res && looksBlocked(res.text)) {
+      console.log(`[scraper] Direct ${page.brand} → blocked / JS-gated`);
+      return [];
+    }
+  }
+  console.log(`[scraper] Direct ${page.brand} → 0 products`);
+  return [];
+}
+
+const SHOPIFY_SELECTORS: TileSelectors = {
+  container: ".product-item, .grid__item, .product-card, article.product",
+  name: ".product-item__title, .product-card__name, .product-name, h3",
+  price: ".price, .product-price, .money, [data-price]",
+  image: "img[data-src], img[data-srcset], img.product-item__image, img",
+  link: 'a[href*="/products/"]'
+};
+
+export const DIRECT_BRAND_PAGES: DirectBrandPage[] = [
+  // Huda Beauty intentionally omitted: hudabeauty.com/products.json is flaky and
+  // returns prices in an ambiguous currency (UAE brand). It's still attempted via
+  // the Boots / John Lewis brand-page lists.
+  { brand: "Rare Beauty", url: "https://www.rarebeauty.com/collections/all-makeup", category: "Makeup", currency: "USD", selectors: SHOPIFY_SELECTORS },
+  { brand: "Rhode", url: "https://rhode.com/collections/all", category: "Skincare", currency: "USD", selectors: SHOPIFY_SELECTORS },
+  { brand: "Gisou", url: "https://gisou.com/collections/all", category: "Haircare", currency: "EUR", selectors: SHOPIFY_SELECTORS },
+  { brand: "Fenty Beauty", url: "https://fentybeauty.com/collections/face", category: "Makeup", currency: "USD", selectors: SHOPIFY_SELECTORS },
+  { brand: "REFY", url: "https://refy.beauty/collections/all", category: "Makeup", currency: "GBP", selectors: SHOPIFY_SELECTORS },
+  { brand: "K18", url: "https://www.k18hair.com/collections/all", category: "Haircare", currency: "USD", selectors: SHOPIFY_SELECTORS },
+  { brand: "Kylie Cosmetics", url: "https://kyliecosmetics.com/collections/makeup", category: "Makeup", currency: "USD", selectors: SHOPIFY_SELECTORS },
+  { brand: "Sol de Janeiro", url: "https://soldejaneiro.com/collections/body-care", category: "Skincare", currency: "USD", selectors: SHOPIFY_SELECTORS }
+];
+
+export async function scrapeDirectBrands(): Promise<ScrapedProductRow[]> {
+  const all: ScrapedProductRow[] = [];
+  for (const page of DIRECT_BRAND_PAGES) {
+    try {
+      const rows = await scrapeDirectBrandWebsite(page);
+      all.push(...rows);
+    } catch (err) {
+      console.error(`[scraper] Direct ${page.brand} failed: ${(err as Error).message}`);
     }
     await delay(500, 1200);
   }
