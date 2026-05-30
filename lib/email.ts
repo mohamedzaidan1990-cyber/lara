@@ -313,15 +313,17 @@ Estimated delivery: 10–14 working days.
 Seasons by B — London's finest, delivered to your door.`;
 
   try {
-    await resend.emails.send({
+    const { data, error } = await resend.emails.send({
       from: FROM_ADDRESS,
       to: customer.email,
       subject,
       html,
       text
     });
+    if (error) console.error("[email] sendOrderConfirmation resend error:", JSON.stringify(error));
+    else console.log("[email] sendOrderConfirmation sent id=" + ((data as { id?: string } | null)?.id ?? "?"));
   } catch (err) {
-    console.error("[email] sendOrderConfirmation failed", err);
+    console.error("[email] sendOrderConfirmation threw", err);
   }
 }
 
@@ -393,15 +395,17 @@ ${order.product_url ? `Source: ${order.product_url}\n` : ""}${order.notes ? `Not
 Admin: ${cfg.adminUrl}`;
 
   try {
-    await resend.emails.send({
+    const { data, error } = await resend.emails.send({
       from: FROM_ADDRESS,
       to: ADMIN_NOTIFICATION_TO,
       subject,
       html,
       text
     });
+    if (error) console.error("[email] sendOrderNotification resend error:", JSON.stringify(error));
+    else console.log("[email] sendOrderNotification sent id=" + ((data as { id?: string } | null)?.id ?? "?"));
   } catch (err) {
-    console.error("[email] sendOrderNotification failed", err);
+    console.error("[email] sendOrderNotification threw", err);
   }
 }
 
@@ -446,7 +450,7 @@ We're now sourcing your items from London — estimated delivery 10-14 working d
 Questions? ${waUrl}`;
 
   try {
-    await resend.emails.send({
+    const { data, error } = await resend.emails.send({
       from: FROM_ADDRESS,
       to: args.customerEmail,
       subject,
@@ -454,6 +458,8 @@ Questions? ${waUrl}`;
       text,
       attachments: [{ filename: `seasons-by-b-${args.orderNumber}.pdf`, content: args.pdfBase64 }]
     });
+    if (error) console.error("[email] sendInvoiceEmail resend error:", JSON.stringify(error));
+    else console.log("[email] sendInvoiceEmail sent id=" + ((data as { id?: string } | null)?.id ?? "?"));
   } catch (err) {
     console.error("[email] sendInvoiceEmail failed", err);
   }
@@ -510,14 +516,16 @@ Expected delivery: ${deliveryRange} (10–14 working days from today).
 Questions? ${waUrl}`;
 
   try {
-    await resend.emails.send({
+    const { data, error } = await resend.emails.send({
       from: FROM_ADDRESS,
       to: customer.email,
       subject,
       html,
       text
     });
+    if (error) console.error("[email] sendPaymentConfirmation resend error:", JSON.stringify(error));
+    else console.log("[email] sendPaymentConfirmation sent id=" + ((data as { id?: string } | null)?.id ?? "?"));
   } catch (err) {
-    console.error("[email] sendPaymentConfirmation failed", err);
+    console.error("[email] sendPaymentConfirmation threw", err);
   }
 }
