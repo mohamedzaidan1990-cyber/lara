@@ -49,6 +49,8 @@ export async function ensureSchema(): Promise<void> {
 
     CREATE UNIQUE INDEX IF NOT EXISTS products_product_url_idx ON products (product_url);
 
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS images jsonb;
+
     CREATE TABLE IF NOT EXISTS scrape_logs (
       id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
       query text,
@@ -65,11 +67,16 @@ export async function upsertProducts(products: ScrapedProductRow[]): Promise<num
   let n = 0;
   for (const p of products) {
     if (!p.product_url) continue;
+    // Final guard against mis-parsed markup blobs (huge / HTML-laden values).
+    if (!p.brand || !p.name || p.brand.length > 180 || p.name.length > 200 || /[<>{}]/.test(p.brand + p.name)) {
+      continue;
+    }
+    const images = p.image_url ? JSON.stringify([p.image_url]) : null;
     try {
       await client.query(
         `INSERT INTO products
-           (brand, name, category, price_gbp, price_usd, deliverable_lebanon, product_url, image_url)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+           (brand, name, category, price_gbp, price_usd, deliverable_lebanon, product_url, image_url, images)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          ON CONFLICT (product_url) DO UPDATE SET
            brand = excluded.brand,
            name = excluded.name,
@@ -78,6 +85,7 @@ export async function upsertProducts(products: ScrapedProductRow[]): Promise<num
            price_usd = excluded.price_usd,
            deliverable_lebanon = excluded.deliverable_lebanon,
            image_url = excluded.image_url,
+           images = excluded.images,
            scraped_at = now()`,
         [
           p.brand,
@@ -87,7 +95,8 @@ export async function upsertProducts(products: ScrapedProductRow[]): Promise<num
           p.price_usd,
           p.deliverable_lebanon,
           p.product_url,
-          p.image_url
+          p.image_url,
+          images
         ]
       );
       n += 1;

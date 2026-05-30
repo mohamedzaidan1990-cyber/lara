@@ -129,10 +129,56 @@ export function isFragrance(name: string): boolean {
   );
 }
 
+// Non-beauty items (clothing, jewellery, glassware) and mis-parsed markup
+// blobs slip through some sources. Reject them before they reach the catalog.
+export function isNonBeauty(name: string): boolean {
+  const raw = name || "";
+  const s = raw.toLowerCase();
+  if (!s.trim()) return true;
+  // Garbage from a mis-parsed nav / brand-directory page.
+  if (raw.length > 180 || /[<>{}]|\n/.test(raw)) return true;
+  // Protect legitimate beauty terms that merely contain a trigger substring
+  // (e.g. K-beauty "glass skin", a "ring light" beauty tool).
+  if (/glass\s*skin|ring\s*light/.test(s)) return false;
+  return (
+    /\b(t-?shirt|shirt|dress|jeans|trousers|leggings|hoodie|sweater|jumper|jacket|skirt|denim|necklace|bracelet|anklet|earrings?|jewell?ery|pendant|brooch|sunglasses|handbag|wallet|keyring)\b/.test(s) ||
+    /\brings?\b/.test(s) ||
+    /\bbottles?\b/.test(s) ||
+    /\bglass(ware)?\b/.test(s) ||
+    /\bclothing\b/.test(s) ||
+    /\baccessor(y|ies)\b/.test(s)
+  );
+}
+
+// Single gate for every source: exclude fragrances (don't ship internationally)
+// and non-beauty / garbage rows.
+export function shouldExclude(name: string): boolean {
+  return isFragrance(name) || isNonBeauty(name);
+}
+
+// Pick a clean product-shot image. For image-sensitive brands (Kylie Cosmetics
+// ships lifestyle/model photos as the first image), skip lifestyle/model URLs
+// and prefer product shots; if none look clean, return "" so the branded
+// placeholder shows instead of a model photo.
+const LIFESTYLE_IMAGE_RE =
+  /lifestyle|[_-]model|on-?model|campaign|banner|hero|ugc|editorial|wearing|jenner|founder|portrait|headshot/i;
+const PRODUCT_IMAGE_RE = /product|pdp|front|main|packshot|swatch|compact|tube|jar/i;
+
+function pickProductImage(images: Array<{ src?: string }> | undefined, brand: string): string {
+  const srcs = (images ?? []).map((i) => i.src).filter((s): s is string => Boolean(s));
+  if (srcs.length === 0) return "";
+  if (!/kylie/i.test(brand)) return srcs[0];
+  const clean = srcs.filter((s) => !LIFESTYLE_IMAGE_RE.test(s));
+  const preferred = clean.find((s) => PRODUCT_IMAGE_RE.test(s));
+  if (preferred) return preferred;
+  if (clean.length > 0) return clean[0];
+  return ""; // all look like lifestyle/model shots → placeholder
+}
+
 async function toRows(raws: RawProduct[], categoryName: string, sourceBrand: string): Promise<ScrapedProductRow[]> {
   return Promise.all(
     raws
-      .filter((r) => !isFragrance(`${r.brand} ${r.name}`))
+      .filter((r) => !shouldExclude(`${r.brand} ${r.name}`))
       .map(async (r) => ({
       brand: r.brand || sourceBrand,
       name: r.name,
@@ -637,7 +683,8 @@ async function scrapeShopifyJson(
     const value = parseFloat(p.variants?.[0]?.price ?? "0");
     if (!name || !(value > 0)) continue; // skip £0 samples / freebies
     if (/gift card/i.test(name)) continue;
-    const image = p.images?.[0]?.src ?? "";
+    if (shouldExclude(`${brand} ${name}`)) continue; // fragrances + non-beauty
+    const image = pickProductImage(p.images, brand);
     const productUrl = p.handle ? `${origin}/products/${p.handle}` : origin;
     rows.push(await buildDirectRow(brand, name, value, currency, image, productUrl, category));
     if (rows.length >= 60) break;
@@ -684,11 +731,11 @@ async function scrapeShopifyJsonUrl(
     const value = parseFloat(p.variants?.[0]?.price ?? "0");
     if (!name || !(value > 0)) continue;
     if (/gift card/i.test(name)) continue;
-    if (isFragrance(`${brand} ${name}`)) continue; // fragrances don't ship internationally
+    if (shouldExclude(`${brand} ${name}`)) continue; // fragrances + non-beauty
     // priceRange is in USD (post-conversion) so it works across currencies.
     const usdValue = value * toUsd;
     if (priceRange && (usdValue < priceRange[0] || usdValue > priceRange[1])) continue;
-    const image = p.images?.[0]?.src ?? "";
+    const image = pickProductImage(p.images, brand);
     const productUrl = p.handle ? `${productBase}/products/${p.handle}` : productBase;
     rows.push(await buildDirectRow(brand, name, value, currency, image, productUrl, category));
     if (rows.length >= 60) break;
@@ -724,7 +771,7 @@ async function scrapeDirectBrandWebsite(page: DirectBrandPage): Promise<ScrapedP
       const toUsd = await rateToUsd(page.currency);
       const rows: ScrapedProductRow[] = [];
       for (const raw of dedupeRaw(raws).slice(0, 60)) {
-        if (isFragrance(`${raw.brand} ${raw.name}`)) continue;
+        if (shouldExclude(`${raw.brand} ${raw.name}`)) continue;
         const usdValue = raw.priceGbp * toUsd;
         if (page.priceRange && (usdValue < page.priceRange[0] || usdValue > page.priceRange[1])) continue;
         rows.push(await buildDirectRow(raw.brand || page.brand, raw.name, raw.priceGbp, page.currency, raw.image_url, raw.product_url, page.category));
@@ -767,6 +814,7 @@ async function scrapeDirectBrandWebsite(page: DirectBrandPage): Promise<ScrapedP
       const deduped = dedupeRaw(raws).slice(0, 60);
       const rows: ScrapedProductRow[] = [];
       for (const raw of deduped) {
+        if (shouldExclude(`${raw.brand || page.brand} ${raw.name}`)) continue;
         rows.push(
           await buildDirectRow(raw.brand || page.brand, raw.name, raw.priceGbp, page.currency, raw.image_url, raw.product_url, page.category)
         );

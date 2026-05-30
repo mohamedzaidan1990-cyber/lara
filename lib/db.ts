@@ -54,6 +54,11 @@ export const SCHEMA_STATEMENTS = [
     scraped_at timestamp default now()
   )`,
   `create unique index if not exists products_product_url_idx on products (product_url)`,
+  // Multiple product images for the detail-page gallery. Backfilled from the
+  // single image_url; the scraper will populate richer galleries over time.
+  `alter table products add column if not exists images jsonb`,
+  `update products set images = jsonb_build_array(image_url)
+     where images is null and image_url is not null and image_url <> ''`,
   `create table if not exists scrape_logs (
     id uuid default gen_random_uuid() primary key,
     query text,

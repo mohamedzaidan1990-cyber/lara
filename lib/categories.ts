@@ -55,12 +55,26 @@ export function categorySlug(name: ProductCategory): string {
   return NAME_TO_DEF.get(name)?.slug ?? "";
 }
 
-export type CategorySort = "newest" | "price-asc" | "price-desc";
+export type CategorySort = "featured" | "newest" | "price-asc" | "price-desc";
 
 export function parseSort(value: string | string[] | undefined): CategorySort {
   const v = Array.isArray(value) ? value[0] : value;
-  if (v === "price-asc" || v === "price-desc" || v === "newest") return v;
-  return "newest";
+  if (v === "price-asc" || v === "price-desc" || v === "newest" || v === "featured") return v;
+  // Default is a daily-shuffled "featured" order so the grid doesn't show
+  // products bunched by brand in raw insertion order.
+  return "featured";
+}
+
+export function parseBrand(value: string | string[] | undefined): string | null {
+  const v = Array.isArray(value) ? value[0] : value;
+  const trimmed = (v ?? "").trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+// Stable per-day seed: the catalog reshuffles each calendar day but stays
+// consistent for everyone (and across pagination) within that day.
+export function dailySeed(): string {
+  return new Date().toISOString().slice(0, 10);
 }
 
 export function parsePage(value: string | string[] | undefined): number {
@@ -82,6 +96,28 @@ export interface ProductListRow {
   deliverable_lebanon: boolean;
   product_url: string;
   image_url: string;
+}
+
+export interface BrandCount {
+  brand: string;
+  count: number;
+}
+
+// Distinct brands available within a category, for the brand filter dropdown.
+export async function getCategoryBrands(categoryName: ProductCategory): Promise<BrandCount[]> {
+  try {
+    const sql = getSql();
+    const rows = (await sql`
+      select brand, count(*)::int as count
+      from products
+      where category = ${categoryName}
+      group by brand
+      order by brand asc
+    `) as BrandCount[];
+    return rows;
+  } catch {
+    return [];
+  }
 }
 
 interface CountRow {
@@ -113,26 +149,47 @@ export async function getCategoryStats(): Promise<CategoryStat[]> {
 
 export interface CategoryProductsResult {
   products: ProductListRow[];
+  // Number of products matching the active filter (drives pagination + count).
   total: number;
+  // Total products in the category, ignoring the brand filter.
+  categoryTotal: number;
   page: number;
   pageSize: number;
   totalPages: number;
   sort: CategorySort;
+  brand: string | null;
+}
+
+export interface CategoryProductsOptions {
+  brand?: string | null;
+  seed?: string;
 }
 
 export async function getCategoryProducts(
   categoryName: ProductCategory,
   sort: CategorySort,
-  page: number
+  page: number,
+  opts: CategoryProductsOptions = {}
 ): Promise<CategoryProductsResult> {
   const sql = getSql();
+  const brand = opts.brand?.trim() ? opts.brand.trim() : null;
+  const seed = opts.seed ?? dailySeed();
   const safePage = page < 1 ? 1 : page;
   const offset = (safePage - 1) * PAGE_SIZE;
 
+  // Unfiltered category total (for "Showing X of Y").
+  const catTotalRows = (await sql`
+    select count(*)::int as n from products where category = ${categoryName}
+  `) as Array<{ n: number }>;
+  const categoryTotal = catTotalRows[0]?.n ?? 0;
+
+  // Filtered total — the `${brand}::text is null` trick keeps a single query for
+  // both the filtered and unfiltered cases.
   const totalRows = (await sql`
     select count(*)::int as n
     from products
     where category = ${categoryName}
+      and (${brand}::text is null or brand = ${brand})
   `) as Array<{ n: number }>;
   const total = totalRows[0]?.n ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -143,7 +200,7 @@ export async function getCategoryProducts(
       select id, brand, name, category, price_gbp::float8 as price_gbp, price_usd::float8 as price_usd,
              deliverable_lebanon, product_url, image_url
       from products
-      where category = ${categoryName}
+      where category = ${categoryName} and (${brand}::text is null or brand = ${brand})
       order by price_gbp asc, scraped_at desc
       limit ${PAGE_SIZE} offset ${offset}
     `) as ProductListRow[];
@@ -152,17 +209,27 @@ export async function getCategoryProducts(
       select id, brand, name, category, price_gbp::float8 as price_gbp, price_usd::float8 as price_usd,
              deliverable_lebanon, product_url, image_url
       from products
-      where category = ${categoryName}
+      where category = ${categoryName} and (${brand}::text is null or brand = ${brand})
       order by price_gbp desc, scraped_at desc
       limit ${PAGE_SIZE} offset ${offset}
     `) as ProductListRow[];
-  } else {
+  } else if (sort === "newest") {
     rows = (await sql`
       select id, brand, name, category, price_gbp::float8 as price_gbp, price_usd::float8 as price_usd,
              deliverable_lebanon, product_url, image_url
       from products
-      where category = ${categoryName}
+      where category = ${categoryName} and (${brand}::text is null or brand = ${brand})
       order by scraped_at desc, brand asc
+      limit ${PAGE_SIZE} offset ${offset}
+    `) as ProductListRow[];
+  } else {
+    // featured — deterministic daily shuffle, stable across pagination.
+    rows = (await sql`
+      select id, brand, name, category, price_gbp::float8 as price_gbp, price_usd::float8 as price_usd,
+             deliverable_lebanon, product_url, image_url
+      from products
+      where category = ${categoryName} and (${brand}::text is null or brand = ${brand})
+      order by md5(id::text || ${seed}) asc
       limit ${PAGE_SIZE} offset ${offset}
     `) as ProductListRow[];
   }
@@ -170,10 +237,12 @@ export async function getCategoryProducts(
   return {
     products: rows,
     total,
+    categoryTotal,
     page: safePage,
     pageSize: PAGE_SIZE,
     totalPages,
-    sort
+    sort,
+    brand
   };
 }
 

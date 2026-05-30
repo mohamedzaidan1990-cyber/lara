@@ -4,8 +4,10 @@ import type { Metadata } from "next";
 import ProductCard from "@/components/ProductCard";
 import {
   CATEGORY_DEFS,
+  getCategoryBrands,
   getCategoryBySlug,
   getCategoryProducts,
+  parseBrand,
   parsePage,
   parseSort
 } from "@/lib/categories";
@@ -23,6 +25,7 @@ interface Params {
 interface SearchParams {
   sort?: string | string[];
   page?: string | string[];
+  brand?: string | string[];
 }
 
 export const dynamic = "force-dynamic";
@@ -54,8 +57,13 @@ export default async function CategoryPage({
 
   const sort = parseSort(searchParams.sort);
   const page = parsePage(searchParams.page);
-  const result = await getCategoryProducts(def.name, sort, page);
-  const { products, total, totalPages } = result;
+  const brand = parseBrand(searchParams.brand);
+  const [result, brands] = await Promise.all([
+    getCategoryProducts(def.name, sort, page, { brand }),
+    getCategoryBrands(def.name)
+  ]);
+  const { products, total, categoryTotal, totalPages } = result;
+  const activeBrand = result.brand;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
@@ -72,10 +80,21 @@ export default async function CategoryPage({
           <p className="text-[11px] uppercase tracking-[0.32em] text-accent">Shop the edit</p>
           <h1 className="mt-2 font-serif text-4xl text-ink sm:text-5xl">{def.label}</h1>
           <p className="mt-2 text-sm text-ink/70">
-            {def.label} — {total} {total === 1 ? "product" : "products"}.
+            {activeBrand ? (
+              <>
+                Showing {total} of {categoryTotal} products ({activeBrand}).{" "}
+                <Link href={`/category/${def.slug}`} className="text-accent hover:underline">
+                  Clear filter
+                </Link>
+              </>
+            ) : (
+              <>
+                {def.label} — {categoryTotal} {categoryTotal === 1 ? "product" : "products"}.
+              </>
+            )}
           </p>
         </div>
-        <CategoryControls current={sort} />
+        <CategoryControls current={sort} brands={brands} currentBrand={activeBrand} slug={def.slug} />
       </header>
 
       {products.length === 0 ? (
@@ -93,6 +112,7 @@ export default async function CategoryPage({
                 key={p.id}
                 index={i}
                 product={{
+                  id: p.id,
                   brand: p.brand,
                   name: p.name,
                   price_gbp: p.price_gbp,
@@ -105,7 +125,7 @@ export default async function CategoryPage({
             ))}
           </div>
 
-          <Pagination slug={def.slug} sort={sort} page={page} totalPages={totalPages} />
+          <Pagination slug={def.slug} sort={sort} page={page} totalPages={totalPages} brand={activeBrand} />
         </>
       )}
     </div>
@@ -116,18 +136,21 @@ function Pagination({
   slug,
   sort,
   page,
-  totalPages
+  totalPages,
+  brand
 }: {
   slug: string;
   sort: string;
   page: number;
   totalPages: number;
+  brand: string | null;
 }) {
   if (totalPages <= 1) return null;
 
   function hrefFor(target: number): string {
     const sp = new URLSearchParams();
-    if (sort && sort !== "newest") sp.set("sort", sort);
+    if (sort && sort !== "featured") sp.set("sort", sort);
+    if (brand) sp.set("brand", brand);
     if (target > 1) sp.set("page", String(target));
     const qs = sp.toString();
     return qs ? `/category/${slug}?${qs}` : `/category/${slug}`;

@@ -8,6 +8,9 @@ import { BeeSvg } from "./BeeMascot";
 import { useCart } from "@/lib/cart";
 
 export interface ProductCardData {
+  // Present for catalogue products (links to the detail page). Live search
+  // results have no id and fall back to the quick-order flow.
+  id?: string;
   brand: string;
   name: string;
   price_gbp: number;
@@ -55,14 +58,15 @@ export default function ProductCard({ product, index = 0 }: Props) {
   const addItem = useCart((s) => s.addItem);
   const openCart = useCart((s) => s.openCart);
 
-  const detailHref =
-    "/order?" +
-    new URLSearchParams({
-      brand: product.brand,
-      name: product.name,
-      gbp: String(product.price_gbp),
-      usd: String(product.price_usd)
-    }).toString();
+  const detailHref = product.id
+    ? `/product/${product.id}`
+    : "/order?" +
+      new URLSearchParams({
+        brand: product.brand,
+        name: product.name,
+        gbp: String(product.price_gbp),
+        usd: String(product.price_usd)
+      }).toString();
 
   const imgSrc = productImageSrc(product.image_url);
   const showImage = Boolean(imgSrc) && !imgFailed;

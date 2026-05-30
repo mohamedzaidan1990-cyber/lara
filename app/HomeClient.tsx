@@ -9,6 +9,7 @@ import { whatsappRequestLink } from "@/lib/links";
 import HeroSection from "@/components/HeroSection";
 import BeeLoader from "@/components/BeeLoader";
 import { BeeMascot } from "@/components/BeeMascot";
+import SearchAutocomplete from "@/components/SearchAutocomplete";
 
 interface SearchProduct extends ProductCardData {
   category?: string;
@@ -123,17 +124,9 @@ function SearchBar({ query, setQuery, onSubmit }: SearchBarProps) {
     <div className="text-center">
       <p className="text-[11px] uppercase tracking-[0.32em] text-accent">Search the edit</p>
       <h2 className="mt-2 font-serif text-3xl text-ink">What are you looking for?</h2>
-      <form onSubmit={onSubmit} className="mx-auto mt-6 flex max-w-2xl items-stretch gap-0 shadow-soft">
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search across every category — e.g. Charlotte Tilbury"
-          className="flex-1 border border-ink/15 bg-white px-5 py-4 text-base text-ink placeholder:text-ink/40 focus:border-accent focus:outline-none"
-        />
-        <button type="submit" className="btn-primary px-8 transition-transform hover:scale-[1.02]">
-          Search
-        </button>
-      </form>
+      <div className="mt-6">
+        <SearchAutocomplete query={query} setQuery={setQuery} onSubmit={onSubmit} />
+      </div>
     </div>
   );
 }
