@@ -528,12 +528,16 @@ function tierMultiplierUsd(usd: number): number {
   return usd < 30 ? 1.2 : usd < 50 ? 1.15 : 1.1;
 }
 
-const FX_FALLBACK: Record<string, number> = { USD: 1, GBP: 1.33, EUR: 1.08 };
+// AED is pegged to USD at a fixed rate — never floats, so we hardcode it
+// rather than hitting an FX API.
+const AED_TO_USD = 0.2723;
+const FX_FALLBACK: Record<string, number> = { USD: 1, GBP: 1.33, EUR: 1.08, AED: AED_TO_USD };
 const fxCache: Record<string, number> = {};
 // Multiplier to convert `currency` → USD.
 async function rateToUsd(currency: string): Promise<number> {
   const cur = (currency || "USD").toUpperCase();
   if (cur === "USD") return 1;
+  if (cur === "AED") return AED_TO_USD; // fixed peg
   if (fxCache[cur]) return fxCache[cur];
   try {
     const res = await undiciFetch(`https://api.frankfurter.app/latest?from=${cur}&to=USD`, {
@@ -651,13 +655,16 @@ async function scrapeShopifyJsonUrl(
     return [];
   }
   const products = data.products ?? [];
+  const toUsd = await rateToUsd(currency); // store currency → USD multiplier
   const rows: ScrapedProductRow[] = [];
   for (const p of products) {
     const name = (p.title ?? "").trim();
     const value = parseFloat(p.variants?.[0]?.price ?? "0");
     if (!name || !(value > 0)) continue;
     if (/gift card/i.test(name)) continue;
-    if (priceRange && (value < priceRange[0] || value > priceRange[1])) continue;
+    // priceRange is in USD (post-conversion) so it works across currencies.
+    const usdValue = value * toUsd;
+    if (priceRange && (usdValue < priceRange[0] || usdValue > priceRange[1])) continue;
     const image = p.images?.[0]?.src ?? "";
     const productUrl = p.handle ? `${productBase}/products/${p.handle}` : productBase;
     rows.push(await buildDirectRow(brand, name, value, currency, image, productUrl, category));
@@ -671,27 +678,31 @@ async function scrapeDirectBrandWebsite(page: DirectBrandPage): Promise<ScrapedP
   if (page.urls && page.urls.length > 0) {
     const all: ScrapedProductRow[] = [];
     for (const jsonUrl of page.urls) {
-      const base = jsonUrl.split("/collections/")[0];
+      // Product-URL base: the part before /collections/, or the origin for a
+      // root /products.json feed.
+      const base = jsonUrl.includes("/collections/") ? jsonUrl.split("/collections/")[0] : new URL(jsonUrl).origin;
       all.push(...(await scrapeShopifyJsonUrl(jsonUrl, base, page.brand, page.category, page.currency, page.priceRange)));
       await delay(300, 800);
     }
-    const deduped = dedupeRows(all).slice(0, 80);
+    const deduped = dedupeRows(all).slice(0, 120);
     if (deduped.length > 0) {
       console.log(`[scraper] Direct ${page.brand} (Shopify collections) → ${deduped.length} products`);
       return deduped;
     }
     // HTML fallback: embedded JSON-LD on the first collection page.
     const htmlUrl = page.urls[0].split("/products.json")[0];
-    const base = htmlUrl.split("/collections/")[0];
+    const base = htmlUrl.includes("/collections/") ? htmlUrl.split("/collections/")[0] : new URL(htmlUrl).origin;
     const res = await fetchText(htmlUrl, {
       ...headersFor(`${base}/`),
       Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
     });
     if (res && ok(res.status) && !looksBlocked(res.text)) {
       const raws = parseJsonLdProducts(res.text, base, page.brand);
+      const toUsd = await rateToUsd(page.currency);
       const rows: ScrapedProductRow[] = [];
       for (const raw of dedupeRaw(raws).slice(0, 60)) {
-        if (page.priceRange && (raw.priceGbp < page.priceRange[0] || raw.priceGbp > page.priceRange[1])) continue;
+        const usdValue = raw.priceGbp * toUsd;
+        if (page.priceRange && (usdValue < page.priceRange[0] || usdValue > page.priceRange[1])) continue;
         rows.push(await buildDirectRow(raw.brand || page.brand, raw.name, raw.priceGbp, page.currency, raw.image_url, raw.product_url, page.category));
       }
       if (rows.length > 0) {
@@ -762,16 +773,18 @@ export const DIRECT_BRAND_PAGES: DirectBrandPage[] = [
   // request geo-resolves to the UK store). priceRange drops bundles / mispriced
   // outliers if the feed ever returns a non-GBP value.
   {
+    // Global Huda store prices in AED (fixed USD peg). The /gb/en_GB/ and
+    // face/eyes/lips/… collection handles return 0 products; the working feeds
+    // are the root catalog + all/shop-all collections.
     brand: "Huda Beauty",
     urls: [
-      "https://hudabeauty.com/gb/en_GB/collections/face/products.json?limit=250",
-      "https://hudabeauty.com/gb/en_GB/collections/eyes/products.json?limit=250",
-      "https://hudabeauty.com/gb/en_GB/collections/lips/products.json?limit=250",
-      "https://hudabeauty.com/gb/en_GB/collections/cheeks/products.json?limit=250"
+      "https://hudabeauty.com/products.json?limit=250",
+      "https://hudabeauty.com/collections/all/products.json?limit=250",
+      "https://hudabeauty.com/collections/shop-all/products.json?limit=250"
     ],
     category: "Makeup",
-    currency: "GBP",
-    priceRange: [5, 150]
+    currency: "AED",
+    priceRange: [10, 500] // USD bounds (post-conversion)
   },
   { brand: "Rare Beauty", url: "https://www.rarebeauty.com/collections/all-makeup", category: "Makeup", currency: "USD", selectors: SHOPIFY_SELECTORS },
   { brand: "Rhode", url: "https://rhode.com/collections/all", category: "Skincare", currency: "USD", selectors: SHOPIFY_SELECTORS },
