@@ -27,7 +27,24 @@
       "Bash(node -e \"console.log\\('cheerio', require\\('cheerio/package.json'\\).version\\)\")",
       "Bash(node *)",
       "Bash(echo \"worker EXIT: $?\")",
-      "Bash(echo \"EXIT: $?\")"
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Read(//tmp/**)",
+      "Bash(cd /tmp)",
+      "Bash(pwd -W)",
+      "Bash(echo \"TSEXIT=$?\")",
+      "Bash(echo \"BUILDEXIT=$?\")",
+      "Bash(echo \"BUILD_EXIT=$?\")",
+      "Bash(DATABASE_URL=\"postgresql://neondb_owner:npg_uhN87VRsqvdX@ep-proud-haze-abx1wayi-pooler.eu-west-2.aws.neon.tech/neondb?sslmode=require\" npx ts-node *)",
+      "Bash(git reset *)",
+      "mcp__claude_ai_Vercel__get_runtime_logs",
+      "mcp__claude_ai_Vercel__list_deployments",
+      "Bash(python3 -c 'import sys,json *)",
+      "Read(//c/Users/User/AppData/Local/Temp/**)",
+      "Bash(echo \"WORKER_TSC=$?\")",
+      "Bash(grep -oE 'Shopify\\\\.currency[^;]*active[^,}]*\"[A-Z]{3}\"|\"currencyCode\":\"[A-Z]{3}\"|\"shop_currency\":\"[A-Z]{3}\"')"
     ]
   }
 }
