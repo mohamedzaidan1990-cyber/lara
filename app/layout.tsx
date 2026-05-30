@@ -7,6 +7,7 @@ import BespokeChat from "@/components/BespokeChat";
 import CustomCursor from "@/components/CustomCursor";
 import TitleCycler from "@/components/TitleCycler";
 import PageFade from "@/components/PageFade";
+import { WHATSAPP_URL } from "@/lib/links";
 import "./globals.css";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.seasonsbyb.co.uk";
@@ -142,7 +143,7 @@ function SiteFooter() {
         <div>
           <p className="text-xs uppercase tracking-[0.18em] text-gold">Contact</p>
           <a
-            href="https://wa.me/96103055491"
+            href={WHATSAPP_URL}
             target="_blank"
             rel="noreferrer"
             className="mt-3 inline-flex items-center gap-2 text-sm text-cream/80 hover:text-gold"

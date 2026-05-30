@@ -19,6 +19,10 @@ const ALLOWED_HOSTS = [
   "thcdn.com", // Cult Beauty (THG) image CDN
   "selfridges.com",
   "scene7.com", // Selfridges image CDN
+  // Lookfantastic (THG) — images are on thcdn.com, plus its own CDNs:
+  "lookfantastic.com",
+  "hearstapps.com",
+  "fimgs.net",
   // Common beauty-retailer / generic image CDNs:
   "cloudinary.com",
   "imgix.net",
@@ -40,6 +44,9 @@ function refererFor(hostname: string): string {
   }
   if (hostname.endsWith("selfridges.com") || hostname.endsWith("scene7.com")) {
     return "https://www.selfridges.com/";
+  }
+  if (hostname.endsWith("lookfantastic.com")) {
+    return "https://www.lookfantastic.com/";
   }
   return "https://www.spacenk.com/";
 }

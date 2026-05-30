@@ -1,7 +1,14 @@
 const FRANKFURTER_URL = "https://api.frankfurter.app/latest?from=GBP&to=USD";
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 const FALLBACK_RATE = 1.33;
-const SERVICE_MARKUP = 1.1;
+
+// Tiered service markup — higher margin on lower-priced items.
+export function getMarkupMultiplier(priceGbp: number, gbpToUsd: number): number {
+  const priceUsd = priceGbp * gbpToUsd;
+  if (priceUsd < 30) return 1.2; // 20% markup under $30
+  if (priceUsd < 50) return 1.15; // 15% markup $30–$50
+  return 1.1; // 10% markup $50+
+}
 
 interface RateCache {
   rate: number;
@@ -54,10 +61,13 @@ export async function getGBPtoUSD(): Promise<number> {
   return inflight;
 }
 
-export async function convertGbpToUsd(gbp: number): Promise<number> {
+export async function convertGbpToUsd(priceGbp: number): Promise<number> {
   const rate = await getGBPtoUSD();
-  return Math.round(gbp * SERVICE_MARKUP * rate * 100) / 100;
+  const multiplier = getMarkupMultiplier(priceGbp, rate);
+  return Math.round(priceGbp * rate * multiplier * 100) / 100;
 }
 
-export const CURRENCY_MARKUP = SERVICE_MARKUP;
+// Base-tier markup (10%), used by the exchange-rate estimate endpoint. Actual
+// per-product markup is tiered — see getMarkupMultiplier.
+export const CURRENCY_MARKUP = 1.1;
 export const CURRENCY_FALLBACK_RATE = FALLBACK_RATE;

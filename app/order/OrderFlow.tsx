@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import OrderStepper from "@/components/OrderStepper";
 import { BeeMascot } from "@/components/BeeMascot";
+import { WHATSAPP_URL } from "@/lib/links";
 
 interface Props {
   whish: string;
@@ -607,7 +608,7 @@ function Step4Confirmation({
     order.payment_method === "whish_link"
       ? `Hi Seasons by B, my order number is ${order.order_number} for ${product.name}. Please send me a Whish payment link.`
       : `Hi Seasons by B, my order number is ${order.order_number} for ${product.name}. I have sent payment via Whish.`;
-  const wa = `https://wa.me/96103055491?text=${encodeURIComponent(baseMessage)}`;
+  const wa = `${WHATSAPP_URL}?text=${encodeURIComponent(baseMessage)}`;
 
   return (
     <section className="text-center">

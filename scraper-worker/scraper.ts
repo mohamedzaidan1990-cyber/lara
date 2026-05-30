@@ -405,16 +405,131 @@ async function scrapeCultBeauty(categoryName: string): Promise<ScrapedProductRow
   return toRows(deduped, categoryName, "Cult Beauty");
 }
 
+// ---------- Lookfantastic (THG, primary) ----------
+// THG site like Cult Beauty, but products live under `skuListNew[].product`
+// (newer THG shape) rather than `productList.products`.
+const LOOKFANTASTIC_ORIGIN = "https://www.lookfantastic.com";
+const LOOKFANTASTIC_MAX_PAGES = 3;
+
+// Category `.list` slugs that resolve (makeup/electrical 404 — covered by brand
+// pages below instead).
+const LOOKFANTASTIC_CATEGORIES: Record<string, string> = {
+  Skincare: "skincare",
+  Haircare: "hair"
+};
+
+// Verified brand pages (slugs that return 200). Brands not on Lookfantastic UK
+// (Huda Beauty, Rhode, Rare Beauty, REFY, Gisou, K18) are omitted.
+export const LOOKFANTASTIC_BRAND_PAGES: Array<{ brand: string; slug: string; category: string }> = [
+  { brand: "Charlotte Tilbury", slug: "charlotte-tilbury", category: "Makeup" },
+  { brand: "Fenty Beauty", slug: "fenty-beauty", category: "Makeup" },
+  { brand: "Morphe", slug: "morphe", category: "Makeup" },
+  { brand: "Drunk Elephant", slug: "drunk-elephant", category: "Skincare" },
+  { brand: "Sol de Janeiro", slug: "sol-de-janeiro", category: "Skincare" },
+  { brand: "The Ordinary", slug: "the-ordinary", category: "Skincare" },
+  { brand: "Medik8", slug: "medik8", category: "Skincare" },
+  { brand: "Elemis", slug: "elemis", category: "Skincare" },
+  { brand: "Olaplex", slug: "olaplex", category: "Haircare" },
+  { brand: "Kerastase", slug: "kerastase", category: "Haircare" },
+  { brand: "Moroccanoil", slug: "moroccanoil", category: "Haircare" },
+  { brand: "ghd", slug: "ghd", category: "Beauty tools" },
+  { brand: "Dyson", slug: "dyson", category: "Beauty tools" },
+  { brand: "FOREO", slug: "foreo", category: "Beauty tools" }
+];
+
+// Pull THG product objects from a page (handles both skuListNew + productList).
+function extractThgProducts(html: string): unknown[] {
+  if (html.indexOf('"skuListNew"') >= 0) {
+    const arr = extractJsonArray(html, "skuListNew", 0);
+    if (arr && arr.length > 0) {
+      return arr
+        .map((e) => (e && typeof e === "object" && "product" in (e as Record<string, unknown>) ? (e as Record<string, unknown>).product : e))
+        .filter(Boolean);
+    }
+  }
+  const anchor = html.indexOf('"productList"');
+  return extractJsonArray(html, "products", anchor >= 0 ? anchor : 0) ?? [];
+}
+
+function parseThgProducts(products: unknown[], origin: string, brandFallback?: string): RawProduct[] {
+  const out: RawProduct[] = [];
+  for (const p of products) {
+    if (!p || typeof p !== "object") continue;
+    const cb = p as CbProduct;
+    const name = (cb.title ?? "").trim();
+    const priceGbp = parsePrice(cb.cheapestVariant?.price?.price?.amount);
+    if (!name || priceGbp === null) continue;
+
+    let brand = "";
+    for (const c of cb.content ?? []) {
+      if (c.key === "brand") {
+        const v = c.value?.stringListValue;
+        if (Array.isArray(v) && typeof v[0] === "string") brand = v[0];
+      }
+    }
+    out.push({
+      brand: brand || brandFallback || "",
+      name,
+      priceGbp,
+      image_url: cb.images?.[0]?.original ?? "",
+      product_url: resolveUrl(cb.url ?? "", origin)
+    });
+  }
+  return out;
+}
+
+// Scrape a Lookfantastic `.list` URL (category or brand) with pagination.
+async function scrapeLookfantasticUrl(listUrl: string, brandFallback?: string): Promise<RawProduct[]> {
+  const headers = headersFor(listUrl);
+  const collected: RawProduct[] = [];
+  for (let page = 1; page <= LOOKFANTASTIC_MAX_PAGES; page += 1) {
+    const url = `${listUrl}?pageNumber=${page}`;
+    const res = await fetchText(url, headers);
+    if (!res || !ok(res.status)) break;
+    const products = extractThgProducts(res.text);
+    if (!products || products.length === 0) break;
+    const raws = parseThgProducts(products, LOOKFANTASTIC_ORIGIN, brandFallback);
+    if (raws.length === 0) break;
+    collected.push(...raws);
+    if (dedupeRaw(collected).length >= 60) break; // up to ~60 products per page-set
+    await delay(400, 1000);
+  }
+  return dedupeRaw(collected).slice(0, 60);
+}
+
+async function scrapeLookfantasticCategory(categoryName: string): Promise<ScrapedProductRow[]> {
+  const slug = LOOKFANTASTIC_CATEGORIES[categoryName];
+  if (!slug) return [];
+  const raws = await scrapeLookfantasticUrl(`${LOOKFANTASTIC_ORIGIN}/${slug}.list`);
+  if (raws.length > 0) console.log(`[scraper] Lookfantastic ${categoryName} → ${raws.length} products`);
+  return toRows(raws, categoryName, "Lookfantastic");
+}
+
+// Scrape all Lookfantastic brand pages (run by index.ts after the category loop).
+export async function scrapeLookfantasticBrands(): Promise<ScrapedProductRow[]> {
+  const all: ScrapedProductRow[] = [];
+  for (const bp of LOOKFANTASTIC_BRAND_PAGES) {
+    const raws = await scrapeLookfantasticUrl(`${LOOKFANTASTIC_ORIGIN}/brands/${bp.slug}.list`, bp.brand);
+    if (raws.length > 0) {
+      console.log(`[scraper] Lookfantastic brand ${bp.brand} → ${raws.length} products`);
+      all.push(...(await toRows(raws, bp.category, "Lookfantastic")));
+    }
+    await delay(500, 1200);
+  }
+  return dedupeRows(all);
+}
+
 // ---------- Public entry point ----------
 export async function scrapeCategory(categoryName: string): Promise<ScrapedProductRow[]> {
-  // Space NK is the primary source; Cult Beauty adds extra makeup/skincare.
+  // Space NK is the primary source; Cult Beauty + Lookfantastic add more.
   const spacenk = await scrapeSpaceNk(categoryName);
   const cult = await scrapeCultBeauty(categoryName);
-  const merged = dedupeRows([...spacenk, ...cult]);
+  const lf = await scrapeLookfantasticCategory(categoryName);
+  const merged = dedupeRows([...spacenk, ...cult, ...lf]);
 
   if (merged.length > 0) {
     console.log(
-      `[scraper] "${categoryName}" → ${merged.length} products (Space NK ${spacenk.length} + Cult Beauty ${cult.length}, deduped)`
+      `[scraper] "${categoryName}" → ${merged.length} products (Space NK ${spacenk.length} + Cult Beauty ${cult.length} + Lookfantastic ${lf.length}, deduped)`
     );
   } else {
     console.log(`[scraper] "${categoryName}" → no products`);

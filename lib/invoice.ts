@@ -166,8 +166,9 @@ export function generateInvoice(order: InvoiceOrder, customer: InvoiceCustomer, 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8.5);
   doc.setTextColor(...MUTED);
+  const waDisplay = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "+96103055491";
   doc.text(
-    "For any questions: hello@seasonsbyb.co.uk   |   WhatsApp: +96103055491   |   seasonsbyb.co.uk",
+    `For any questions: hello@seasonsbyb.co.uk   |   WhatsApp: ${waDisplay}   |   seasonsbyb.co.uk`,
     left,
     footY + 6
   );

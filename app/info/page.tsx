@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { whatsappRequestLink } from "@/lib/links";
+import { whatsappRequestLink, WHATSAPP_URL } from "@/lib/links";
 
 export const metadata = {
   title: "How it works — Seasons by B",
@@ -136,7 +136,7 @@ export default function InfoPage() {
       <Section title="Contact">
         <p>For anything else, reach Seasons by B directly on WhatsApp.</p>
         <a
-          href="https://wa.me/96103055491"
+          href={WHATSAPP_URL}
           target="_blank"
           rel="noreferrer"
           className="btn-gold mt-2 w-fit"

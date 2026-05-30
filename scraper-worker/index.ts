@@ -1,6 +1,6 @@
 import cron from "node-cron";
 import { ensureSchema, logScrape, upsertProducts, type ScrapedProductRow } from "./db";
-import { scrapeCategory, SCRAPE_CATEGORIES } from "./scraper";
+import { scrapeCategory, scrapeLookfantasticBrands, SCRAPE_CATEGORIES } from "./scraper";
 
 const CRON_SCHEDULE = process.env.CRON_SCHEDULE ?? "0 */6 * * *";
 
@@ -61,6 +61,25 @@ async function runOnce(): Promise<void> {
 
     // Polite pause between categories.
     await sleep(5000);
+  }
+
+  // Lookfantastic brand pages (run after the Space NK category crawl).
+  try {
+    console.log(`[worker] scraping Lookfantastic brand pages…`);
+    const brandProducts = await scrapeLookfantasticBrands();
+    totalProducts += brandProducts.length;
+    totalDeliverable += brandProducts.filter((p) => p.deliverable_lebanon).length;
+    if (brandProducts.length > 0) {
+      const n = await upsertProducts(brandProducts);
+      totalUpserted += n;
+      await logScrape("lookfantastic_brands", "ok", brandProducts.length);
+      console.log(`[worker] Lookfantastic brands → ${brandProducts.length} products, upserted ${n}`);
+    } else {
+      await logScrape("lookfantastic_brands", "empty", 0).catch(() => {});
+    }
+  } catch (err) {
+    failedCategories += 1;
+    console.error("[worker] Lookfantastic brand scrape failed — continuing", err);
   }
 
   const finishedAt = new Date();
