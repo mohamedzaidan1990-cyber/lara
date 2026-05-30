@@ -109,9 +109,31 @@ function dedupeRows(rows: ScrapedProductRow[]): ScrapedProductRow[] {
   return out;
 }
 
+// Fragrances / EDPs don't ship internationally (flammable liquids), so we
+// exclude them from every source.
+export function isFragrance(name: string): boolean {
+  const s = (name || "").toLowerCase();
+  // "Fragrance free" / "non-perfumed" / "unscented" skincare is the OPPOSITE of
+  // a fragrance — never exclude it.
+  if (/fragrance[\s-]?free|non[\s-]?perfumed|unperfumed|unscented|scent[\s-]?free/.test(s)) return false;
+  if (/\b(edp|edt|edc)\b/.test(s)) return true;
+  return (
+    s.includes("eau de parfum") ||
+    s.includes("eau de toilette") ||
+    s.includes("eau de cologne") ||
+    s.includes("eau fraiche") ||
+    s.includes("parfum") ||
+    s.includes("perfume") ||
+    s.includes("cologne") ||
+    s.includes("fragrance")
+  );
+}
+
 async function toRows(raws: RawProduct[], categoryName: string, sourceBrand: string): Promise<ScrapedProductRow[]> {
   return Promise.all(
-    raws.map(async (r) => ({
+    raws
+      .filter((r) => !isFragrance(`${r.brand} ${r.name}`))
+      .map(async (r) => ({
       brand: r.brand || sourceBrand,
       name: r.name,
       category: categoryName,
@@ -662,6 +684,7 @@ async function scrapeShopifyJsonUrl(
     const value = parseFloat(p.variants?.[0]?.price ?? "0");
     if (!name || !(value > 0)) continue;
     if (/gift card/i.test(name)) continue;
+    if (isFragrance(`${brand} ${name}`)) continue; // fragrances don't ship internationally
     // priceRange is in USD (post-conversion) so it works across currencies.
     const usdValue = value * toUsd;
     if (priceRange && (usdValue < priceRange[0] || usdValue > priceRange[1])) continue;
@@ -701,6 +724,7 @@ async function scrapeDirectBrandWebsite(page: DirectBrandPage): Promise<ScrapedP
       const toUsd = await rateToUsd(page.currency);
       const rows: ScrapedProductRow[] = [];
       for (const raw of dedupeRaw(raws).slice(0, 60)) {
+        if (isFragrance(`${raw.brand} ${raw.name}`)) continue;
         const usdValue = raw.priceGbp * toUsd;
         if (page.priceRange && (usdValue < page.priceRange[0] || usdValue > page.priceRange[1])) continue;
         rows.push(await buildDirectRow(raw.brand || page.brand, raw.name, raw.priceGbp, page.currency, raw.image_url, raw.product_url, page.category));
