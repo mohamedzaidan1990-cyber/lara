@@ -883,35 +883,60 @@ export async function scrapeDirectBrands(): Promise<ScrapedProductRow[]> {
 }
 
 // ---------- Selfridges via Oxylabs Web Unblocker (PRIMARY when enabled) ----------
-// Selfridges is Akamai-gated and JS-rendered, so plain/proxy fetch is blocked.
-// Oxylabs' realtime API renders the page server-side and returns the final HTML,
-// which we parse for product tiles / JSON-LD / __NEXT_DATA__. Enabled only when
-// OXYLABS_USERNAME + OXYLABS_PASSWORD are set; otherwise the category falls back
-// to Space NK + Cult Beauty.
+// Selfridges is Akamai-gated + a Next.js App-Router micro-frontend whose product
+// grid is rendered client-side only AFTER the user scrolls (lazy/virtualised).
+// Oxylabs renders the page in a real browser; passing scroll `browser_instructions`
+// makes the 60 product cards hydrate into the DOM, which we then parse via stable
+// `data-testid` hooks. Enabled only when OXYLABS_USERNAME + OXYLABS_PASSWORD are
+// set; otherwise the category falls back to Space NK + Cult Beauty.
 const OXYLABS_ENDPOINT = "https://realtime.oxylabs.io/v1/queries";
 const SELFRIDGES_ORIGIN = "https://www.selfridges.com";
 
+// Confirmed live beauty taxonomy slugs (/GB/en/cat/beauty/<slug>/). Beauty tools
+// has no dedicated Selfridges sub-category, so it keeps its existing sources.
 export const SELFRIDGES_CATEGORIES: Array<{ category: string; slug: string }> = [
-  { category: "Makeup", slug: "make-up" },
-  { category: "Skincare", slug: "skincare" },
-  { category: "Haircare", slug: "hair" },
-  { category: "Beauty tools", slug: "beauty-tools-and-accessories" }
+  { category: "Makeup", slug: "beauty/makeup" },
+  { category: "Skincare", slug: "beauty/skincare" },
+  { category: "Haircare", slug: "beauty/haircare" }
 ];
 
 const SELFRIDGES_SLUGS: Record<string, string> = Object.fromEntries(
   SELFRIDGES_CATEGORIES.map((c) => [c.category, c.slug])
 );
 
+// Scroll the rendered page so the lazily-mounted product grid hydrates.
+const SELFRIDGES_SCROLL_INSTRUCTIONS = [
+  { type: "wait", wait_time_s: 6 },
+  { type: "scroll", x: 0, y: 2000 },
+  { type: "wait", wait_time_s: 3 },
+  { type: "scroll", x: 0, y: 5000 },
+  { type: "wait", wait_time_s: 3 },
+  { type: "scroll", x: 0, y: 9000 },
+  { type: "wait", wait_time_s: 3 }
+];
+
 export function webUnblockerEnabled(): boolean {
   return Boolean(process.env.OXYLABS_USERNAME && process.env.OXYLABS_PASSWORD);
 }
 
+interface WebUnblockerOpts {
+  // Browser instructions (scroll/wait) to trigger client-side hydration.
+  browserInstructions?: unknown[];
+}
+
 // Render a URL through Oxylabs and return the final HTML (or "" on failure).
-export async function fetchWithWebUnblocker(url: string): Promise<string> {
+export async function fetchWithWebUnblocker(url: string, opts: WebUnblockerOpts = {}): Promise<string> {
   const user = process.env.OXYLABS_USERNAME;
   const pass = process.env.OXYLABS_PASSWORD;
   if (!user || !pass) return "";
   const auth = Buffer.from(`${user}:${pass}`).toString("base64");
+  const body: Record<string, unknown> = {
+    source: "universal",
+    url,
+    render: "html",
+    geo_location: "United Kingdom"
+  };
+  if (opts.browserInstructions) body.browser_instructions = opts.browserInstructions;
   try {
     const res = await undiciFetch(OXYLABS_ENDPOINT, {
       method: "POST",
@@ -919,13 +944,8 @@ export async function fetchWithWebUnblocker(url: string): Promise<string> {
         "Content-Type": "application/json",
         Authorization: `Basic ${auth}`
       },
-      body: JSON.stringify({
-        source: "universal",
-        url,
-        render: "html",
-        geo_location: "United Kingdom"
-      }),
-      // Server-side rendering can take a while; give it generous headroom.
+      body: JSON.stringify(body),
+      // Browser render + scroll waits can take a while; generous headroom.
       signal: AbortSignal.timeout(180_000)
     });
     if (!ok(res.status)) {
@@ -1002,34 +1022,79 @@ function parseNextDataProducts(html: string, origin: string): RawProduct[] {
   return out;
 }
 
-// Selfridges product-card selectors (multiple variants for resilience).
-const SELFRIDGES_SELECTORS: TileSelectors = {
-  container: ".product-card, [data-product-id], .cat-product, article[data-testid='product-card']",
-  name: ".product-card__name, [data-product-name], h3.name, [data-testid='product-name']",
-  brand: ".product-card__brand, [data-brand], .brand-name, [data-testid='product-brand']",
-  price: ".price, [data-price], .product-card__price, [data-testid='product-price']",
-  image: "img.product-card__image, img[data-src], img[loading='lazy'], img",
-  link: "a.product-card__link, a[href*='/product/'], a[href*='/cat/']"
-};
+// Title-case an UPPERCASE Selfridges brand ("CHARLOTTE TILBURY" → "Charlotte
+// Tilbury") so it matches the catalog's casing for the brand filter. Words that
+// are already mixed-case are left alone.
+function titleCaseBrand(s: string): string {
+  const t = s.trim();
+  if (/[a-z]/.test(t)) return t; // already mixed/normal case → leave alone
+  return t
+    .toLowerCase()
+    .replace(/\b([a-z])/g, (m) => m.toUpperCase())
+    .replace(/\bAnd\b/g, "and");
+}
 
-// Try DOM tiles → JSON-LD → __NEXT_DATA__, returning the first non-empty parse.
+// Selfridges product hrefs end in `_<SKU>/` (optionally with a #colour fragment).
+function selfridgesSku(href: string): string {
+  const path = href.split("#")[0].replace(/\/$/, "");
+  const m = path.match(/_([A-Za-z0-9][A-Za-z0-9-]*)$/);
+  return m ? m[1] : "";
+}
+
+// Build the Scene7 product image URL from the SKU. (Routed through our
+// image-proxy at render time; falls back to the branded placeholder if it 404s.)
+function selfridgesImage(sku: string): string {
+  if (!sku) return "";
+  return `https://images.selfridges.com/is/image/selfridges/${sku}_M?wid=363&hei=485&fmt=webp&qlt=80`;
+}
+
+// Parse the hydrated PLP grid. Each card exposes stable data-testid hooks:
+//   <div data-testid="product-card">
+//     <h2>BRAND</h2>
+//     <h2><a data-analytics-link="product_card_link" href="/GB/en/product/…_SKU/">NAME</a></h2>
+//     <li data-testid="product-price"><span>Price:</span>£60.00</li>
+function parseSelfridgesCards($: cheerio.CheerioAPI, origin: string): RawProduct[] {
+  const out: RawProduct[] = [];
+  $('[data-testid="product-card"]').each((_, el) => {
+    const c = $(el);
+    const brandRaw = c.find("h2").first().text().trim();
+    const a = c.find('a[data-analytics-link="product_card_link"]').first();
+    const name = a.text().trim();
+    const href = a.attr("href") || "";
+    const price = parsePrice(c.find('[data-testid="product-price"]').first().text().replace(/price:/i, "").trim());
+    if (!brandRaw || !name || price === null || !href) return;
+    const sku = selfridgesSku(href);
+    out.push({
+      brand: titleCaseBrand(brandRaw),
+      name,
+      priceGbp: price,
+      image_url: selfridgesImage(sku),
+      product_url: resolveUrl(href.split("#")[0], origin)
+    });
+  });
+  return out;
+}
+
+// Primary: hydrated product cards. Fallbacks: JSON-LD → __NEXT_DATA__.
 export function extractSelfridgesProducts($: cheerio.CheerioAPI, html: string, origin: string): RawProduct[] {
-  let raws = parseTiles($, origin, SELFRIDGES_SELECTORS, "Selfridges").filter((r) => r.brand && r.name);
+  let raws = parseSelfridgesCards($, origin);
   if (raws.length === 0) raws = parseJsonLdProducts(html, origin, "Selfridges");
   if (raws.length === 0) raws = parseNextDataProducts(html, origin);
   return dedupeRaw(raws);
 }
 
-// Scrape up to 5 category pages (60 products each) through the Web Unblocker.
+// Scrape up to 5 category pages (60 products each) through the Web Unblocker,
+// scrolling each so the product grid hydrates before we parse it.
 export async function scrapeSelfridgesCategory(category: string): Promise<ScrapedProductRow[]> {
   const slug = SELFRIDGES_SLUGS[category];
   if (!slug || !webUnblockerEnabled()) return [];
 
   const collected: RawProduct[] = [];
+  const seen = new Set<string>();
   for (let page = 1; page <= 5; page += 1) {
     const url = `${SELFRIDGES_ORIGIN}/GB/en/cat/${slug}/?pge=${page}&ppp=60&sort=relevance`;
     console.log(`[scraper] Selfridges ${category} page ${page}: ${url}`);
-    const html = await fetchWithWebUnblocker(url);
+    const html = await fetchWithWebUnblocker(url, { browserInstructions: SELFRIDGES_SCROLL_INSTRUCTIONS });
     if (!html || html.length < 1000) {
       console.log(`[scraper] Selfridges ${category} page ${page} → empty response`);
       break;
@@ -1040,7 +1105,12 @@ export async function scrapeSelfridgesCategory(category: string): Promise<Scrape
       console.log(`[scraper] Selfridges ${category} page ${page} → 0 parsed`);
       break;
     }
-    collected.push(...pageProducts);
+    // Stop paginating once a page returns nothing new (we've run past the end).
+    const fresh = pageProducts.filter((p) => !seen.has(p.product_url || `${p.brand}|${p.name}`));
+    for (const p of fresh) seen.add(p.product_url || `${p.brand}|${p.name}`);
+    console.log(`[scraper] Selfridges ${category} page ${page} → ${pageProducts.length} parsed (${fresh.length} new)`);
+    if (fresh.length === 0) break;
+    collected.push(...fresh);
     await delay(2000, 4000); // rate limiting
   }
 
