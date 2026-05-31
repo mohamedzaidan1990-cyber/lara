@@ -892,26 +892,62 @@ export async function scrapeDirectBrands(): Promise<ScrapedProductRow[]> {
 const OXYLABS_ENDPOINT = "https://realtime.oxylabs.io/v1/queries";
 const SELFRIDGES_ORIGIN = "https://www.selfridges.com";
 
-// Confirmed live beauty taxonomy slugs (/GB/en/cat/beauty/<slug>/). Beauty tools
-// has no dedicated Selfridges sub-category, so it keeps its existing sources.
-export const SELFRIDGES_CATEGORIES: Array<{ category: string; slug: string }> = [
-  { category: "Makeup", slug: "beauty/makeup" },
-  { category: "Skincare", slug: "beauty/skincare" },
-  { category: "Haircare", slug: "beauty/haircare" }
-];
+// Each category maps to a list of Selfridges beauty listing pages
+// (/GB/en/cat/beauty/<slug>/). A listing renders max 60 cards and ignores the
+// `pge` param, so we crawl every sub-category to populate extensively. Slugs
+// verified live from the beauty mega-menu. Fragrance is intentionally excluded
+// (doesn't ship internationally); shouldExclude() also filters any stragglers.
+const SELFRIDGES_LISTINGS: Record<string, string[]> = {
+  Makeup: [
+    "beauty/makeup",
+    "beauty/makeup/face",
+    "beauty/makeup/face/primer-setting-spray",
+    "beauty/makeup/eyes",
+    "beauty/makeup/eyebrows",
+    "beauty/makeup/lips",
+    "beauty/makeup/nails",
+    "beauty/bestseller"
+  ],
+  Skincare: [
+    "beauty/skincare",
+    "beauty/skincare/moisturiser",
+    "beauty/skincare/cleanser",
+    "beauty/skincare/toners",
+    "beauty/skincare/serums",
+    "beauty/skincare/spf",
+    "beauty/skincare/eye-cream",
+    "beauty/skincare/treatments",
+    "beauty/skincare/oils",
+    "beauty/skincare/exfoliator",
+    "beauty/skincare/masks",
+    "beauty/korean-beauty-skincare",
+    "beauty/suncare-tanning/suncare",
+    "beauty/bodycare"
+  ],
+  Haircare: [
+    "beauty/haircare",
+    "beauty/haircare/shampoo",
+    "beauty/haircare/conditioner",
+    "beauty/haircare/treatments",
+    "beauty/haircare/styling"
+  ],
+  "Beauty tools": [
+    "beauty/makeup/makeup-brushes-tools",
+    "beauty/skincare/skincare-tools",
+    "beauty/haircare/hair-electricals"
+  ]
+};
 
-const SELFRIDGES_SLUGS: Record<string, string> = Object.fromEntries(
-  SELFRIDGES_CATEGORIES.map((c) => [c.category, c.slug])
-);
-
-// Scroll the rendered page so the lazily-mounted product grid hydrates.
+// Scroll the rendered page so the full 60-card grid hydrates before we parse.
 const SELFRIDGES_SCROLL_INSTRUCTIONS = [
   { type: "wait", wait_time_s: 6 },
   { type: "scroll", x: 0, y: 2000 },
-  { type: "wait", wait_time_s: 3 },
+  { type: "wait", wait_time_s: 2 },
   { type: "scroll", x: 0, y: 5000 },
-  { type: "wait", wait_time_s: 3 },
+  { type: "wait", wait_time_s: 2 },
   { type: "scroll", x: 0, y: 9000 },
+  { type: "wait", wait_time_s: 2 },
+  { type: "scroll", x: 0, y: 14000 },
   { type: "wait", wait_time_s: 3 }
 ];
 
@@ -1083,43 +1119,40 @@ export function extractSelfridgesProducts($: cheerio.CheerioAPI, html: string, o
   return dedupeRaw(raws);
 }
 
-// Scrape up to 5 category pages (60 products each) through the Web Unblocker,
-// scrolling each so the product grid hydrates before we parse it.
+// Crawl every Selfridges listing page for a category (each ~60 cards, `pge`
+// ignored), scrolling each so the grid hydrates, then dedupe across the lot.
 export async function scrapeSelfridgesCategory(category: string): Promise<ScrapedProductRow[]> {
-  const slug = SELFRIDGES_SLUGS[category];
-  if (!slug || !webUnblockerEnabled()) return [];
+  const slugs = SELFRIDGES_LISTINGS[category];
+  if (!slugs || slugs.length === 0 || !webUnblockerEnabled()) return [];
 
   const collected: RawProduct[] = [];
   const seen = new Set<string>();
-  for (let page = 1; page <= 5; page += 1) {
-    const url = `${SELFRIDGES_ORIGIN}/GB/en/cat/${slug}/?pge=${page}&ppp=60&sort=relevance`;
-    console.log(`[scraper] Selfridges ${category} page ${page}: ${url}`);
+  for (const slug of slugs) {
+    const url = `${SELFRIDGES_ORIGIN}/GB/en/cat/${slug}/?pge=1&ppp=60&sort=relevance`;
     const html = await fetchWithWebUnblocker(url, { browserInstructions: SELFRIDGES_SCROLL_INSTRUCTIONS });
     if (!html || html.length < 1000) {
-      console.log(`[scraper] Selfridges ${category} page ${page} → empty response`);
-      break;
+      console.log(`[scraper] Selfridges ${slug} → empty response`);
+      await delay(1000, 2500);
+      continue;
     }
     const $ = cheerio.load(html);
-    const pageProducts = extractSelfridgesProducts($, html, SELFRIDGES_ORIGIN);
-    if (pageProducts.length === 0) {
-      console.log(`[scraper] Selfridges ${category} page ${page} → 0 parsed`);
-      break;
-    }
-    // Stop paginating once a page returns nothing new (we've run past the end).
-    const fresh = pageProducts.filter((p) => !seen.has(p.product_url || `${p.brand}|${p.name}`));
-    for (const p of fresh) seen.add(p.product_url || `${p.brand}|${p.name}`);
-    console.log(`[scraper] Selfridges ${category} page ${page} → ${pageProducts.length} parsed (${fresh.length} new)`);
-    if (fresh.length === 0) break;
+    const products = extractSelfridgesProducts($, html, SELFRIDGES_ORIGIN);
+    const fresh = products.filter((p) => {
+      const k = p.product_url || `${p.brand}|${p.name}`;
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
     collected.push(...fresh);
-    await delay(2000, 4000); // rate limiting
+    console.log(`[scraper] Selfridges ${slug} → ${products.length} parsed (${fresh.length} new, ${collected.length} total)`);
+    await delay(1500, 3500); // rate limiting between listing pages
   }
 
-  const deduped = dedupeRaw(collected);
   // TODO: once on a paid Oxylabs plan, fetch each product page via
   // fetchWithWebUnblocker + checkSelfridgesDelivery() to set deliverable_lebanon
   // accurately. For now everything defaults to deliverable to preserve credits.
-  if (deduped.length > 0) console.log(`[scraper] Selfridges ${category} → ${deduped.length} unique products`);
-  return toRows(deduped, category, "Selfridges");
+  if (collected.length > 0) console.log(`[scraper] Selfridges ${category} → ${collected.length} unique products`);
+  return toRows(collected, category, "Selfridges");
 }
 
 // Per-product Lebanon deliverability check (DISABLED by default — uses one
