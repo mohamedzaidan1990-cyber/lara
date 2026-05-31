@@ -1,6 +1,6 @@
 import cron from "node-cron";
 import { ensureSchema, logScrape, upsertProducts, type ScrapedProductRow } from "./db";
-import { scrapeSelfridgesCategory, webUnblockerEnabled, SCRAPE_CATEGORIES } from "./scraper";
+import { scrapeSelfridgesCategory, scrapeSelfridgesBrands, webUnblockerEnabled, SCRAPE_CATEGORIES } from "./scraper";
 
 // Dedupe by product URL (or brand|name) so Selfridges + Space NK overlap once.
 function dedupeProducts(rows: ScrapedProductRow[]): ScrapedProductRow[] {
@@ -47,6 +47,28 @@ async function runOnce(): Promise<void> {
     return;
   }
   console.log("[worker] Oxylabs Web Unblocker ENABLED — Selfridges is the SOLE source");
+
+  // Brand pages first (deepen per-brand coverage, e.g. Huda Beauty). The
+  // category loop runs afterwards and overwrites any shared product with its
+  // precise category, so brand-page name-classification only affects
+  // brand-exclusive items.
+  try {
+    console.log("[worker] scraping Selfridges brand pages…");
+    const brandRows = dedupeProducts(await scrapeSelfridgesBrands());
+    totalProducts += brandRows.length;
+    totalDeliverable += brandRows.filter((p) => p.deliverable_lebanon).length;
+    if (brandRows.length > 0) {
+      const n = await upsertProducts(brandRows);
+      totalUpserted += n;
+      await logScrape("selfridges_brands", "ok", brandRows.length);
+      console.log(`[worker] Selfridges brands → ${brandRows.length} products, upserted ${n}`);
+    } else {
+      await logScrape("selfridges_brands", "empty", 0).catch(() => {});
+    }
+  } catch (err) {
+    failedCategories += 1;
+    console.error("[worker] Selfridges brand scrape failed — continuing", err);
+  }
 
   for (const category of SCRAPE_CATEGORIES) {
     console.log(`[worker] scraping category "${category}"`);

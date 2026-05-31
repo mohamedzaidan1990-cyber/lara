@@ -1155,6 +1155,80 @@ export async function scrapeSelfridgesCategory(category: string): Promise<Scrape
   return toRows(collected, category, "Selfridges");
 }
 
+// Popular beauty brands whose full range is under-represented by the category
+// crawl (each category page only surfaces a brand's top ~60 bestsellers). A
+// dedicated brand page returns ~60 of THAT brand, so this deepens coverage.
+// Slugs are Selfridges /GB/en/cat/<slug>/ brand pages; unknown slugs no-op.
+// Verified live (returned a product grid). Slugs that 404'd or had no grid
+// (hourglass, ghd, dyson, mac-cosmetics, rare-beauty, benefit-cosmetics,
+// tom-ford-beauty, kylie-cosmetics, rhode-skin) were dropped to save credits.
+export const SELFRIDGES_BRAND_SLUGS: string[] = [
+  "huda-beauty",
+  "charlotte-tilbury",
+  "fenty-beauty",
+  "nars",
+  "pat-mcgrath-labs",
+  "anastasia-beverly-hills",
+  "too-faced",
+  "urban-decay",
+  "la-mer",
+  "drunk-elephant",
+  "the-ordinary",
+  "augustinus-bader",
+  "sol-de-janeiro",
+  "olaplex",
+  "byredo"
+];
+
+// Brand pages mix categories, so classify each product by name keywords.
+function classifySelfridgesCategory(name: string): string {
+  const s = (name || "").toLowerCase();
+  if (/\b(brush|sponge|blender|tweezer|curler|applicator|mirror|hair ?dryer|straightener|styler|airwrap|device|sharpener)\b/.test(s)) return "Beauty tools";
+  if (/\b(shampoo|conditioner|scalp|hairspray|hair ?spray|dry shampoo|leave-?in)\b/.test(s) || /\bhair\b/.test(s)) return "Haircare";
+  if (/\b(lipstick|lip gloss|lip liner|lip balm|lip oil|lip stain|mascara|eyeliner|eye liner|eyeshadow|eye shadow|palette|foundation|concealer|blush|bronzer|highlighter|contour|brow|eyebrow|setting spray|setting powder|primer|kohl|lip|gloss|tint|nail|lacquer|mac)\b/.test(s)) return "Makeup";
+  if (/\b(serum|moisturiser|moisturizer|cream|cleanser|toner|essence|exfoliant|exfoliator|retinol|spf|sunscreen|sun cream|face oil|mask|eye cream|peel|balm|lotion|body|hand cream|scrub|treatment|mist)\b/.test(s)) return "Skincare";
+  return "Makeup";
+}
+
+// Crawl Selfridges brand pages and classify each product's category by name.
+export async function scrapeSelfridgesBrands(): Promise<ScrapedProductRow[]> {
+  if (!webUnblockerEnabled()) return [];
+  const collected: ScrapedProductRow[] = [];
+  const seen = new Set<string>();
+  for (const slug of SELFRIDGES_BRAND_SLUGS) {
+    const url = `${SELFRIDGES_ORIGIN}/GB/en/cat/${slug}/?pge=1&ppp=60&sort=relevance`;
+    const html = await fetchWithWebUnblocker(url, { browserInstructions: SELFRIDGES_SCROLL_INSTRUCTIONS });
+    if (!html || html.length < 1000) {
+      console.log(`[scraper] Selfridges brand ${slug} → empty/unknown`);
+      await delay(1000, 2500);
+      continue;
+    }
+    const $ = cheerio.load(html);
+    const raws = extractSelfridgesProducts($, html, SELFRIDGES_ORIGIN);
+    let added = 0;
+    for (const r of raws) {
+      const k = r.product_url || `${r.brand}|${r.name}`;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      if (shouldExclude(`${r.brand} ${r.name}`)) continue;
+      collected.push({
+        brand: r.brand,
+        name: r.name,
+        category: classifySelfridgesCategory(r.name),
+        price_gbp: r.priceGbp,
+        price_usd: await convertGbpToUsd(r.priceGbp),
+        deliverable_lebanon: true,
+        product_url: r.product_url,
+        image_url: r.image_url
+      });
+      added += 1;
+    }
+    console.log(`[scraper] Selfridges brand ${slug} → ${raws.length} parsed (${added} new)`);
+    await delay(1500, 3500);
+  }
+  return collected;
+}
+
 // Per-product Lebanon deliverability check (DISABLED by default — uses one
 // Web Unblocker credit per product). Enable once on a paid plan.
 export async function checkSelfridgesDelivery(productUrl: string): Promise<boolean> {
