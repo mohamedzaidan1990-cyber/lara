@@ -12,6 +12,31 @@ function getDispatcher(): ProxyAgent | undefined {
   return cachedDispatcher;
 }
 
+// Oxylabs Web Unblocker — renders JS + bypasses Akamai server-side. Used when
+// OXYLABS_USERNAME/PASSWORD are set; fixes the 403s the proxy path hits on
+// Selfridges product pages.
+const OXYLABS_ENDPOINT = "https://realtime.oxylabs.io/v1/queries";
+
+function webUnblockerEnabled(): boolean {
+  return Boolean(process.env.OXYLABS_USERNAME && process.env.OXYLABS_PASSWORD);
+}
+
+async function fetchWithWebUnblocker(url: string): Promise<string> {
+  const user = process.env.OXYLABS_USERNAME;
+  const pass = process.env.OXYLABS_PASSWORD;
+  if (!user || !pass) return "";
+  const auth = Buffer.from(`${user}:${pass}`).toString("base64");
+  const res = await undiciFetch(OXYLABS_ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Basic ${auth}` },
+    body: JSON.stringify({ source: "universal", url, render: "html", geo_location: "United Kingdom" }),
+    signal: AbortSignal.timeout(180_000)
+  });
+  if (!res.ok) throw new Error(`Oxylabs HTTP ${res.status}`);
+  const data = (await res.json()) as { results?: Array<{ content?: string }> };
+  return data.results?.[0]?.content ?? "";
+}
+
 export interface ImportedProduct {
   url: string;
   ok: boolean;
@@ -279,15 +304,22 @@ export function parseProductHtml(html: string, url: string): Omit<ImportedProduc
 export async function importOne(url: string): Promise<ImportedProduct> {
   let html: string;
   try {
-    const res = await undiciFetch(url, {
-      headers: FETCH_HEADERS,
-      redirect: "follow",
-      dispatcher: getDispatcher()
-    });
-    if (!res.ok) {
-      return { url, ok: false, error: `Fetch failed (HTTP ${res.status})` };
+    if (webUnblockerEnabled()) {
+      // Preferred: Web Unblocker (renders JS, bypasses Akamai).
+      html = await fetchWithWebUnblocker(url);
+      if (!html) return { url, ok: false, error: "Web Unblocker returned empty content" };
+    } else {
+      // Fallback: direct/proxy fetch (works for non-gated pages).
+      const res = await undiciFetch(url, {
+        headers: FETCH_HEADERS,
+        redirect: "follow",
+        dispatcher: getDispatcher()
+      });
+      if (!res.ok) {
+        return { url, ok: false, error: `Fetch failed (HTTP ${res.status})` };
+      }
+      html = await res.text();
     }
-    html = await res.text();
   } catch (err) {
     return { url, ok: false, error: `Fetch error: ${(err as Error).message}` };
   }

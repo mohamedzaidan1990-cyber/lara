@@ -2,12 +2,27 @@ import cron from "node-cron";
 import { ensureSchema, logScrape, upsertProducts, type ScrapedProductRow } from "./db";
 import {
   scrapeCategory,
+  scrapeSelfridgesCategory,
   scrapeLookfantasticBrands,
   scrapeDirectBrands,
   scrapeBootsBrands,
   scrapeJohnLewisBrands,
+  webUnblockerEnabled,
   SCRAPE_CATEGORIES
 } from "./scraper";
+
+// Dedupe by product URL (or brand|name) so Selfridges + Space NK overlap once.
+function dedupeProducts(rows: ScrapedProductRow[]): ScrapedProductRow[] {
+  const seen = new Set<string>();
+  const out: ScrapedProductRow[] = [];
+  for (const r of rows) {
+    const key = r.product_url || `${r.brand}|${r.name}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(r);
+  }
+  return out;
+}
 
 const CRON_SCHEDULE = process.env.CRON_SCHEDULE ?? "0 */6 * * *";
 
@@ -31,18 +46,41 @@ async function runOnce(): Promise<void> {
   let totalUpserted = 0;
   let failedCategories = 0;
 
+  if (webUnblockerEnabled()) {
+    console.log("[worker] Oxylabs Web Unblocker ENABLED — Selfridges is the primary source");
+  } else {
+    console.log("[worker] OXYLABS_USERNAME/PASSWORD not set — Selfridges disabled, using Space NK as primary");
+  }
+
   for (const category of SCRAPE_CATEGORIES) {
     console.log(`[worker] scraping category "${category}"`);
     let products: ScrapedProductRow[] = [];
 
-    // Each category is isolated: one failure never stops the whole run.
+    // 1. Selfridges first (best quality, correct GBP prices) via Web Unblocker.
+    let selfridges: ScrapedProductRow[] = [];
     try {
-      products = await scrapeCategory(category);
+      selfridges = await scrapeSelfridgesCategory(category);
     } catch (err) {
-      failedCategories += 1;
-      console.error(`[worker] scrape threw for "${category}" — continuing to next category`, err);
-      products = [];
+      console.error(`[worker] Selfridges scrape threw for "${category}" — continuing`, err);
     }
+    products.push(...selfridges);
+    console.log(`[worker] "${category}" Selfridges → ${selfridges.length} products`);
+
+    // 2. Space NK + Cult Beauty fallback — skipped when Selfridges is already
+    // plentiful (>100) to avoid duplicates and preserve Web Unblocker credits.
+    if (selfridges.length > 100) {
+      console.log(`[worker] "${category}" → skipping Space NK (Selfridges returned ${selfridges.length})`);
+    } else {
+      try {
+        const spacenk = await scrapeCategory(category);
+        products.push(...spacenk);
+      } catch (err) {
+        failedCategories += 1;
+        console.error(`[worker] Space NK scrape threw for "${category}" — continuing`, err);
+      }
+    }
+
+    products = dedupeProducts(products);
 
     const deliverable = products.filter((p) => p.deliverable_lebanon).length;
     totalProducts += products.length;

@@ -882,6 +882,189 @@ export async function scrapeDirectBrands(): Promise<ScrapedProductRow[]> {
   return dedupeRows(all);
 }
 
+// ---------- Selfridges via Oxylabs Web Unblocker (PRIMARY when enabled) ----------
+// Selfridges is Akamai-gated and JS-rendered, so plain/proxy fetch is blocked.
+// Oxylabs' realtime API renders the page server-side and returns the final HTML,
+// which we parse for product tiles / JSON-LD / __NEXT_DATA__. Enabled only when
+// OXYLABS_USERNAME + OXYLABS_PASSWORD are set; otherwise the category falls back
+// to Space NK + Cult Beauty.
+const OXYLABS_ENDPOINT = "https://realtime.oxylabs.io/v1/queries";
+const SELFRIDGES_ORIGIN = "https://www.selfridges.com";
+
+export const SELFRIDGES_CATEGORIES: Array<{ category: string; slug: string }> = [
+  { category: "Makeup", slug: "make-up" },
+  { category: "Skincare", slug: "skincare" },
+  { category: "Haircare", slug: "hair" },
+  { category: "Beauty tools", slug: "beauty-tools-and-accessories" }
+];
+
+const SELFRIDGES_SLUGS: Record<string, string> = Object.fromEntries(
+  SELFRIDGES_CATEGORIES.map((c) => [c.category, c.slug])
+);
+
+export function webUnblockerEnabled(): boolean {
+  return Boolean(process.env.OXYLABS_USERNAME && process.env.OXYLABS_PASSWORD);
+}
+
+// Render a URL through Oxylabs and return the final HTML (or "" on failure).
+export async function fetchWithWebUnblocker(url: string): Promise<string> {
+  const user = process.env.OXYLABS_USERNAME;
+  const pass = process.env.OXYLABS_PASSWORD;
+  if (!user || !pass) return "";
+  const auth = Buffer.from(`${user}:${pass}`).toString("base64");
+  try {
+    const res = await undiciFetch(OXYLABS_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Basic ${auth}`
+      },
+      body: JSON.stringify({
+        source: "universal",
+        url,
+        render: "html",
+        geo_location: "United Kingdom"
+      }),
+      // Server-side rendering can take a while; give it generous headroom.
+      signal: AbortSignal.timeout(180_000)
+    });
+    if (!ok(res.status)) {
+      console.error(`[scraper] Oxylabs HTTP ${res.status} for ${url}`);
+      return "";
+    }
+    const data = (await res.json()) as { results?: Array<{ content?: string }> };
+    return data.results?.[0]?.content ?? "";
+  } catch (err) {
+    console.error(`[scraper] Oxylabs error for ${url}: ${(err as Error).message}`);
+    return "";
+  }
+}
+
+// Pull product data out of a deeply-nested __NEXT_DATA__ blob (Selfridges is a
+// Next.js app). Best-effort: collect any object that looks like a product
+// (name + brand + price). dedupe/shouldExclude downstream clean up false hits.
+function parseNextDataProducts(html: string, origin: string): RawProduct[] {
+  const m = html.match(/<script[^>]*id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/i);
+  if (!m) return [];
+  let root: unknown;
+  try {
+    root = JSON.parse(m[1]);
+  } catch {
+    return [];
+  }
+  const out: RawProduct[] = [];
+  const seen = new Set<unknown>();
+  const stack: unknown[] = [root];
+  while (stack.length) {
+    const node = stack.pop();
+    if (!node || typeof node !== "object" || seen.has(node)) continue;
+    seen.add(node);
+    if (Array.isArray(node)) {
+      for (const v of node) if (v && typeof v === "object") stack.push(v);
+      continue;
+    }
+    const obj = node as Record<string, unknown>;
+    for (const v of Object.values(obj)) if (v && typeof v === "object") stack.push(v);
+
+    const name =
+      (typeof obj.name === "string" && obj.name) ||
+      (typeof obj.productName === "string" && obj.productName) ||
+      (typeof obj.title === "string" && obj.title) ||
+      "";
+    const brandRaw = obj.brand ?? obj.brandName ?? obj.designer;
+    const brand =
+      typeof brandRaw === "string"
+        ? brandRaw
+        : brandRaw && typeof brandRaw === "object" && typeof (brandRaw as Record<string, unknown>).name === "string"
+          ? ((brandRaw as Record<string, unknown>).name as string)
+          : "";
+    const priceRaw =
+      obj.price ?? obj.currentPrice ?? obj.amount ?? obj.value ?? (obj.pricing as Record<string, unknown> | undefined)?.current;
+    const priceGbp = parsePrice(
+      typeof priceRaw === "object" && priceRaw !== null
+        ? ((priceRaw as Record<string, unknown>).value ?? (priceRaw as Record<string, unknown>).amount)
+        : (priceRaw as string | number | undefined)
+    );
+    if (!name || !brand || priceGbp === null) continue;
+
+    const imgRaw = obj.image ?? obj.imageUrl ?? obj.images ?? obj.media;
+    let image = "";
+    if (typeof imgRaw === "string") image = imgRaw;
+    else if (Array.isArray(imgRaw) && imgRaw.length) {
+      const first = imgRaw[0];
+      image = typeof first === "string" ? first : typeof (first as Record<string, unknown>)?.url === "string" ? ((first as Record<string, unknown>).url as string) : "";
+    }
+    const urlRaw = obj.url ?? obj.productUrl ?? obj.pdpUrl ?? obj.link;
+    const productUrl = typeof urlRaw === "string" ? resolveUrl(urlRaw, origin) : "";
+
+    out.push({ brand, name: name.trim(), priceGbp, image_url: resolveUrl(image, origin), product_url: productUrl });
+  }
+  return out;
+}
+
+// Selfridges product-card selectors (multiple variants for resilience).
+const SELFRIDGES_SELECTORS: TileSelectors = {
+  container: ".product-card, [data-product-id], .cat-product, article[data-testid='product-card']",
+  name: ".product-card__name, [data-product-name], h3.name, [data-testid='product-name']",
+  brand: ".product-card__brand, [data-brand], .brand-name, [data-testid='product-brand']",
+  price: ".price, [data-price], .product-card__price, [data-testid='product-price']",
+  image: "img.product-card__image, img[data-src], img[loading='lazy'], img",
+  link: "a.product-card__link, a[href*='/product/'], a[href*='/cat/']"
+};
+
+// Try DOM tiles → JSON-LD → __NEXT_DATA__, returning the first non-empty parse.
+export function extractSelfridgesProducts($: cheerio.CheerioAPI, html: string, origin: string): RawProduct[] {
+  let raws = parseTiles($, origin, SELFRIDGES_SELECTORS, "Selfridges").filter((r) => r.brand && r.name);
+  if (raws.length === 0) raws = parseJsonLdProducts(html, origin, "Selfridges");
+  if (raws.length === 0) raws = parseNextDataProducts(html, origin);
+  return dedupeRaw(raws);
+}
+
+// Scrape up to 5 category pages (60 products each) through the Web Unblocker.
+export async function scrapeSelfridgesCategory(category: string): Promise<ScrapedProductRow[]> {
+  const slug = SELFRIDGES_SLUGS[category];
+  if (!slug || !webUnblockerEnabled()) return [];
+
+  const collected: RawProduct[] = [];
+  for (let page = 1; page <= 5; page += 1) {
+    const url = `${SELFRIDGES_ORIGIN}/GB/en/cat/${slug}/?pge=${page}&ppp=60&sort=relevance`;
+    console.log(`[scraper] Selfridges ${category} page ${page}: ${url}`);
+    const html = await fetchWithWebUnblocker(url);
+    if (!html || html.length < 1000) {
+      console.log(`[scraper] Selfridges ${category} page ${page} → empty response`);
+      break;
+    }
+    const $ = cheerio.load(html);
+    const pageProducts = extractSelfridgesProducts($, html, SELFRIDGES_ORIGIN);
+    if (pageProducts.length === 0) {
+      console.log(`[scraper] Selfridges ${category} page ${page} → 0 parsed`);
+      break;
+    }
+    collected.push(...pageProducts);
+    await delay(2000, 4000); // rate limiting
+  }
+
+  const deduped = dedupeRaw(collected);
+  // TODO: once on a paid Oxylabs plan, fetch each product page via
+  // fetchWithWebUnblocker + checkSelfridgesDelivery() to set deliverable_lebanon
+  // accurately. For now everything defaults to deliverable to preserve credits.
+  if (deduped.length > 0) console.log(`[scraper] Selfridges ${category} → ${deduped.length} unique products`);
+  return toRows(deduped, category, "Selfridges");
+}
+
+// Per-product Lebanon deliverability check (DISABLED by default — uses one
+// Web Unblocker credit per product). Enable once on a paid plan.
+export async function checkSelfridgesDelivery(productUrl: string): Promise<boolean> {
+  const html = await fetchWithWebUnblocker(productUrl);
+  if (!html) return true;
+  const $ = cheerio.load(html);
+  const deliveryText = $("[data-delivery], .delivery-info, .shipping-info").text().toLowerCase();
+  if (deliveryText.includes("lebanon") && (deliveryText.includes("not available") || deliveryText.includes("cannot"))) {
+    return false;
+  }
+  return true; // default to deliverable
+}
+
 // ---------- Boots & John Lewis (HTML brand pages, defensive) ----------
 // Both are heavily bot-protected (Boots = PerimeterX "Pardon Our Interruption",
 // John Lewis = Akamai). Plain fetch from a datacenter IP is blocked; a
