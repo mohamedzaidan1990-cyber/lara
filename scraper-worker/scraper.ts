@@ -1190,12 +1190,26 @@ function classifySelfridgesCategory(name: string): string {
   return "Makeup";
 }
 
+// Derive a Selfridges brand-page slug from a brand name
+// ("Estée Lauder" → "estee-lauder", "NARS" → "nars").
+export function brandToSlug(brand: string): string {
+  return (brand || "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "") // strip accents
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 // Crawl Selfridges brand pages and classify each product's category by name.
-export async function scrapeSelfridgesBrands(): Promise<ScrapedProductRow[]> {
+// Defaults to the curated daily list; pass a custom slug list for a one-time
+// all-brands populate.
+export async function scrapeSelfridgesBrands(slugs: string[] = SELFRIDGES_BRAND_SLUGS): Promise<ScrapedProductRow[]> {
   if (!webUnblockerEnabled()) return [];
   const collected: ScrapedProductRow[] = [];
   const seen = new Set<string>();
-  for (const slug of SELFRIDGES_BRAND_SLUGS) {
+  for (const slug of slugs) {
     const url = `${SELFRIDGES_ORIGIN}/GB/en/cat/${slug}/?pge=1&ppp=60&sort=relevance`;
     const html = await fetchWithWebUnblocker(url, { browserInstructions: SELFRIDGES_SCROLL_INSTRUCTIONS });
     if (!html || html.length < 1000) {
