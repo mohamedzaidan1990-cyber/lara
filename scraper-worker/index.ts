@@ -15,7 +15,9 @@ function dedupeProducts(rows: ScrapedProductRow[]): ScrapedProductRow[] {
   return out;
 }
 
-const CRON_SCHEDULE = process.env.CRON_SCHEDULE ?? "0 */6 * * *";
+// Daily at 03:00 — Selfridges-only crawl is ~29 Oxylabs render calls/run, so a
+// 6-hourly cadence burns credits fast. Override with CRON_SCHEDULE if needed.
+const CRON_SCHEDULE = process.env.CRON_SCHEDULE ?? "0 3 * * *";
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));

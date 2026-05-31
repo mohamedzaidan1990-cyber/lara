@@ -84,8 +84,11 @@ export async function upsertProducts(products: ScrapedProductRow[]): Promise<num
            price_gbp = excluded.price_gbp,
            price_usd = excluded.price_usd,
            deliverable_lebanon = excluded.deliverable_lebanon,
-           image_url = excluded.image_url,
-           images = excluded.images,
+           -- Preserve an existing image: the crawl only knows the guessed
+           -- <SKU>_M URL, but a backfill may have stored the correct shade
+           -- image (<SKU>_<shade>_M). Don't let the daily run clobber it.
+           image_url = case when coalesce(products.image_url, '') = '' then excluded.image_url else products.image_url end,
+           images = case when coalesce(products.image_url, '') = '' then excluded.images else products.images end,
            scraped_at = now()`,
         [
           p.brand,
