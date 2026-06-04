@@ -75,30 +75,33 @@ export default async function CategoryPage({
         <span className="text-ink">{def.label}</span>
       </nav>
 
-      <header className="mt-6 flex flex-col gap-4 border-b border-ink/10 pb-6 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-[11px] uppercase tracking-[0.32em] text-accent">Shop the edit</p>
-          <h1 className="mt-2 font-serif text-4xl text-ink sm:text-5xl">{def.label}</h1>
-          <p className="mt-2 text-sm text-ink/70">
+      <header className="mt-6">
+        <div className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-accent via-accent-500 to-secondary p-8 text-white shadow-soft sm:p-12">
+          <div className="absolute -right-12 -top-12 h-56 w-56 rounded-full bg-white/15 blur-2xl" />
+          <p className="relative text-[11px] font-bold uppercase tracking-[0.32em] text-white/80">Shop the edit</p>
+          <h1 className="relative mt-2 font-serif text-4xl font-bold sm:text-5xl">{def.label}</h1>
+          <p className="relative mt-3 text-sm text-white/85">
             {activeBrand ? (
               <>
                 Showing {total} of {categoryTotal} products ({activeBrand}).{" "}
-                <Link href={`/category/${def.slug}`} className="text-accent hover:underline">
+                <Link href={`/category/${def.slug}`} className="font-bold underline hover:text-white">
                   Clear filter
                 </Link>
               </>
             ) : (
               <>
-                {def.label} — {categoryTotal} {categoryTotal === 1 ? "product" : "products"}.
+                {categoryTotal} {categoryTotal === 1 ? "product" : "products"} curated from London.
               </>
             )}
           </p>
         </div>
-        <CategoryControls current={sort} brands={brands} currentBrand={activeBrand} slug={def.slug} />
+        <div className="mt-5 flex justify-end rounded-[2rem] border border-white/60 bg-white/40 p-4 backdrop-blur-sm">
+          <CategoryControls current={sort} brands={brands} currentBrand={activeBrand} slug={def.slug} />
+        </div>
       </header>
 
       {products.length === 0 ? (
-        <div className="mt-12 flex flex-col items-center gap-4 rounded border border-ink/10 bg-ink/[0.02] p-12 text-center">
+        <div className="mt-12 flex flex-col items-center gap-4 rounded-[2rem] border border-white/60 bg-white/50 p-12 text-center shadow-soft">
           <BeeMascot variant="floating" />
           <p className="text-sm text-ink/60">
             No products in this category yet. Message us on WhatsApp for a custom request.

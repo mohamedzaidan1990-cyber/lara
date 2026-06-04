@@ -60,7 +60,7 @@ export default function CategoryControls({ current, brands = [], currentBrand = 
             value={currentBrand ?? ""}
             onChange={onBrandChange}
             disabled={pending}
-            className="max-w-[200px] border border-ink/15 bg-white px-3 py-2 text-xs uppercase tracking-[0.12em] text-ink focus:border-accent focus:outline-none"
+            className="max-w-[200px] rounded-full border border-accent/20 bg-white px-5 py-2.5 text-xs font-bold uppercase tracking-[0.1em] text-ink focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
           >
             <option value="">All brands</option>
             {brands.map((b) => (
@@ -81,7 +81,7 @@ export default function CategoryControls({ current, brands = [], currentBrand = 
           value={current}
           onChange={onSortChange}
           disabled={pending}
-          className="border border-ink/15 bg-white px-3 py-2 text-xs uppercase tracking-[0.12em] text-ink focus:border-accent focus:outline-none"
+          className="rounded-full border border-accent/20 bg-white px-5 py-2.5 text-xs font-bold uppercase tracking-[0.1em] text-ink focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
         >
           {OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>

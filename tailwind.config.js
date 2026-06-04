@@ -7,53 +7,68 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        // ===== Candy theme =====
+        // "gold" is kept as a token name for backwards-compat but now maps to
+        // the soft pink container (primary-fixed) used for badges/highlights.
         gold: {
-          DEFAULT: "#F4D360",
-          50: "#FFFDF5",
-          100: "#FCF6DE",
-          200: "#FAEBB8",
-          300: "#F7E08F",
-          400: "#F4D360",
-          500: "#E9C13B",
-          600: "#C9A12A",
-          700: "#9C7C1D",
-          800: "#6C5612",
-          900: "#3D3008"
+          DEFAULT: "#ffd6ee",
+          50: "#fff5fb",
+          100: "#ffe6f4",
+          200: "#ffd6ee",
+          300: "#f9bfe0",
+          400: "#f080c0",
+          500: "#e85cae",
+          600: "#e040a0",
+          700: "#c62f88",
+          800: "#a02070",
+          900: "#4d0f37"
         },
+        // "accent" = candy primary (hot pink), used for CTAs + brand.
         accent: {
-          DEFAULT: "#C0392B",
-          50: "#FBEBE9",
-          100: "#F5CFCB",
-          200: "#EAA29B",
-          300: "#DE756B",
-          400: "#D2493D",
-          500: "#C0392B",
-          600: "#9C2E23",
-          700: "#76231B",
-          800: "#511812",
-          900: "#2B0D09"
+          DEFAULT: "#e040a0",
+          50: "#fdeaf6",
+          100: "#fbd3ec",
+          200: "#f6a8d8",
+          300: "#f080c0",
+          400: "#e85cae",
+          500: "#e040a0",
+          600: "#c62f88",
+          700: "#a02070",
+          800: "#7a1857",
+          900: "#4d0f37"
         },
+        // "ink" = on-surface text (warm plum-charcoal) + variants for muted text.
         ink: {
-          DEFAULT: "#23272A",
-          900: "#0F1112",
-          800: "#1A1D1F",
-          700: "#23272A",
-          600: "#3A3F44",
-          500: "#5A6168"
+          DEFAULT: "#2e1a28",
+          900: "#1f1019",
+          800: "#261520",
+          700: "#2e1a28",
+          600: "#604868",
+          500: "#907898"
         },
+        // "cream" = the warm pink-white background canvas.
         cream: {
-          DEFAULT: "#FFFDF5",
-          50: "#FFFFFF",
-          100: "#FFFDF5",
-          200: "#FBF6E3"
-        }
+          DEFAULT: "#fef7ff",
+          50: "#ffffff",
+          100: "#fef7ff",
+          200: "#fbf2fb"
+        },
+        // Candy accents available directly when needed.
+        secondary: "#7c52aa",
+        tertiary: "#0096cc",
+        surface: "#fef7ff",
+        "surface-container": "#f8eef8",
+        outline: "#907898"
       },
       fontFamily: {
-        serif: ["var(--font-playfair)", "Playfair Display", "Georgia", "serif"],
+        // The candy system is single-typeface (DM Sans). "serif" is retained as
+        // a token so existing font-serif usages keep working, but renders DM Sans.
+        serif: ["var(--font-dm-sans)", "DM Sans", "ui-sans-serif", "system-ui", "sans-serif"],
         sans: ["var(--font-dm-sans)", "DM Sans", "ui-sans-serif", "system-ui", "sans-serif"]
       },
       boxShadow: {
-        soft: "0 1px 2px rgba(35,39,42,0.04), 0 8px 24px rgba(35,39,42,0.08)"
+        soft: "0 2px 8px rgba(224,64,160,0.06), 0 12px 32px rgba(224,64,160,0.10)",
+        pop: "0 25px 50px -12px rgba(224,64,160,0.18)"
       }
     }
   },

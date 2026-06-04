@@ -18,13 +18,13 @@ function CartButton({ className = "" }: { className?: string }) {
       type="button"
       onClick={openCart}
       aria-label={`Open cart${mounted && count > 0 ? `, ${count} items` : ""}`}
-      className={"relative inline-flex h-9 w-9 items-center justify-center text-ink hover:text-accent " + className}
+      className={"relative inline-flex h-9 w-9 items-center justify-center text-ink transition-transform hover:scale-110 hover:text-accent " + className}
     >
       <ShoppingBag className="h-5 w-5" />
       {mounted && count > 0 ? (
         <span
-          className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold text-ink"
-          style={{ backgroundColor: "#F4D360" }}
+          className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white"
+          style={{ backgroundColor: "#e040a0" }}
         >
           {count}
         </span>
@@ -59,16 +59,13 @@ export default function SiteHeader() {
   }, [shopOpen]);
 
   return (
-    <header className="sticky top-0 z-30 border-b border-ink/10 bg-cream/95 backdrop-blur">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-        <Link href="/" className="flex flex-col leading-none" onClick={() => setMobileOpen(false)}>
-          <span className="font-serif text-3xl text-ink">Seasons by B</span>
-          <span className="mt-1 hidden text-[10px] uppercase tracking-[0.32em] text-ink/60 sm:block">
-            London&apos;s finest, delivered to your door
-          </span>
+    <header className="sticky top-0 z-40 px-3 pt-3 sm:px-6 sm:pt-4">
+      <div className="mx-auto flex max-w-7xl items-center justify-between rounded-full glass-pill px-5 py-3 shadow-soft sm:px-8">
+        <Link href="/" className="flex items-baseline gap-2 leading-none" onClick={() => setMobileOpen(false)}>
+          <span className="font-serif text-2xl font-bold tracking-tight text-accent sm:text-3xl">Seasons by B</span>
         </Link>
 
-        <nav className="hidden items-center gap-6 text-xs uppercase tracking-[0.18em] text-ink/70 sm:flex">
+        <nav className="hidden items-center gap-6 text-xs font-bold uppercase tracking-[0.16em] text-ink/70 sm:flex">
           <div className="relative" ref={shopRef}>
             <button
               type="button"
@@ -83,7 +80,7 @@ export default function SiteHeader() {
             {shopOpen ? (
               <div
                 role="menu"
-                className="absolute right-0 top-full mt-3 w-64 border border-ink/10 bg-cream shadow-soft"
+                className="absolute right-0 top-full mt-4 w-64 overflow-hidden rounded-2xl border border-accent/10 bg-white/90 shadow-soft backdrop-blur-xl"
               >
                 <ul className="py-2">
                   {CATEGORY_DEFS.map((cat) => (
@@ -92,7 +89,7 @@ export default function SiteHeader() {
                         href={`/category/${cat.slug}`}
                         role="menuitem"
                         onClick={() => setShopOpen(false)}
-                        className="block px-5 py-3 text-xs uppercase tracking-[0.18em] text-ink hover:bg-gold/20 hover:text-accent"
+                        className="block px-5 py-3 text-xs font-bold uppercase tracking-[0.16em] text-ink transition-colors hover:bg-accent/10 hover:text-accent"
                       >
                         {cat.label}
                       </Link>
@@ -130,7 +127,7 @@ export default function SiteHeader() {
             aria-label="Open menu"
             aria-expanded={mobileOpen}
             onClick={() => setMobileOpen((v) => !v)}
-            className="inline-flex h-9 w-9 items-center justify-center border border-ink/15 text-ink"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-accent/20 text-accent"
           >
             <span className="sr-only">Menu</span>
             {mobileOpen ? "✕" : "≡"}
@@ -139,23 +136,23 @@ export default function SiteHeader() {
       </div>
 
       {mobileOpen ? (
-        <div className="border-t border-ink/10 bg-cream sm:hidden">
-          <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6">
-            <p className="px-1 pb-2 text-[10px] uppercase tracking-[0.24em] text-ink/60">Shop</p>
+        <div className="mx-3 mt-3 rounded-3xl glass-pill p-4 shadow-soft sm:hidden">
+          <div className="mx-auto max-w-7xl">
+            <p className="px-1 pb-2 text-[10px] font-bold uppercase tracking-[0.24em] text-ink/50">Shop</p>
             <ul className="grid grid-cols-2 gap-1">
               {CATEGORY_DEFS.map((cat) => (
                 <li key={cat.slug}>
                   <Link
                     href={`/category/${cat.slug}`}
                     onClick={() => setMobileOpen(false)}
-                    className="block px-3 py-2 text-xs uppercase tracking-[0.18em] text-ink hover:bg-gold/20 hover:text-accent"
+                    className="block rounded-full px-3 py-2 text-xs font-bold uppercase tracking-[0.16em] text-ink transition-colors hover:bg-accent/10 hover:text-accent"
                   >
                     {cat.label}
                   </Link>
                 </li>
               ))}
             </ul>
-            <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-ink/10 pt-3 text-xs uppercase tracking-[0.18em]">
+            <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-accent/10 pt-3 text-xs font-bold uppercase tracking-[0.16em]">
               <Link
                 href="/shade-finder"
                 onClick={() => setMobileOpen(false)}

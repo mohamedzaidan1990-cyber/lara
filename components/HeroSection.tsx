@@ -10,18 +10,18 @@ import { whatsappRequestLink } from "@/lib/links";
 // WebGL / Three.js fails). Overlapping gold circles drifting on cream.
 function CssHero() {
   return (
-    <div className="absolute inset-0 overflow-hidden" style={{ backgroundColor: "#FFFDF5" }}>
+    <div className="absolute inset-0 overflow-hidden" style={{ backgroundColor: "#fef7ff" }}>
       <div
         className="bee-anim-floating absolute left-[15%] top-[20%] h-48 w-48 rounded-full blur-2xl"
-        style={{ backgroundColor: "rgba(244,211,96,0.55)" }}
+        style={{ backgroundColor: "rgba(224,64,160,0.35)" }}
       />
       <div
         className="bee-anim-floating absolute right-[18%] top-[40%] h-64 w-64 rounded-full blur-2xl"
-        style={{ backgroundColor: "rgba(244,211,96,0.35)", animationDelay: "0.6s" }}
+        style={{ backgroundColor: "rgba(124,82,170,0.30)", animationDelay: "0.6s" }}
       />
       <div
         className="bee-anim-floating absolute bottom-[12%] left-[35%] h-40 w-40 rounded-full blur-2xl"
-        style={{ backgroundColor: "rgba(201,161,42,0.3)", animationDelay: "1.2s" }}
+        style={{ backgroundColor: "rgba(0,150,204,0.22)", animationDelay: "1.2s" }}
       />
     </div>
   );
@@ -71,53 +71,40 @@ export default function HeroSection() {
           animate="show"
           transition={{ staggerChildren: 0.2, delayChildren: 0.1 }}
         >
-          <motion.div variants={fade} transition={{ duration: 0.6 }} className="text-4xl">
-            <span aria-hidden>🐝</span>
+          <motion.div variants={fade} transition={{ duration: 0.6 }}>
+            <span className="inline-flex items-center gap-2 rounded-full bg-accent/10 px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.18em] text-accent">
+              <span aria-hidden>🐝</span> London → Lebanon in 14 days
+            </span>
           </motion.div>
           <motion.h1
             variants={fade}
             transition={{ duration: 0.6 }}
-            className="mt-4 font-serif text-[52px] leading-[1.05] text-ink"
+            className="mt-5 font-serif text-[48px] font-bold leading-[1.05] text-ink sm:text-[56px]"
           >
-            Seasons by B
+            London&apos;s Finest, <span className="text-accent">Sweetly Delivered</span> To You
           </motion.h1>
-          <motion.p
-            variants={fade}
-            transition={{ duration: 0.6 }}
-            className="mt-3 text-[18px] font-light text-ink/70"
-          >
-            London&apos;s Finest, Delivered to Your Door
-          </motion.p>
           <motion.div
             variants={fade}
             transition={{ duration: 0.6 }}
-            className="mt-6 h-px w-24"
-            style={{ backgroundColor: "#F4D360" }}
+            className="mt-6 h-1.5 w-24 rounded-full"
+            style={{ backgroundColor: "#e040a0" }}
           />
           <motion.p
             variants={fade}
             transition={{ duration: 0.6 }}
-            className="mt-6 text-sm leading-relaxed text-ink/70"
+            className="mt-6 text-base leading-relaxed text-ink/70"
           >
-            Luxury beauty, skincare and personal sourcing — curated in London, delivered to you in 10–14 days.
+            Luxury beauty, skincare and personal sourcing — curated in London, delivered to your door with a pop of joy in 10–14 days.
           </motion.p>
           <motion.div
             variants={fade}
             transition={{ duration: 0.6 }}
             className="mt-8 flex flex-wrap items-center gap-3"
           >
-            <Link
-              href="#shop"
-              className="inline-flex items-center justify-center rounded-none border border-accent bg-accent px-6 py-3 text-sm uppercase tracking-[0.18em] text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent-600 hover:shadow-soft"
-            >
+            <Link href="#shop" className="btn-primary">
               Shop Now
             </Link>
-            <a
-              href={bespoke}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center justify-center rounded-none border border-gold bg-transparent px-6 py-3 text-sm uppercase tracking-[0.18em] text-ink transition-all duration-200 hover:-translate-y-0.5 hover:bg-gold"
-            >
+            <a href={bespoke} target="_blank" rel="noreferrer" className="btn-outline">
               Request Bespoke
             </a>
           </motion.div>

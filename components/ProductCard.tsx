@@ -88,14 +88,13 @@ export default function ProductCard({ product, index = 0 }: Props) {
 
   return (
     <motion.article
-      className="group flex flex-col"
+      className="candy-card group flex flex-col border border-white/60 bg-white/60 p-4 shadow-soft"
       initial={{ opacity: 0, y: 16 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-40px" }}
       transition={{ duration: 0.45, delay: Math.min(index, 8) * 0.05, ease: [0.22, 1, 0.36, 1] }}
-      whileHover={{ y: -4 }}
     >
-      <Link href={detailHref} className="relative block aspect-[3/4] w-full overflow-hidden bg-ink/[0.03] transition-shadow duration-300 group-hover:shadow-soft">
+      <Link href={detailHref} className="relative block aspect-[3/4] w-full overflow-hidden rounded-[1.5rem] bg-surface-container">
         {showImage ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -146,12 +145,12 @@ export default function ProductCard({ product, index = 0 }: Props) {
         </AnimatePresence>
       </Link>
 
-      <div className="mt-4 flex flex-1 flex-col">
-        <p className="text-[11px] uppercase tracking-[0.24em] text-ink/60">{product.brand}</p>
-        <Link href={detailHref} className="mt-1 line-clamp-2 text-sm text-ink hover:text-accent">
+      <div className="mt-4 flex flex-1 flex-col px-1">
+        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-ink/50">{product.brand}</p>
+        <Link href={detailHref} className="mt-1.5 line-clamp-2 text-sm font-medium text-ink transition-colors hover:text-accent">
           {product.name}
         </Link>
-        <p className="mt-3 font-serif text-lg text-ink">{formatUsd(product.price_usd)}</p>
+        <p className="mt-3 font-serif text-xl font-bold text-accent">{formatUsd(product.price_usd)}</p>
 
         <div className="mt-4">
           <button

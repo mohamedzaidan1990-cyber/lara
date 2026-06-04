@@ -136,8 +136,8 @@ function ShadeFinderBanner() {
     <div className="mx-auto mt-12 max-w-7xl px-4 sm:px-6 lg:px-8">
       <Link
         href="/shade-finder"
-        className="group flex flex-col items-center justify-between gap-4 overflow-hidden rounded-lg border border-gold/40 p-6 text-center transition-all duration-300 hover:-translate-y-0.5 hover:shadow-soft sm:flex-row sm:text-left"
-        style={{ background: "linear-gradient(110deg, #FAEBB8 0%, #F4D360 55%, #F7E08F 100%)" }}
+        className="group flex flex-col items-center justify-between gap-4 overflow-hidden rounded-[2rem] border border-white/60 p-7 text-center shadow-soft transition-all duration-300 hover:-translate-y-1 sm:flex-row sm:text-left"
+        style={{ background: "linear-gradient(110deg, #ffe6f4 0%, #f080c0 55%, #ffd6ee 100%)" }}
       >
         <div className="flex items-center gap-4">
           <span className="text-3xl" aria-hidden>
@@ -150,7 +150,7 @@ function ShadeFinderBanner() {
             </p>
           </div>
         </div>
-        <span className="inline-flex items-center gap-2 whitespace-nowrap rounded-full bg-ink px-5 py-2.5 text-xs uppercase tracking-[0.18em] text-cream transition-transform group-hover:scale-[1.03]">
+        <span className="inline-flex items-center gap-2 whitespace-nowrap rounded-full bg-white px-6 py-3 text-xs font-bold uppercase tracking-[0.16em] text-accent shadow-lg transition-transform group-hover:scale-[1.05]">
           Try our Shade Finder →
         </span>
       </Link>
@@ -179,7 +179,7 @@ function CategoryCards({ categories }: { categories: CategoryStat[] }) {
           >
             <Link
               href={`/category/${cat.slug}`}
-              className="group relative block overflow-hidden border border-ink/10 bg-cream transition-all duration-300 hover:-translate-y-1 hover:border-gold hover:shadow-soft"
+              className="group relative block overflow-hidden rounded-[2rem] border border-white/60 bg-white/60 shadow-soft transition-all duration-300 hover:-translate-y-1.5 hover:shadow-pop"
             >
               <div className="relative aspect-[4/3] w-full overflow-hidden bg-ink/[0.04]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -269,19 +269,19 @@ function GoldCircles() {
     <div className="relative mx-auto hidden aspect-square w-full max-w-md lg:block">
       <div
         className="gold-shimmer bee-anim-floating absolute left-[8%] top-[10%] h-56 w-56 rounded-full"
-        style={{ backgroundColor: "rgba(244,211,96,0.85)" }}
+        style={{ backgroundColor: "rgba(224,64,160,0.55)" }}
       />
       <div
         className="gold-shimmer bee-anim-floating absolute right-[6%] top-[30%] h-40 w-40 rounded-full"
-        style={{ backgroundColor: "rgba(201,161,42,0.55)", animationDelay: "0.5s" }}
+        style={{ backgroundColor: "rgba(124,82,170,0.45)", animationDelay: "0.5s" }}
       />
       <div
         className="gold-shimmer bee-anim-floating absolute bottom-[8%] left-[28%] h-48 w-48 rounded-full"
-        style={{ backgroundColor: "rgba(244,211,96,0.45)", animationDelay: "1s" }}
+        style={{ backgroundColor: "rgba(0,150,204,0.35)", animationDelay: "1s" }}
       />
       <div
         className="absolute right-[22%] bottom-[22%] h-24 w-24 rounded-full border-2"
-        style={{ borderColor: "rgba(244,211,96,0.7)" }}
+        style={{ borderColor: "rgba(224,64,160,0.6)" }}
       />
     </div>
   );

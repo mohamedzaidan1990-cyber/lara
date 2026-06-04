@@ -77,7 +77,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#F4D360",
+  themeColor: "#e040a0",
   width: "device-width",
   initialScale: 1,
   maximumScale: 5
@@ -86,7 +86,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${playfair.variable} ${dmSans.variable}`}>
-      <body className="min-h-screen bg-cream text-ink">
+      <body className="min-h-screen text-ink">
         <CustomCursor />
         <TitleCycler />
         <SiteHeader />
@@ -103,59 +103,59 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
 function SiteFooter() {
   return (
-    <footer className="mt-24 border-t border-ink/10 bg-ink text-cream">
-      <div className="mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:grid-cols-2 sm:px-6 lg:grid-cols-4 lg:px-8">
+    <footer className="mt-24 border-t border-accent/10 bg-white/70 backdrop-blur-sm text-ink">
+      <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:grid-cols-2 sm:px-6 lg:grid-cols-4 lg:px-8">
         <div>
-          <p className="font-serif text-2xl text-gold">Seasons by B</p>
-          <p className="mt-2 text-xs uppercase tracking-[0.24em] text-cream/60">
-            London&apos;s finest, delivered to your door
+          <p className="font-serif text-2xl text-accent">Seasons by B</p>
+          <p className="mt-3 text-sm text-ink/60">
+            London&apos;s finest beauty, delivered with a pop of joy — to your door in 14 days.
           </p>
         </div>
         <div>
-          <p className="text-xs uppercase tracking-[0.18em] text-gold">Service</p>
-          <ul className="mt-3 space-y-2 text-sm text-cream/80">
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-accent">Service</p>
+          <ul className="mt-4 space-y-2.5 text-sm text-ink/70">
             <li>
-              <Link href="/" className="hover:text-gold">
+              <Link href="/" className="transition-colors hover:text-accent">
                 Shop
               </Link>
             </li>
             <li>
-              <Link href="/info" className="hover:text-gold">
+              <Link href="/info" className="transition-colors hover:text-accent">
                 How it works
               </Link>
             </li>
             <li>
-              <Link href="/track" className="hover:text-gold">
+              <Link href="/track" className="transition-colors hover:text-accent">
                 Track your order
               </Link>
             </li>
             <li>
-              <Link href="/info#returns" className="hover:text-gold">
+              <Link href="/info#returns" className="transition-colors hover:text-accent">
                 Returns policy
               </Link>
             </li>
           </ul>
         </div>
         <div>
-          <p className="text-xs uppercase tracking-[0.18em] text-gold">Delivery</p>
-          <p className="mt-3 text-sm text-cream/80">10–14 working days door to door.</p>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-accent">Delivery</p>
+          <p className="mt-4 text-sm text-ink/70">10–14 working days door to door.</p>
         </div>
         <div>
-          <p className="text-xs uppercase tracking-[0.18em] text-gold">Contact</p>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-accent">Contact</p>
           <a
             href={WHATSAPP_URL}
             target="_blank"
             rel="noreferrer"
-            className="mt-3 inline-flex items-center gap-2 text-sm text-cream/80 hover:text-gold"
+            className="mt-4 inline-flex items-center gap-2 rounded-full bg-accent/5 px-5 py-3 text-sm font-bold text-ink transition-all hover:bg-accent/10 hover:text-accent"
           >
             <WhatsAppIcon />
             WhatsApp +961 03 055 491
           </a>
         </div>
       </div>
-      <div className="border-t border-cream/10">
-        <div className="mx-auto max-w-7xl px-4 py-6 text-center text-[11px] uppercase tracking-[0.24em] text-cream/50 sm:px-6 lg:px-8">
-          © 2025 Seasons by B. London.
+      <div className="border-t border-accent/10 bg-accent/5">
+        <div className="mx-auto max-w-7xl px-4 py-6 text-center text-[11px] font-bold uppercase tracking-[0.24em] text-accent/60 sm:px-6 lg:px-8">
+          © 2025 Seasons by B. Curated with joy in London.
         </div>
       </div>
     </footer>

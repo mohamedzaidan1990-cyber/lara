@@ -5,7 +5,8 @@ import { Environment, Float } from "@react-three/drei";
 import { Component, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import * as THREE from "three";
 
-const GOLD = "#F4D360";
+// Candy theme: metallic hot-pink beauty objects.
+const GOLD = "#e85cae";
 
 // Shared liquid-gold material. Metalness needs lights + an env map to read as
 // gold rather than black — both are provided in the scene below.

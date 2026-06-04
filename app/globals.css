@@ -3,15 +3,17 @@
 @tailwind utilities;
 
 :root {
-  --gold: #F4D360;
-  --accent: #C0392B;
-  --ink: #23272A;
-  --cream: #FFFDF5;
+  /* Candy theme */
+  --gold: #ffd6ee;
+  --accent: #e040a0;
+  --secondary: #7c52aa;
+  --tertiary: #0096cc;
+  --ink: #2e1a28;
+  --cream: #fef7ff;
 }
 
 html,
 body {
-  background-color: var(--cream);
   color: var(--ink);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -19,6 +21,17 @@ body {
 
 body {
   font-family: var(--font-dm-sans), "DM Sans", system-ui, -apple-system, sans-serif;
+  /* Soft animated candy gradient canvas. */
+  background: linear-gradient(-45deg, #fef7ff, #ffe6f4, #fef7ff, #eedcff);
+  background-size: 400% 400%;
+  background-attachment: fixed;
+  animation: candyGradient 22s ease infinite;
+}
+
+@keyframes candyGradient {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
 
 h1,
@@ -26,40 +39,88 @@ h2,
 h3,
 h4,
 .font-serif {
-  font-family: var(--font-playfair), "Playfair Display", Georgia, serif;
-  letter-spacing: -0.01em;
+  font-family: var(--font-dm-sans), "DM Sans", system-ui, -apple-system, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
+/* ===== Candy buttons (pill, tinted shadow, bouncy) ===== */
 .btn-primary {
-  @apply inline-flex items-center justify-center rounded-none border border-accent bg-accent px-6 py-3 text-sm uppercase tracking-[0.18em] text-white transition-colors hover:bg-accent-600 hover:border-accent-600;
+  @apply inline-flex items-center justify-center rounded-full border-0 bg-accent px-8 py-3.5 text-sm font-bold uppercase tracking-[0.16em] text-white shadow-lg shadow-accent/20 transition-transform duration-300 hover:scale-[1.03] active:scale-95;
 }
 
 .btn-outline {
-  @apply inline-flex items-center justify-center rounded-none border border-ink bg-transparent px-6 py-3 text-sm uppercase tracking-[0.18em] text-ink transition-colors hover:bg-ink hover:text-cream;
+  @apply inline-flex items-center justify-center rounded-full border-2 border-accent/25 bg-white/70 px-8 py-3.5 text-sm font-bold uppercase tracking-[0.16em] text-accent transition-all duration-300 hover:scale-[1.03] hover:border-accent hover:bg-accent hover:text-white active:scale-95;
 }
 
 .btn-gold {
-  @apply inline-flex items-center justify-center rounded-none border border-gold bg-gold px-6 py-3 text-sm uppercase tracking-[0.18em] text-ink transition-opacity hover:opacity-90;
+  @apply inline-flex items-center justify-center rounded-full border-0 bg-gold px-8 py-3.5 text-sm font-bold uppercase tracking-[0.16em] text-accent-800 shadow-lg shadow-accent/10 transition-transform duration-300 hover:scale-[1.03] active:scale-95;
 }
 
 .input {
-  @apply w-full rounded-none border border-ink/15 bg-white px-4 py-3 text-base text-ink placeholder:text-ink/40 focus:border-accent focus:outline-none focus:ring-0;
+  @apply w-full rounded-2xl border border-ink/15 bg-white px-5 py-3 text-base text-ink placeholder:text-ink/40 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30;
 }
 
 .label {
-  @apply mb-2 block text-xs font-medium uppercase tracking-[0.16em] text-ink/70;
+  @apply mb-2 block text-xs font-bold uppercase tracking-[0.16em] text-ink/60;
 }
 
 .chip {
-  @apply inline-flex items-center rounded-full border border-ink/15 bg-white px-4 py-2 text-xs uppercase tracking-[0.16em] text-ink transition-colors hover:border-accent hover:text-accent;
+  @apply inline-flex items-center rounded-full border border-accent/20 bg-white px-5 py-2 text-xs font-bold uppercase tracking-[0.12em] text-accent transition-all hover:scale-105 hover:bg-accent/10;
 }
 
 .chip-active {
-  @apply border-gold bg-gold text-ink hover:text-ink hover:border-gold;
+  @apply border-0 bg-accent text-white shadow-lg shadow-accent/20 hover:bg-accent hover:text-white;
 }
 
 .divider {
-  @apply h-px w-full bg-ink/10;
+  @apply h-px w-full bg-accent/10;
+}
+
+/* ===== Candy surfaces & motion ===== */
+.glass-pill {
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+}
+.glass-panel {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(224, 64, 160, 0.12);
+}
+.candy-card {
+  border-radius: 2rem;
+  transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.4s ease;
+}
+.candy-card:hover {
+  transform: translateY(-8px) scale(1.02);
+  box-shadow: 0 25px 50px -12px rgba(224, 64, 160, 0.18);
+}
+.bouncy-hover {
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.bouncy-hover:hover {
+  transform: scale(1.05);
+}
+.bouncy-hover:active {
+  transform: scale(0.95);
+}
+
+/* Candy scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+}
+::-webkit-scrollbar-track {
+  background: #fef7ff;
+}
+::-webkit-scrollbar-thumb {
+  background: #f080c0;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #e040a0;
 }
 
 /* ===== Bee mascot animations ===== */
@@ -159,13 +220,13 @@ h4,
 /* ===== Floating bespoke button pulse ===== */
 @keyframes bespokePulse {
   0% {
-    box-shadow: 0 0 0 0 rgba(244, 211, 96, 0.7);
+    box-shadow: 0 0 0 0 rgba(224, 64, 160, 0.7);
   }
   70% {
-    box-shadow: 0 0 0 16px rgba(244, 211, 96, 0);
+    box-shadow: 0 0 0 16px rgba(224, 64, 160, 0);
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(244, 211, 96, 0);
+    box-shadow: 0 0 0 0 rgba(224, 64, 160, 0);
   }
 }
 .bespoke-pulse {
@@ -190,7 +251,7 @@ h4,
   width: 6px;
   height: 6px;
   border-radius: 9999px;
-  background: #f4d360;
+  background: #e040a0;
   opacity: 0.7;
   pointer-events: none;
   z-index: 9999;

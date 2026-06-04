@@ -191,8 +191,8 @@ export default function ProductDetailClient({ product }: Props) {
           <button
             type="button"
             onClick={() => addToCart(true)}
-            className="w-full justify-center rounded-md px-6 py-3.5 text-xs uppercase tracking-[0.18em] text-white transition-transform hover:scale-[1.01]"
-            style={{ backgroundColor: "#C0392B" }}
+            className="w-full justify-center rounded-full px-6 py-4 text-xs font-bold uppercase tracking-[0.16em] text-white shadow-lg shadow-accent/20 transition-transform hover:scale-[1.03] active:scale-95"
+            style={{ backgroundColor: "#e040a0" }}
           >
             Add to Cart
           </button>
@@ -200,7 +200,7 @@ export default function ProductDetailClient({ product }: Props) {
             href={bespokeHref}
             target="_blank"
             rel="noreferrer"
-            className="w-full rounded-md border border-gold px-6 py-3.5 text-center text-xs uppercase tracking-[0.18em] text-ink transition-colors hover:bg-gold/10"
+            className="w-full rounded-full border-2 border-accent/25 px-6 py-3.5 text-center text-xs font-bold uppercase tracking-[0.16em] text-accent transition-all hover:scale-[1.02] hover:bg-accent/5"
           >
             Request via Bespoke
           </a>
