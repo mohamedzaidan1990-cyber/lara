@@ -129,21 +129,39 @@ export function isFragrance(name: string): boolean {
   );
 }
 
-// Non-beauty items (clothing, jewellery, glassware) and mis-parsed markup
-// blobs slip through some sources. Reject them before they reach the catalog.
+// Non-beauty items (footwear, bags, clothing, jewellery, electronics, home
+// goods) and mis-parsed markup blobs slip through some sources — chiefly when a
+// designer brand's listing mixes beauty with fashion. Reject them before they
+// reach the catalog. Word-boundary matched, with a protection list so genuine
+// beauty that merely contains an overlapping word survives (cushion foundation,
+// plush/vinyl lip products, foundation pump, makeup/wash bags, hair diffuser,
+// heel/foot balm, eye-bag treatments).
 export function isNonBeauty(name: string): boolean {
   const raw = name || "";
   const s = raw.toLowerCase();
   if (!s.trim()) return true;
   // Garbage from a mis-parsed nav / brand-directory page.
   if (raw.length > 180 || /[<>{}]|\n/.test(raw)) return true;
-  // Protect legitimate beauty terms that merely contain a trigger substring
-  // (e.g. K-beauty "glass skin", a "ring light" beauty tool).
-  if (/glass\s*skin|ring\s*light/.test(s)) return false;
+  // Protect legitimate beauty terms that merely contain a trigger substring.
+  if (
+    /glass\s*skin|ring\s*light|cushion (foundation|compact|blush|powder)|foundation pump|hair (towel|wrap|turban|diffuser)|eye\s?bags?|make-?up bag|cosmetic bag|wash bag|beauty bag|brush bag|vanity case|toiletry|trial kit|heel balm|heel cream|cracked heel|\bfoot\b/.test(
+      s
+    )
+  ) {
+    return false;
+  }
   return (
-    /\b(t-?shirt|shirt|dress|jeans|trousers|leggings|hoodie|sweater|jumper|jacket|skirt|denim|necklace|bracelet|anklet|earrings?|jewell?ery|pendant|brooch|sunglasses|handbag|wallet|keyring)\b/.test(s) ||
+    // footwear
+    /\b(shoes?|sneakers?|trainers?|loafers?|sandals?|mules?|espadrilles?|ballerinas?|brogues?|slingbacks?|stilettos?|moccasins?|clogs?|pumps|courts?|heeled|booties?|boots?|slides)\b/.test(s) ||
+    // bags / leather goods
+    /\b(handbag|tote|clutch|crossbody|cross-?body|shoulder[ -]?bag|bowling bag|backpack|satchel|bags?|wallet|purse|card[ -]?holder|cardholder|luggage|suitcase|holdall)\b/.test(s) ||
+    // jewellery / watches / clothing
+    /\b(belt|watches|sunglasses|necklace|bracelet|anklet|earrings?|jewell?ery|pendant|brooch|cufflinks?|keyring|scarf|scarves|fisherman hat|dress|skirt|trousers|jeans|t-?shirt|sweater|cardigan|hoodie|blazer|jacket|jumper|leggings|denim)\b/.test(s) ||
     /\brings?\b/.test(s) ||
-    /\bbottles?\b/.test(s) ||
+    // electronics
+    /\b(camera|headphones?|earphones?|earbuds?|airpods?|smartphone|phone case|power ?bank|projector|turntable|speaker|soundbar|console|drone)\b/.test(s) ||
+    // home goods
+    /\b(bath towel|cushion cover|soap plate|stoneware mug|incense|reed diffuser)\b/.test(s) ||
     /\bglass(ware)?\b/.test(s) ||
     /\bclothing\b/.test(s) ||
     /\baccessor(y|ies)\b/.test(s)
