@@ -3,11 +3,12 @@ import { Resend } from "resend";
 const FROM_ADDRESS = "Seasons by B <hello@seasonsbyb.co.uk>";
 const ADMIN_NOTIFICATION_TO = "mohamedzaidan1990@gmail.com";
 
-const COLOR_CREAM = "#FFFDF5";
-const COLOR_INK = "#23272A";
-const COLOR_INK_MUTED = "#5A6168";
-const COLOR_GOLD = "#F4D360";
-const COLOR_ACCENT = "#C0392B";
+// Candy theme.
+const COLOR_CREAM = "#fef7ff";
+const COLOR_INK = "#2e1a28";
+const COLOR_INK_MUTED = "#604868";
+const COLOR_GOLD = "#e040a0";
+const COLOR_ACCENT = "#e040a0";
 
 export interface EmailOrderItem {
   brand: string;
@@ -38,9 +39,13 @@ export interface EmailCustomer {
 
 interface EmailConfig {
   whish: string;
-  whatsappNumber: string;
   siteUrl: string;
   adminUrl: string;
+  contactEmail: string;
+  instagram: string;
+  // Direct contact link (Instagram DM if a handle is configured, else email).
+  contactUrl: string;
+  contactLabel: string;
 }
 
 function getResend(): Resend | null {
@@ -53,11 +58,18 @@ function getResend(): Resend | null {
 
 function getEmailConfig(): EmailConfig {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.seasonsbyb.co.uk";
+  const instagram = (process.env.NEXT_PUBLIC_INSTAGRAM_USERNAME ?? "").replace(/^@/, "");
+  const contactEmail = process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? "hello@seasonsbyb.co.uk";
   return {
     whish: process.env.WHISH_NUMBER ?? "03055491",
-    whatsappNumber: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "+96103055491",
     siteUrl,
-    adminUrl: `${siteUrl.replace(/\/$/, "")}/admin`
+    adminUrl: `${siteUrl.replace(/\/$/, "")}/admin`,
+    contactEmail,
+    instagram,
+    // ig.me/m/<handle> opens a direct-message thread (the Instagram equivalent
+    // of wa.me). Falls back to email until a handle is configured.
+    contactUrl: instagram ? `https://ig.me/m/${instagram}` : `mailto:${contactEmail}`,
+    contactLabel: instagram ? "Message us on Instagram" : "Email us"
   };
 }
 
@@ -69,12 +81,6 @@ function formatUsd(value: number | string): string {
     currency: "USD",
     maximumFractionDigits: 0
   }).format(num);
-}
-
-function whatsappLink(number: string, message?: string): string {
-  const digits = number.replace(/\D/g, "");
-  const base = `https://wa.me/${digits}`;
-  return message ? `${base}?text=${encodeURIComponent(message)}` : base;
 }
 
 function paymentMethodLabel(method?: string | null): string {
@@ -142,7 +148,7 @@ function baseLayout(title: string, body: string, preheader?: string): string {
           <table role="presentation" class="container" width="600" cellspacing="0" cellpadding="0" border="0" style="max-width:600px;width:100%;background-color:#FFFFFF;border:1px solid rgba(35,39,42,0.08);">
             <tr>
               <td class="h-pad" style="background-color:${COLOR_INK};padding:28px 32px;text-align:center;">
-                <div style="font-family:Georgia,'Times New Roman',serif;font-size:30px;color:${COLOR_GOLD};letter-spacing:0.5px;font-weight:700;">Seasons&nbsp;by&nbsp;B</div>
+                <div style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:30px;color:${COLOR_GOLD};letter-spacing:0.5px;font-weight:700;">Seasons&nbsp;by&nbsp;B</div>
                 <div style="font-size:11px;text-transform:uppercase;letter-spacing:4px;color:${COLOR_CREAM};opacity:0.7;margin-top:8px;">London&rsquo;s finest, delivered to your door</div>
               </td>
             </tr>
@@ -165,17 +171,16 @@ function baseLayout(title: string, body: string, preheader?: string): string {
 </html>`;
 }
 
-function ctaButton(href: string, label: string, variant: "gold" | "accent" = "gold"): string {
-  const bg = variant === "gold" ? COLOR_GOLD : COLOR_ACCENT;
-  const fg = variant === "gold" ? COLOR_INK : "#FFFFFF";
-  return `<a class="cta" href="${href}" style="display:inline-block;background-color:${bg};color:${fg};text-decoration:none;padding:14px 28px;font-size:13px;text-transform:uppercase;letter-spacing:3px;font-weight:600;border:1px solid ${bg};">${label}</a>`;
+function ctaButton(href: string, label: string, _variant: "gold" | "accent" = "gold"): string {
+  // Candy pill: solid hot-pink with white text.
+  return `<a class="cta" href="${href}" style="display:inline-block;background-color:${COLOR_ACCENT};color:#FFFFFF;text-decoration:none;padding:14px 30px;font-size:13px;text-transform:uppercase;letter-spacing:2px;font-weight:700;border-radius:9999px;">${label}</a>`;
 }
 
 function itemsList(items: EmailOrderItem[]): string {
   return items
     .map(
       (it) =>
-        `<div style="display:flex;justify-content:space-between;font-family:Georgia,'Times New Roman',serif;font-size:15px;color:${COLOR_INK};margin-top:8px;">
+        `<div style="display:flex;justify-content:space-between;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:15px;color:${COLOR_INK};margin-top:8px;">
           <span>${it.brand} — ${it.name}${it.quantity > 1 ? ` ×${it.quantity}` : ""}</span>
           <span style="white-space:nowrap;padding-left:12px;">${formatUsd(Number(it.price_usd) * it.quantity)}</span>
         </div>`
@@ -189,13 +194,13 @@ function orderCard(order: EmailOrder): string {
       ? `${itemsList(order.items)}
     <div style="border-top:1px solid rgba(35,39,42,0.12);margin-top:14px;padding-top:12px;" class="price-big">
       <span style="font-size:13px;text-transform:uppercase;letter-spacing:2px;color:${COLOR_INK_MUTED};">Total</span>
-      <span style="font-family:Georgia,'Times New Roman',serif;font-size:24px;color:${COLOR_INK};font-weight:700;float:right;">${formatUsd(order.price_usd)}</span>
+      <span style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:24px;color:${COLOR_INK};font-weight:700;float:right;">${formatUsd(order.price_usd)}</span>
     </div>`
-      : `<div style="font-family:Georgia,'Times New Roman',serif;font-size:20px;color:${COLOR_INK};margin-top:10px;">${order.product_brand} — ${order.product_name}</div>
-    <div class="price-big" style="font-family:Georgia,'Times New Roman',serif;font-size:26px;color:${COLOR_INK};margin-top:10px;font-weight:700;">${formatUsd(order.price_usd)}</div>`;
+      : `<div style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:20px;color:${COLOR_INK};margin-top:10px;">${order.product_brand} — ${order.product_name}</div>
+    <div class="price-big" style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:26px;color:${COLOR_INK};margin-top:10px;font-weight:700;">${formatUsd(order.price_usd)}</div>`;
   return `<table role="presentation" class="stack-block" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid rgba(35,39,42,0.08);background-color:${COLOR_CREAM};margin-top:24px;">
   <tr><td style="padding:22px;">
-    <div class="order-number" style="font-family:Georgia,'Times New Roman',serif;font-size:18px;color:${COLOR_INK};letter-spacing:1px;font-weight:700;">Order ${order.order_number}</div>
+    <div class="order-number" style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:18px;color:${COLOR_INK};letter-spacing:1px;font-weight:700;">Order ${order.order_number}</div>
     ${body}
     <div style="font-size:13px;color:${COLOR_INK_MUTED};margin-top:12px;">Payment method: ${paymentMethodLabel(order.payment_method)}</div>
   </td></tr>
@@ -208,7 +213,7 @@ function whishDirectInstructions(cfg: EmailConfig): string {
     <td style="padding:22px;">
       <div style="font-size:11px;text-transform:uppercase;letter-spacing:3px;color:${COLOR_INK_MUTED};">Payment instructions — Whish</div>
       <p style="margin:12px 0 0;font-size:14px;line-height:1.7;color:${COLOR_INK};">
-        Send your payment to Whish number <strong>${cfg.whish}</strong>, then send us the screenshot on WhatsApp.
+        Send your payment to Whish number <strong>${cfg.whish}</strong>, then send us the screenshot on Instagram or by email.
       </p>
       <ol style="margin:14px 0 0;padding-left:20px;font-size:14px;line-height:1.8;color:${COLOR_INK};">
         <li>Open Whish</li>
@@ -216,7 +221,7 @@ function whishDirectInstructions(cfg: EmailConfig): string {
         <li>Enter number <strong>${cfg.whish}</strong></li>
         <li>Enter the order amount in USD</li>
         <li>Screenshot the confirmation</li>
-        <li>Send the screenshot to us on WhatsApp</li>
+        <li>Send the screenshot to us on Instagram or by email</li>
       </ol>
     </td>
   </tr>
@@ -224,14 +229,14 @@ function whishDirectInstructions(cfg: EmailConfig): string {
 }
 
 function whishLinkInstructions(cfg: EmailConfig): string {
-  const waUrl = whatsappLink(cfg.whatsappNumber);
+  const waUrl = cfg.contactUrl;
   return `<table role="presentation" class="stack-block" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid rgba(35,39,42,0.08);background-color:${COLOR_CREAM};margin-top:20px;">
   <tr>
     <td style="padding:22px;">
       <div style="font-size:11px;text-transform:uppercase;letter-spacing:3px;color:${COLOR_INK_MUTED};">Payment instructions — Whish payment link</div>
       <p style="margin:12px 0 0;font-size:14px;line-height:1.7;color:${COLOR_INK};">
-        Send your invoice to us on <a href="${waUrl}" style="color:${COLOR_ACCENT};">WhatsApp</a> and we&rsquo;ll generate a secure Whish payment link for you.
-        You&rsquo;ll receive automatic payment confirmation and receipt via WhatsApp once paid.
+        Send your invoice to us via <a href="${waUrl}" style="color:${COLOR_ACCENT};">${cfg.contactLabel}</a> and we&rsquo;ll generate a secure Whish payment link for you.
+        You&rsquo;ll receive automatic payment confirmation and receipt via email once paid.
       </p>
     </td>
   </tr>
@@ -253,10 +258,7 @@ export async function sendOrderConfirmation(order: EmailOrder, customer: EmailCu
   const subject = `Your Seasons by B order — ${order.order_number}`;
   const preheader = `Order ${order.order_number} received. Estimated delivery 10–14 working days.`;
   const isWhishLink = order.payment_method === "whish_link";
-  const waMessage = isWhishLink
-    ? `Hi Seasons by B, this is order ${order.order_number}. Please send me a Whish payment link.`
-    : `Hi Seasons by B, my order number is ${order.order_number}. Here is my payment confirmation.`;
-  const waUrl = whatsappLink(cfg.whatsappNumber, waMessage);
+  const waUrl = cfg.contactUrl;
 
   const firstName = customer.full_name.split(" ")[0] || "there";
 
@@ -264,7 +266,7 @@ export async function sendOrderConfirmation(order: EmailOrder, customer: EmailCu
     subject,
     `
     <div style="font-size:11px;text-transform:uppercase;letter-spacing:3px;color:${COLOR_ACCENT};font-weight:600;">Order received</div>
-    <h1 style="font-family:Georgia,'Times New Roman',serif;font-size:30px;line-height:1.2;margin:8px 0 16px;color:${COLOR_INK};font-weight:700;">Thank you, ${firstName}.</h1>
+    <h1 style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:30px;line-height:1.2;margin:8px 0 16px;color:${COLOR_INK};font-weight:700;">Thank you, ${firstName}.</h1>
     <p style="font-size:15px;line-height:1.65;color:${COLOR_INK};margin:0 0 8px;">We&rsquo;ve received your order and will source it from London&rsquo;s finest retailers.</p>
     <p style="font-size:15px;line-height:1.65;color:${COLOR_INK};margin:0;">Estimated delivery: <strong>10–14 working days</strong>.</p>
 
@@ -274,14 +276,14 @@ export async function sendOrderConfirmation(order: EmailOrder, customer: EmailCu
     <p style="font-size:14px;line-height:1.65;color:${COLOR_INK};margin:24px 0 0;">
       ${
         isWhishLink
-          ? "Send your invoice to us on WhatsApp and we'll send you a secure payment link."
-          : "After paying, send your payment screenshot to us on WhatsApp so we can confirm and place your order."
+          ? "Send your invoice to us on Instagram or by email and we'll send you a secure payment link."
+          : "After paying, send your payment screenshot to us on Instagram or by email so we can confirm and place your order."
       }
     </p>
-    <p style="margin:20px 0 0;">${ctaButton(waUrl, "Contact us on WhatsApp", "gold")}</p>
+    <p style="margin:20px 0 0;">${ctaButton(waUrl, cfg.contactLabel)}</p>
 
     <p style="font-size:13px;line-height:1.65;color:${COLOR_INK_MUTED};margin:32px 0 0;">
-      Any questions? Reply directly to this email or message us on WhatsApp.
+      Any questions? Reply directly to this email or message us on Instagram or by email.
     </p>
     `,
     preheader
@@ -289,15 +291,15 @@ export async function sendOrderConfirmation(order: EmailOrder, customer: EmailCu
 
   const textBody = isWhishLink
     ? `Payment: Whish payment link
-Send your invoice to us on WhatsApp: ${waUrl}
-We'll generate a secure Whish payment link and send confirmation + receipt by WhatsApp once paid.`
+Send your invoice to us on Instagram or by email: ${waUrl}
+We'll generate a secure Whish payment link and send confirmation + receipt by email once paid.`
     : `Payment: Whish to ${cfg.whish}
 1. Open Whish
 2. Tap Send Money
 3. Enter number ${cfg.whish}
 4. Enter the order amount in USD
 5. Screenshot the confirmation
-6. Send the screenshot to us on WhatsApp: ${waUrl}`;
+6. Send the screenshot to us on Instagram or by email: ${waUrl}`;
 
   const text = `Seasons by B — Order received
 
@@ -342,7 +344,7 @@ export async function sendOrderNotification(order: EmailOrder, customer: EmailCu
     subject,
     `
     <div style="font-size:11px;text-transform:uppercase;letter-spacing:3px;color:${COLOR_ACCENT};font-weight:600;">New order</div>
-    <h1 style="font-family:Georgia,'Times New Roman',serif;font-size:26px;line-height:1.2;margin:8px 0 18px;color:${COLOR_INK};font-weight:700;">${order.order_number} — ${priceLabel}</h1>
+    <h1 style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:26px;line-height:1.2;margin:8px 0 18px;color:${COLOR_INK};font-weight:700;">${order.order_number} — ${priceLabel}</h1>
 
     <table role="presentation" class="stack-block" width="100%" cellspacing="0" cellpadding="0" border="0" style="font-size:14px;line-height:1.8;color:${COLOR_INK};border:1px solid rgba(35,39,42,0.08);background-color:${COLOR_CREAM};margin-top:8px;">
       <tr><td style="padding:22px;">
@@ -423,21 +425,21 @@ export async function sendInvoiceEmail(args: {
   const cfg = getEmailConfig();
   const subject = `Your Seasons by B Invoice — ${args.orderNumber}`;
   const firstName = args.customerName.split(" ")[0] || "there";
-  const waUrl = whatsappLink(cfg.whatsappNumber, `Hi Seasons by B, this is order ${args.orderNumber}.`);
+  const waUrl = cfg.contactUrl;
   const preheader = `Payment confirmed for ${args.orderNumber}. Your invoice is attached.`;
 
   const html = baseLayout(
     subject,
     `
     <div style="font-size:11px;text-transform:uppercase;letter-spacing:3px;color:${COLOR_ACCENT};font-weight:600;">Payment confirmed</div>
-    <h1 style="font-family:Georgia,'Times New Roman',serif;font-size:30px;line-height:1.2;margin:8px 0 16px;color:${COLOR_INK};font-weight:700;">Your invoice, ${firstName} ✓</h1>
+    <h1 style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:30px;line-height:1.2;margin:8px 0 16px;color:${COLOR_INK};font-weight:700;">Your invoice, ${firstName} ✓</h1>
     <p style="font-size:15px;line-height:1.65;color:${COLOR_INK};margin:0 0 8px;">
       We&rsquo;ve confirmed your payment for order <strong>${args.orderNumber}</strong>. Your invoice is attached as a PDF.
     </p>
     <p style="font-size:15px;line-height:1.65;color:${COLOR_INK};margin:0;">
       We&rsquo;re now sourcing your items from London — estimated delivery <strong>10–14 working days</strong>.
     </p>
-    <p style="margin:24px 0 0;">${ctaButton(waUrl, "Questions? WhatsApp us", "gold")}</p>
+    <p style="margin:24px 0 0;">${ctaButton(waUrl, cfg.contactLabel)}</p>
     `,
     preheader
   );
@@ -474,8 +476,7 @@ export async function sendPaymentConfirmation(order: EmailOrder, customer: Email
   const cfg = getEmailConfig();
   const subject = "Payment confirmed — Seasons by B";
   const { range: deliveryRange } = deliveryDateRange();
-  const waMessage = `Hi Seasons by B, this is order ${order.order_number}.`;
-  const waUrl = whatsappLink(cfg.whatsappNumber, waMessage);
+  const waUrl = cfg.contactUrl;
   const firstName = customer.full_name.split(" ")[0] || "there";
   const preheader = `Payment received. Expected delivery ${deliveryRange}.`;
 
@@ -483,22 +484,22 @@ export async function sendPaymentConfirmation(order: EmailOrder, customer: Email
     subject,
     `
     <div style="font-size:11px;text-transform:uppercase;letter-spacing:3px;color:${COLOR_ACCENT};font-weight:600;">Payment confirmed</div>
-    <h1 style="font-family:Georgia,'Times New Roman',serif;font-size:30px;line-height:1.2;margin:8px 0 16px;color:${COLOR_INK};font-weight:700;">Payment received ✓</h1>
+    <h1 style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:30px;line-height:1.2;margin:8px 0 16px;color:${COLOR_INK};font-weight:700;">Payment received ✓</h1>
     <p style="font-size:15px;line-height:1.65;color:${COLOR_INK};margin:0 0 8px;">
       Hi ${firstName}, we&rsquo;ve received your payment and your order is now being processed.
     </p>
 
     ${orderCard(order)}
 
-    <table role="presentation" class="stack-block" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid rgba(244,211,96,0.4);background-color:rgba(244,211,96,0.12);margin-top:20px;">
+    <table role="presentation" class="stack-block" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid rgba(224,64,160,0.35);background-color:rgba(224,64,160,0.08);margin-top:20px;">
       <tr><td style="padding:22px;">
         <div style="font-size:11px;text-transform:uppercase;letter-spacing:3px;color:${COLOR_INK_MUTED};">Expected delivery</div>
-        <div style="font-family:Georgia,'Times New Roman',serif;font-size:22px;color:${COLOR_INK};margin-top:8px;font-weight:700;">${deliveryRange}</div>
+        <div style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:22px;color:${COLOR_INK};margin-top:8px;font-weight:700;">${deliveryRange}</div>
         <div style="font-size:13px;color:${COLOR_INK_MUTED};margin-top:6px;">10–14 working days from today, door to door.</div>
       </td></tr>
     </table>
 
-    <p style="margin:24px 0 0;">${ctaButton(waUrl, "Contact us on WhatsApp", "gold")}</p>
+    <p style="margin:24px 0 0;">${ctaButton(waUrl, cfg.contactLabel)}</p>
 
     <p style="font-size:13px;line-height:1.65;color:${COLOR_INK_MUTED};margin:32px 0 0;">
       We&rsquo;ll send you updates as your order ships and arrives.

@@ -224,7 +224,7 @@ export interface ProductRow {
 
 export function generateOrderNumber(): string {
   const digits = Math.floor(100000 + Math.random() * 900000);
-  return `LARA-${digits}`;
+  return `SBB-${digits}`;
 }
 
 export interface OrderItemRow {

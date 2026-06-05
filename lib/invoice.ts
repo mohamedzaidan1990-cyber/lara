@@ -23,11 +23,12 @@ export interface InvoiceItem {
   price_usd: number;
 }
 
-const GOLD: [number, number, number] = [244, 211, 96];
-const INK: [number, number, number] = [35, 39, 42];
-const MUTED: [number, number, number] = [90, 97, 104];
+// Candy theme: hot pink primary, warm plum ink, soft pink rows.
+const GOLD: [number, number, number] = [224, 64, 160];
+const INK: [number, number, number] = [46, 26, 40];
+const MUTED: [number, number, number] = [96, 72, 104];
 const GREEN: [number, number, number] = [39, 124, 67];
-const ROW_ALT: [number, number, number] = [250, 246, 227];
+const ROW_ALT: [number, number, number] = [255, 237, 247];
 
 function usd(n: number): string {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 }).format(n);
@@ -52,9 +53,9 @@ export function generateInvoice(order: InvoiceOrder, customer: InvoiceCustomer, 
   const right = pageWidth - 14;
 
   // ---- Header ----
-  doc.setFont("times", "bold");
+  doc.setFont("helvetica", "bold");
   doc.setFontSize(26);
-  doc.setTextColor(...INK);
+  doc.setTextColor(...GOLD);
   doc.text("Seasons by B", left, 22);
 
   doc.setFont("helvetica", "normal");
@@ -158,7 +159,7 @@ export function generateInvoice(order: InvoiceOrder, customer: InvoiceCustomer, 
   doc.setDrawColor(...GOLD);
   doc.setLineWidth(0.5);
   doc.line(left, footY - 6, right, footY - 6);
-  doc.setFont("times", "italic");
+  doc.setFont("helvetica", "italic");
   doc.setFontSize(11);
   doc.setTextColor(...INK);
   // jsPDF core fonts don't render emoji, so we use a tasteful text mark.
@@ -166,12 +167,12 @@ export function generateInvoice(order: InvoiceOrder, customer: InvoiceCustomer, 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8.5);
   doc.setTextColor(...MUTED);
-  const waDisplay = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "+96103055491";
-  doc.text(
-    `For any questions: hello@seasonsbyb.co.uk   |   WhatsApp: ${waDisplay}   |   seasonsbyb.co.uk`,
-    left,
-    footY + 6
-  );
+  const ig = (process.env.NEXT_PUBLIC_INSTAGRAM_USERNAME ?? "").replace(/^@/, "");
+  const contactEmail = process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? "hello@seasonsbyb.co.uk";
+  const contact = ig
+    ? `Email: ${contactEmail}   |   Instagram: @${ig}   |   seasonsbyb.co.uk`
+    : `Email: ${contactEmail}   |   seasonsbyb.co.uk`;
+  doc.text(`For any questions — ${contact}`, left, footY + 6);
   doc.text("Estimated delivery: 10-14 working days from order confirmation.", left, footY + 11);
 
   return Buffer.from(doc.output("arraybuffer"));
