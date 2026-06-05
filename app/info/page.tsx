@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { whatsappRequestLink, WHATSAPP_URL } from "@/lib/links";
+import { whatsappRequestLink, INSTAGRAM_URL, CONTACT_EMAIL, CONTACT_EMAIL_URL } from "@/lib/links";
 
 export const metadata = {
   title: "How it works — Seasons by B",
@@ -10,7 +10,7 @@ const STEPS = [
   {
     icon: "🔎",
     title: "Search",
-    body: "Browse the catalogue or message Seasons by B on WhatsApp with anything you'd like sourced from London."
+    body: "Browse the catalogue or message Seasons by B on Instagram with anything you'd like sourced from London."
   },
   {
     icon: "🛍",
@@ -20,7 +20,7 @@ const STEPS = [
   {
     icon: "💳",
     title: "Pay",
-    body: "Pay by Whish — either a direct transfer or a secure Whish payment link sent to your WhatsApp."
+    body: "Pay by Whish — either a direct transfer or a secure Whish payment link sent to you on Instagram or by email."
   },
   {
     icon: "📦",
@@ -68,7 +68,7 @@ export default function InfoPage() {
         </p>
         <div className="mt-4 flex flex-wrap items-center gap-4">
           <a href={bespokeWa} target="_blank" rel="noreferrer" className="btn-gold w-fit">
-            WhatsApp your request
+            Message us on Instagram
           </a>
           <Link
             href="/bespoke"
@@ -81,7 +81,7 @@ export default function InfoPage() {
 
       <Section title="Delivery">
         <p>10–14 working days door to door, anywhere we ship.</p>
-        <p>You&apos;ll receive email and WhatsApp updates from order confirmation through to delivery.</p>
+        <p>You&apos;ll receive email updates from order confirmation through to delivery.</p>
       </Section>
 
       <Section title="Payment">
@@ -104,8 +104,8 @@ export default function InfoPage() {
             <p className="text-[10px] uppercase tracking-[0.2em] text-ink/60">Option 2</p>
             <p className="mt-2 font-serif text-xl text-ink">Whish payment link</p>
             <p className="mt-3 text-sm leading-relaxed text-ink/80">
-              Submit your order, then send your invoice to our WhatsApp. We&apos;ll generate a secure Whish payment
-              link for you. You&apos;ll receive automatic payment confirmation and receipt via WhatsApp.
+              Submit your order, then send your invoice to us on Instagram or by email. We&apos;ll generate a secure
+              Whish payment link for you. You&apos;ll receive payment confirmation and your receipt by email.
             </p>
             <p className="mt-3 text-xs text-ink/60">No screenshot upload required for this option.</p>
           </div>
@@ -114,8 +114,8 @@ export default function InfoPage() {
 
       <Section title="Returns" id="returns">
         <p>
-          <strong className="text-ink">Before shipment</strong> — full refund. Message us on WhatsApp and we&apos;ll
-          cancel and refund.
+          <strong className="text-ink">Before shipment</strong> — full refund. Message us on Instagram or by email and
+          we&apos;ll cancel and refund.
         </p>
         <p>
           <strong className="text-ink">After delivery</strong> — 14 days to return, provided the item is unused with
@@ -134,15 +134,15 @@ export default function InfoPage() {
       </Section>
 
       <Section title="Contact">
-        <p>For anything else, reach Seasons by B directly on WhatsApp.</p>
-        <a
-          href={WHATSAPP_URL}
-          target="_blank"
-          rel="noreferrer"
-          className="btn-gold mt-2 w-fit"
-        >
-          Message on WhatsApp
-        </a>
+        <p>For anything else, reach Seasons by B on Instagram or by email at {CONTACT_EMAIL}.</p>
+        <div className="mt-2 flex flex-wrap gap-3">
+          <a href={INSTAGRAM_URL} target="_blank" rel="noreferrer" className="btn-gold w-fit">
+            Message on Instagram
+          </a>
+          <a href={CONTACT_EMAIL_URL} className="btn-outline w-fit">
+            Email us
+          </a>
+        </div>
       </Section>
 
       <div className="mt-16 border-t border-ink/10 pt-8 text-center">

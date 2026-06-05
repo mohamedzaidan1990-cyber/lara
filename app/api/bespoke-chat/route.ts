@@ -21,8 +21,8 @@ Conversation flow:
 1. Warm welcome, ask what they're looking for
 2. Ask clarifying questions: occasion, budget range, preferred brands, colour preferences, size if relevant
 3. Make specific product suggestions based on what you know about luxury beauty and fashion
-4. Once you have enough information (after 3-5 exchanges), summarise their request and tell them: "I've noted everything — our team will reach out on WhatsApp within 2 hours with options and pricing."
-5. Collect their WhatsApp number to send them the follow-up
+4. Once you have enough information (after 3-5 exchanges), summarise their request and tell them: "I've noted everything — our team will reach out on Instagram or by email within 2 hours with options and pricing."
+5. Collect their Instagram handle or email so we can send them the follow-up
 
 Always respond in the same language the customer writes in (Arabic, French, or English).
 Keep responses concise — 2-3 sentences maximum per message.
@@ -36,17 +36,26 @@ function extractPhone(text: string): string | null {
   return digits.replace(/[^\d]/g, "").length >= 7 ? m[1].trim() : null;
 }
 
+// Grab the first contact detail (email, @handle, or phone) from text.
+function extractContact(text: string): string | null {
+  const email = text.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/);
+  if (email) return email[0];
+  const handle = text.match(/@[A-Za-z0-9._]{2,}/);
+  if (handle) return handle[0];
+  return extractPhone(text);
+}
+
 function fallbackBea(messages: ChatMessage[]): string {
   const userMsgs = messages.filter((m) => m.role === "user");
   if (userMsgs.length === 0) {
     return "Hi, I'm Béa — your personal shopping consultant at Seasons by B. What are you looking for today?";
   }
   const last = userMsgs[userMsgs.length - 1]?.content ?? "";
-  if (extractPhone(last)) {
-    return "Perfect — I've noted everything. Our team will reach out on WhatsApp within 2 hours with options and pricing. 🐝";
+  if (extractContact(last)) {
+    return "Perfect — I've noted everything. Our team will reach out on Instagram or by email within 2 hours with options and pricing. 🐝";
   }
   if (userMsgs.length >= 2) {
-    return "Lovely choice. So I can send you options and pricing, could you share your WhatsApp number? Our team will follow up within 2 hours.";
+    return "Lovely choice. So I can send you options and pricing, could you share your Instagram handle or email? Our team will follow up within 2 hours.";
   }
   return "Wonderful — tell me a little more: the occasion, any preferred brands or colours, and your budget range all help me find the perfect piece.";
 }
@@ -94,7 +103,7 @@ export async function POST(req: Request): Promise<Response> {
   const reply = (await callBea(messages)) ?? fallbackBea(messages);
 
   const userMsgs = messages.filter((m) => m.role === "user");
-  const whatsapp = extractPhone(userMsgs.map((m) => m.content).join(" "));
+  const whatsapp = extractContact(userMsgs.map((m) => m.content).join(" "));
   const replySignalsDone = /2 hours|reach out|noted everything|i've noted|follow up/i.test(reply);
   const completed = Boolean(whatsapp) && (userMsgs.length >= 3 || replySignalsDone);
 

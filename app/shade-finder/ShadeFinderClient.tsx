@@ -543,7 +543,8 @@ function BespokeCard({ rec, skinToneHex }: { rec: BespokeRec; skinToneHex: strin
   const message = `Hi Seasons by B, I'd like to request ${rec.brand} ${rec.productName}${
     rec.shadeName ? ` in shade ${rec.shadeName}` : ""
   }. My skin tone reference: ${skinToneHex ?? "(see Shade Finder)"}`;
-  const wa = `${WHATSAPP_URL}?text=${encodeURIComponent(message)}`;
+  void message; // Instagram DMs can't be pre-filled; we just open the thread.
+  const wa = WHATSAPP_URL;
 
   return (
     <div className="flex flex-col border border-ink/10 bg-white p-5">

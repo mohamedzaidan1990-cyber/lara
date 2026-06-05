@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { ShoppingBag } from "lucide-react";
 import { CATEGORY_DEFS } from "@/lib/categories";
 import { useCart } from "@/lib/cart";
-import { WHATSAPP_URL } from "@/lib/links";
+import { INSTAGRAM_URL } from "@/lib/links";
 
 function CartButton({ className = "" }: { className?: string }) {
   const [mounted, setMounted] = useState(false);
@@ -109,12 +109,12 @@ export default function SiteHeader() {
             Bespoke
           </Link>
           <a
-            href={WHATSAPP_URL}
+            href={INSTAGRAM_URL}
             target="_blank"
             rel="noreferrer"
             className="nav-underline text-accent hover:opacity-80"
           >
-            WhatsApp
+            Instagram
           </a>
           <CartButton />
         </nav>
@@ -175,12 +175,12 @@ export default function SiteHeader() {
                 Bespoke
               </Link>
               <a
-                href={WHATSAPP_URL}
+                href={INSTAGRAM_URL}
                 target="_blank"
                 rel="noreferrer"
                 className="text-accent hover:opacity-80"
               >
-                WhatsApp
+                Instagram
               </a>
             </div>
           </div>

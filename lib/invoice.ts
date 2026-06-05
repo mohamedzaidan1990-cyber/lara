@@ -167,7 +167,7 @@ export function generateInvoice(order: InvoiceOrder, customer: InvoiceCustomer, 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8.5);
   doc.setTextColor(...MUTED);
-  const ig = (process.env.NEXT_PUBLIC_INSTAGRAM_USERNAME ?? "").replace(/^@/, "");
+  const ig = (process.env.NEXT_PUBLIC_INSTAGRAM_USERNAME ?? "seasons.by.b").replace(/^@/, "");
   const contactEmail = process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? "hello@seasonsbyb.co.uk";
   const contact = ig
     ? `Email: ${contactEmail}   |   Instagram: @${ig}   |   seasonsbyb.co.uk`

@@ -58,7 +58,7 @@ function getResend(): Resend | null {
 
 function getEmailConfig(): EmailConfig {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.seasonsbyb.co.uk";
-  const instagram = (process.env.NEXT_PUBLIC_INSTAGRAM_USERNAME ?? "").replace(/^@/, "");
+  const instagram = (process.env.NEXT_PUBLIC_INSTAGRAM_USERNAME ?? "seasons.by.b").replace(/^@/, "");
   const contactEmail = process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? "hello@seasonsbyb.co.uk";
   return {
     whish: process.env.WHISH_NUMBER ?? "03055491",

@@ -240,7 +240,7 @@ export default function CheckoutClient({ whish }: { whish: string }) {
 
           <div className="mt-6 space-y-3">
             <PayOption active={paymentMethod === "whish_direct"} onClick={() => setPaymentMethod("whish_direct")} title="Direct Whish transfer" body={`Send to Whish ${whish}, then upload your screenshot.`} />
-            <PayOption active={paymentMethod === "whish_link"} onClick={() => setPaymentMethod("whish_link")} title="Request Whish payment link" body="We'll send a secure payment link to your WhatsApp." />
+            <PayOption active={paymentMethod === "whish_link"} onClick={() => setPaymentMethod("whish_link")} title="Request Whish payment link" body="We'll send a secure payment link via Instagram or email." />
           </div>
 
           {paymentMethod === "whish_direct" ? (
@@ -311,7 +311,8 @@ function Confirmation({ confirmation }: { confirmation: Confirmation }) {
     confirmation.payment_method === "whish_link"
       ? `Hi Seasons by B, my order ${confirmation.order_number} (${names}). Please send me a Whish payment link.`
       : `Hi Seasons by B, my order ${confirmation.order_number} (${names}). I've sent payment via Whish.`;
-  const wa = `${WHATSAPP_URL}?text=${encodeURIComponent(msg)}`;
+  void msg; // Instagram DMs can't be pre-filled; we just open the thread.
+  const wa = WHATSAPP_URL;
 
   return (
     <motion.section className="py-6 text-center" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
@@ -330,7 +331,7 @@ function Confirmation({ confirmation }: { confirmation: Confirmation }) {
       </div>
       <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
         <a href={wa} target="_blank" rel="noreferrer" className="btn-gold">
-          Send confirmation on WhatsApp
+          Send confirmation on Instagram
         </a>
         <Link href="/" className="btn-outline">Continue Shopping</Link>
       </div>

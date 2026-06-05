@@ -16,7 +16,7 @@ const STEPS = [
   {
     icon: "💬",
     title: "Tell us what you want",
-    body: "WhatsApp us the brand, product name, or even a photo of what you're after."
+    body: "Message us on Instagram or by email with the brand, product name, or even a photo of what you're after."
   },
   {
     icon: "🔎",
@@ -99,7 +99,7 @@ export default function BespokePage() {
           <h2 className="mt-2 font-serif text-3xl text-ink sm:text-4xl">Chat with Béa, our AI consultant</h2>
           <p className="mx-auto mt-3 max-w-xl text-sm text-ink/70">
             Tell Béa what you&apos;re looking for and she&apos;ll help shape your request — our team follows up on
-            WhatsApp within 2 hours.
+            Instagram or by email within 2 hours.
           </p>
         </div>
         <div className="mt-8">

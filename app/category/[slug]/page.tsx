@@ -104,7 +104,7 @@ export default async function CategoryPage({
         <div className="mt-12 flex flex-col items-center gap-4 rounded-[2rem] border border-white/60 bg-white/50 p-12 text-center shadow-soft">
           <BeeMascot variant="floating" />
           <p className="text-sm text-ink/60">
-            No products in this category yet. Message us on WhatsApp for a custom request.
+            No products in this category yet. Message us on Instagram for a custom request.
           </p>
         </div>
       ) : (

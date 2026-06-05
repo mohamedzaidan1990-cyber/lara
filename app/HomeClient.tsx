@@ -301,7 +301,7 @@ function WhySeasons() {
   const items = [
     { icon: "🐝", title: "Curated in London", body: "Hand-picked from London's finest luxury retailers." },
     { icon: "📦", title: "Delivered to your door", body: "10–14 working days, tracked shipping." },
-    { icon: "💬", title: "Personal service", body: "WhatsApp support throughout your order." }
+    { icon: "💬", title: "Personal service", body: "Instagram & email support throughout your order." }
   ];
   return (
     <section className="border-t border-ink/10 bg-gold/15">

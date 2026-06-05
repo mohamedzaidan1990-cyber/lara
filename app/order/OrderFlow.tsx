@@ -466,7 +466,7 @@ function Step3Payment({
           description={
             <>
               <p className="text-sm text-ink">
-                We&apos;ll send you a secure Whish payment link by WhatsApp after you submit your order.
+                We&apos;ll send you a secure Whish payment link by Instagram or email after you submit your order.
               </p>
               <p className="mt-2 text-xs text-ink/60">No screenshot upload required.</p>
             </>
@@ -589,8 +589,8 @@ function WhishLinkInstructions() {
     <div className="mt-8 border border-ink/15 bg-cream p-5">
       <p className="text-[10px] uppercase tracking-[0.2em] text-ink/60">What happens next</p>
       <p className="mt-3 text-sm leading-relaxed text-ink/80">
-        After submitting your order, send your invoice to our WhatsApp and we&apos;ll generate a secure Whish
-        payment link for you. You&apos;ll receive automatic payment confirmation and receipt via WhatsApp.
+        After submitting your order, send your invoice to us on Instagram or by email and we&apos;ll generate a secure
+        Whish payment link for you. You&apos;ll receive payment confirmation and your receipt by email.
       </p>
       <p className="mt-3 text-xs text-ink/60">No screenshot upload required for this option.</p>
     </div>
@@ -608,7 +608,8 @@ function Step4Confirmation({
     order.payment_method === "whish_link"
       ? `Hi Seasons by B, my order number is ${order.order_number} for ${product.name}. Please send me a Whish payment link.`
       : `Hi Seasons by B, my order number is ${order.order_number} for ${product.name}. I have sent payment via Whish.`;
-  const wa = `${WHATSAPP_URL}?text=${encodeURIComponent(baseMessage)}`;
+  void baseMessage; // Instagram DMs can't be pre-filled; we just open the thread.
+  const wa = WHATSAPP_URL;
 
   return (
     <section className="text-center">
@@ -630,22 +631,22 @@ function Step4Confirmation({
         <p className="text-[10px] uppercase tracking-[0.2em] text-ink/60">What happens next</p>
         {order.payment_method === "whish_link" ? (
           <ol className="mt-3 space-y-2 text-sm text-ink/80">
-            <li>1. Send your invoice to our WhatsApp.</li>
+            <li>1. Send your invoice to us on Instagram or by email.</li>
             <li>2. We&apos;ll send you a secure Whish payment link.</li>
-            <li>3. You&apos;ll get automatic confirmation and receipt by WhatsApp once paid.</li>
+            <li>3. You&apos;ll get confirmation and your receipt by email once paid.</li>
           </ol>
         ) : (
           <ol className="mt-3 space-y-2 text-sm text-ink/80">
-            <li>1. Send your payment screenshot via WhatsApp so we can confirm.</li>
+            <li>1. Send your payment screenshot on Instagram or by email so we can confirm.</li>
             <li>2. We&apos;ll process your order as soon as payment is verified.</li>
-            <li>3. We&apos;ll keep you updated by email and WhatsApp on shipping and delivery.</li>
+            <li>3. We&apos;ll keep you updated by email on shipping and delivery.</li>
           </ol>
         )}
       </div>
 
       <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
         <a href={wa} target="_blank" rel="noreferrer" className="btn-gold">
-          {order.payment_method === "whish_link" ? "Send invoice on WhatsApp" : "Send confirmation on WhatsApp"}
+          {order.payment_method === "whish_link" ? "Send invoice on Instagram" : "Send confirmation on Instagram"}
         </a>
         <Link href="/" className="btn-outline">
           Back to shop

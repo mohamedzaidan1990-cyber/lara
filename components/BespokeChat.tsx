@@ -116,7 +116,7 @@ function ChatPanel({ embedded, onClose }: { embedded: boolean; onClose?: () => v
       <div className="border-t border-ink/10 p-3">
         {completed ? (
           <p className="rounded bg-gold/15 px-3 py-2 text-center text-xs text-ink">
-            Thank you 🐝 Our team will be in touch on WhatsApp within 2 hours.
+            Thank you 🐝 Our team will be in touch on Instagram or by email within 2 hours.
           </p>
         ) : (
           <form
