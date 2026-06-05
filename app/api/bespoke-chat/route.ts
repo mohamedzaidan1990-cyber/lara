@@ -11,22 +11,96 @@ interface ChatMessage {
   content: string;
 }
 
-const SYSTEM_PROMPT = `You are Béa, the personal shopping consultant for Seasons by B — a luxury personal shopping service that sources from London's finest boutiques.
+const SYSTEM_PROMPT = `You are Béa, the shopping assistant for Seasons by B — a luxury beauty boutique that delivers London's finest to your door.
 
-Your personality: warm, knowledgeable, sophisticated but approachable. You speak like a knowledgeable friend who works in luxury retail, not a corporate chatbot.
+Style: warm, sharp and CONCISE. Reply in 1–2 short sentences, never long paragraphs. Match the customer's language (English, Arabic, or French).
 
-Your goal: understand exactly what the client is looking for so we can source it for them from London.
+How to help:
+- When products are listed under "CATALOGUE MATCHES" below, recommend 1–3 of them by name, each with its price and link. Lead with the suggestion — don't interrogate the customer first.
+- If the matches don't fit, ask ONE short clarifying question (budget, brand, or finish), then suggest again.
+- If there are no matches, or the customer wants something we don't carry, offer to source it: ask for their Instagram handle or email and say the team will follow up within 2 hours.
+- Only collect contact details when sourcing an item we don't have, or when the customer is ready to order.
 
-Conversation flow:
-1. Warm welcome, ask what they're looking for
-2. Ask clarifying questions: occasion, budget range, preferred brands, colour preferences, size if relevant
-3. Make specific product suggestions based on what you know about luxury beauty and fashion
-4. Once you have enough information (after 3-5 exchanges), summarise their request and tell them: "I've noted everything — our team will reach out on Instagram or by email within 2 hours with options and pricing."
-5. Collect their Instagram handle or email so we can send them the follow-up
+Never invent products, prices, or links — only use the CATALOGUE MATCHES list.
+Never mention Selfridges, Space NK, or any sourcing retailer.`;
 
-Always respond in the same language the customer writes in (Arabic, French, or English).
-Keep responses concise — 2-3 sentences maximum per message.
-Never mention Selfridges, Space NK, or any specific sourcing retailers.`;
+const SITE_BASE = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://seasonsbyb.co.uk").replace(/\/$/, "");
+
+interface CatalogMatch {
+  id: string;
+  brand: string;
+  name: string;
+  price_usd: number;
+}
+
+// US→UK spelling / stem map so a "moisturizer" query matches our UK-spelled
+// "moisturiser" rows. Falls back to the raw token for anything not listed.
+const STEM: Record<string, string> = {
+  moisturizer: "moisturis", moisturiser: "moisturis", moisturizing: "moisturis",
+  moisturising: "moisturis", moisturize: "moisturis", moisturise: "moisturis",
+  antiaging: "anti-ag", "anti-aging": "anti-ag", "anti-ageing": "anti-ag",
+  color: "colour", colors: "colour", colour: "colour",
+  lipsticks: "lipstick", cleansers: "cleanser", serums: "serum",
+  foundations: "foundation", mascaras: "mascara", perfumes: "perfume"
+};
+
+const STOP = new Set([
+  "the", "and", "for", "with", "please", "want", "need", "looking", "under",
+  "below", "less", "than", "dollars", "dollar", "usd", "something", "good",
+  "best", "nice", "find", "get", "buy", "around", "about", "budget", "price",
+  "cheap", "an", "of", "to", "my", "me", "is", "are", "can", "you", "im",
+  "would", "like", "some", "any", "that", "this", "one", "it", "do", "does",
+  "have", "has", "in", "on", "recommend", "suggest", "show", "give", "hello",
+  "hi", "hey", "thanks", "thank", "please", "could", "what", "which", "your"
+]);
+
+// Pull a max USD budget from phrasing like "under $50", "below 50 dollars", "50$".
+function extractBudgetUsd(text: string): number | null {
+  const m =
+    text.match(/(?:under|below|less than|max|up to|cheaper than|<)\s*\$?\s*(\d{1,5})/i) ||
+    text.match(/\$\s*(\d{1,5})/) ||
+    text.match(/(\d{1,5})\s*(?:dollars|usd|\$)/i);
+  if (!m) return null;
+  const n = Number(m[1]);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+// Search the live catalogue for products matching the customer's request, so
+// Béa recommends real items (with price + link) instead of only collecting a
+// contact. Returns up to 4 budget-friendly, deliverable matches.
+async function searchCatalog(text: string, maxUsd: number | null): Promise<CatalogMatch[]> {
+  const tokens = (text.toLowerCase().match(/[a-zà-ÿ][a-zà-ÿ'-]{2,}/gi) ?? [])
+    .map((t) => t.replace(/[''']/g, "'"))
+    .filter((t) => !STOP.has(t));
+  const stems = [...new Set(tokens.map((t) => STEM[t] ?? t))];
+  if (stems.length === 0) return [];
+  const pats = stems.map((s) => `%${s}%`);
+  try {
+    const sql = getSql();
+    const rows = (await sql`
+      select id, brand, name, price_usd::float8 as price_usd
+      from products
+      where (lower(name) like any(${pats}::text[]) or lower(brand) like any(${pats}::text[]))
+        and (${maxUsd}::float8 is null or (price_usd is not null and price_usd <= ${maxUsd}))
+        and coalesce(image_url, '') <> ''
+      order by deliverable_lebanon desc nulls last, price_usd asc nulls last
+      limit 4
+    `) as CatalogMatch[];
+    return rows;
+  } catch {
+    return [];
+  }
+}
+
+function catalogBlock(matches: CatalogMatch[]): string {
+  if (matches.length === 0) {
+    return "\n\nCATALOGUE MATCHES: none for this request — offer to source it and collect their Instagram or email.";
+  }
+  const lines = matches
+    .map((p) => `- ${p.brand} ${p.name} — $${Math.round(p.price_usd)} — ${SITE_BASE}/product/${p.id}`)
+    .join("\n");
+  return `\n\nCATALOGUE MATCHES (recommend 1–3 of these, with price and link):\n${lines}`;
+}
 
 // Grab the first plausible phone number from text.
 function extractPhone(text: string): string | null {
@@ -45,22 +119,26 @@ function extractContact(text: string): string | null {
   return extractPhone(text);
 }
 
-function fallbackBea(messages: ChatMessage[]): string {
+function fallbackBea(messages: ChatMessage[], matches: CatalogMatch[]): string {
   const userMsgs = messages.filter((m) => m.role === "user");
   if (userMsgs.length === 0) {
-    return "Hi, I'm Béa — your personal shopping consultant at Seasons by B. What are you looking for today?";
+    return "Hi, I'm Béa at Seasons by B — what are you looking for today?";
   }
   const last = userMsgs[userMsgs.length - 1]?.content ?? "";
   if (extractContact(last)) {
-    return "Perfect — I've noted everything. Our team will reach out on Instagram or by email within 2 hours with options and pricing. 🐝";
+    return "Perfect — noted. The team will reach out on Instagram or by email within 2 hours. 🐝";
   }
-  if (userMsgs.length >= 2) {
-    return "Lovely choice. So I can send you options and pricing, could you share your Instagram handle or email? Our team will follow up within 2 hours.";
+  if (matches.length > 0) {
+    const picks = matches
+      .slice(0, 2)
+      .map((p) => `${p.brand} ${p.name} ($${Math.round(p.price_usd)}) — ${SITE_BASE}/product/${p.id}`)
+      .join("  •  ");
+    return `Try ${picks}. Want more options or something specific?`;
   }
-  return "Wonderful — tell me a little more: the occasion, any preferred brands or colours, and your budget range all help me find the perfect piece.";
+  return "I couldn't find that in stock — share your Instagram handle or email and the team will source it within 2 hours.";
 }
 
-async function callBea(messages: ChatMessage[]): Promise<string | null> {
+async function callBea(messages: ChatMessage[], system: string): Promise<string | null> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return null;
   // claude-sonnet-4-20250514 returned 4xx on this account; use the model proven
@@ -72,8 +150,8 @@ async function callBea(messages: ChatMessage[]): Promise<string | null> {
       headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
       body: JSON.stringify({
         model,
-        max_tokens: 300,
-        system: SYSTEM_PROMPT,
+        max_tokens: 160,
+        system,
         messages: messages.map((m) => ({ role: m.role, content: m.content }))
       }),
       signal: AbortSignal.timeout(20000)
@@ -100,9 +178,15 @@ export async function POST(req: Request): Promise<Response> {
     : [];
   const sessionId = (body.sessionId ?? "").toString().slice(0, 80) || "anon";
 
-  const reply = (await callBea(messages)) ?? fallbackBea(messages);
-
   const userMsgs = messages.filter((m) => m.role === "user");
+  // Search the catalogue from the latest request (+ recent context) so Béa can
+  // recommend real products. Budget is read from the whole conversation.
+  const lastUser = userMsgs[userMsgs.length - 1]?.content ?? "";
+  const allUserText = userMsgs.map((m) => m.content).join(" ");
+  const matches = await searchCatalog(lastUser || allUserText, extractBudgetUsd(allUserText));
+  const system = SYSTEM_PROMPT + catalogBlock(matches);
+
+  const reply = (await callBea(messages, system)) ?? fallbackBea(messages, matches);
   const whatsapp = extractContact(userMsgs.map((m) => m.content).join(" "));
   const replySignalsDone = /2 hours|reach out|noted everything|i've noted|follow up/i.test(reply);
   const completed = Boolean(whatsapp) && (userMsgs.length >= 3 || replySignalsDone);
