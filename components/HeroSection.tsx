@@ -30,7 +30,7 @@ export default function HeroSection() {
       </div>
 
       {/* Text side */}
-      <div className="flex w-full items-center justify-center px-6 pt-3 pb-10 sm:px-10 lg:w-[40%] lg:py-0">
+      <div className="flex w-full items-center justify-center px-6 pt-0 pb-10 sm:px-10 lg:w-[40%] lg:py-0">
         <motion.div
           className="max-w-md"
           initial="hidden"
