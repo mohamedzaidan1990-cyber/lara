@@ -25,6 +25,13 @@ export const CATEGORY_DEFS: readonly CategoryDef[] = [
     defaultImage: "https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=800&q=80"
   },
   {
+    slug: "fragrance",
+    name: "Fragrance",
+    label: "Fragrance",
+    blurb: "Signature scents and niche perfumery — now shipping to your door.",
+    defaultImage: "https://images.unsplash.com/photo-1541643600914-78b084683601?w=800&q=80"
+  },
+  {
     slug: "haircare",
     name: "Haircare",
     label: "Haircare",

@@ -2,8 +2,10 @@ const FRANKFURTER_URL = "https://api.frankfurter.app/latest?from=GBP&to=USD";
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 const FALLBACK_RATE = 1.33;
 
-// Tiered service markup — higher margin on lower-priced items.
-export function getMarkupMultiplier(priceGbp: number, gbpToUsd: number): number {
+// Service markup. Fragrance carries a flat 20% margin on the base Selfridges
+// price; everything else is tiered — higher margin on lower-priced items.
+export function getMarkupMultiplier(priceGbp: number, gbpToUsd: number, category?: string): number {
+  if (category === "Fragrance") return 1.2; // flat 20% on perfumes
   const priceUsd = priceGbp * gbpToUsd;
   if (priceUsd < 30) return 1.2; // 20% markup under $30
   if (priceUsd < 50) return 1.15; // 15% markup $30–$50
@@ -61,9 +63,9 @@ export async function getGBPtoUSD(): Promise<number> {
   return inflight;
 }
 
-export async function convertGbpToUsd(priceGbp: number): Promise<number> {
+export async function convertGbpToUsd(priceGbp: number, category?: string): Promise<number> {
   const rate = await getGBPtoUSD();
-  const multiplier = getMarkupMultiplier(priceGbp, rate);
+  const multiplier = getMarkupMultiplier(priceGbp, rate, category);
   return Math.round(priceGbp * rate * multiplier * 100) / 100;
 }
 

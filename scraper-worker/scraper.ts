@@ -38,7 +38,7 @@ function getDispatcher(): ProxyAgent | undefined {
 
 // Beauty-only. (Bags/Accessories have no reachable source and are intentionally
 // excluded so runs stay focused on deliverable beauty products.)
-export const SCRAPE_CATEGORIES = ["Makeup", "Skincare", "Haircare", "Beauty tools"] as const;
+export const SCRAPE_CATEGORIES = ["Makeup", "Skincare", "Haircare", "Beauty tools", "Fragrance"] as const;
 
 // Cap on how many sub-category pages to crawl per top category (keeps run time
 // bounded; categories expose ~29-32 sub-pages today).
@@ -168,10 +168,11 @@ export function isNonBeauty(name: string): boolean {
   );
 }
 
-// Single gate for every source: exclude fragrances (don't ship internationally)
-// and non-beauty / garbage rows.
+// Single gate for every source: reject non-beauty / garbage rows. Fragrances
+// are NOT excluded — Selfridges ships perfume to Lebanon — they're routed into
+// the dedicated "Fragrance" category (see classifyCategory / toRows).
 export function shouldExclude(name: string): boolean {
-  return isFragrance(name) || isNonBeauty(name);
+  return isNonBeauty(name);
 }
 
 // Pick a clean product-shot image. For image-sensitive brands (Kylie Cosmetics
@@ -197,16 +198,21 @@ async function toRows(raws: RawProduct[], categoryName: string, sourceBrand: str
   return Promise.all(
     raws
       .filter((r) => !shouldExclude(`${r.brand} ${r.name}`))
-      .map(async (r) => ({
-      brand: r.brand || sourceBrand,
-      name: r.name,
-      category: categoryName,
-      price_gbp: r.priceGbp,
-      price_usd: await convertGbpToUsd(r.priceGbp),
-      deliverable_lebanon: true,
-      product_url: r.product_url,
-      image_url: r.image_url
-    }))
+      .map(async (r) => {
+        // Perfumes always land in the Fragrance category (flat 20% markup),
+        // regardless of which listing they were crawled from.
+        const category = isFragrance(`${r.brand} ${r.name}`) ? "Fragrance" : categoryName;
+        return {
+          brand: r.brand || sourceBrand,
+          name: r.name,
+          category,
+          price_gbp: r.priceGbp,
+          price_usd: await convertGbpToUsd(r.priceGbp, category),
+          deliverable_lebanon: true,
+          product_url: r.product_url,
+          image_url: r.image_url
+        };
+      })
   );
 }
 
@@ -913,8 +919,8 @@ const SELFRIDGES_ORIGIN = "https://www.selfridges.com";
 // Each category maps to a list of Selfridges beauty listing pages
 // (/GB/en/cat/beauty/<slug>/). A listing renders max 60 cards and ignores the
 // `pge` param, so we crawl every sub-category to populate extensively. Slugs
-// verified live from the beauty mega-menu. Fragrance is intentionally excluded
-// (doesn't ship internationally); shouldExclude() also filters any stragglers.
+// verified live from the beauty mega-menu. Fragrance IS now crawled (Selfridges
+// ships perfume to Lebanon) and routed into the Fragrance category.
 const SELFRIDGES_LISTINGS: Record<string, string[]> = {
   Makeup: [
     "beauty/makeup",
@@ -953,6 +959,16 @@ const SELFRIDGES_LISTINGS: Record<string, string[]> = {
     "beauty/makeup/makeup-brushes-tools",
     "beauty/skincare/skincare-tools",
     "beauty/haircare/hair-electricals"
+  ],
+  // Selfridges ships fragrance to Lebanon, so perfumes are now crawled and
+  // routed into the Fragrance category (flat 20% markup). Empty/unknown slugs
+  // are skipped gracefully.
+  Fragrance: [
+    "beauty/fragrance",
+    "beauty/fragrance/womens-fragrance",
+    "beauty/fragrance/mens-fragrance",
+    "beauty/fragrance/unisex-fragrance",
+    "beauty/fragrance/niche-fragrance"
   ]
 };
 
@@ -1201,6 +1217,7 @@ export const SELFRIDGES_BRAND_SLUGS: string[] = [
 // Brand pages mix categories, so classify each product by name keywords.
 function classifySelfridgesCategory(name: string): string {
   const s = (name || "").toLowerCase();
+  if (isFragrance(name)) return "Fragrance";
   if (/\b(brush|sponge|blender|tweezer|curler|applicator|mirror|hair ?dryer|straightener|styler|airwrap|device|sharpener)\b/.test(s)) return "Beauty tools";
   if (/\b(shampoo|conditioner|scalp|hairspray|hair ?spray|dry shampoo|leave-?in)\b/.test(s) || /\bhair\b/.test(s)) return "Haircare";
   if (/\b(lipstick|lip gloss|lip liner|lip balm|lip oil|lip stain|mascara|eyeliner|eye liner|eyeshadow|eye shadow|palette|foundation|concealer|blush|bronzer|highlighter|contour|brow|eyebrow|setting spray|setting powder|primer|kohl|lip|gloss|tint|nail|lacquer|mac)\b/.test(s)) return "Makeup";
@@ -1243,12 +1260,13 @@ export async function scrapeSelfridgesBrands(slugs: string[] = SELFRIDGES_BRAND_
       if (seen.has(k)) continue;
       seen.add(k);
       if (shouldExclude(`${r.brand} ${r.name}`)) continue;
+      const category = classifySelfridgesCategory(`${r.brand} ${r.name}`);
       collected.push({
         brand: r.brand,
         name: r.name,
-        category: classifySelfridgesCategory(r.name),
+        category,
         price_gbp: r.priceGbp,
-        price_usd: await convertGbpToUsd(r.priceGbp),
+        price_usd: await convertGbpToUsd(r.priceGbp, category),
         deliverable_lebanon: true,
         product_url: r.product_url,
         image_url: r.image_url
