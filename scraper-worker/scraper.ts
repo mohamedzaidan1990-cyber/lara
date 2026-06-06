@@ -109,14 +109,19 @@ function dedupeRows(rows: ScrapedProductRow[]): ScrapedProductRow[] {
   return out;
 }
 
-// Fragrances / EDPs don't ship internationally (flammable liquids), so we
-// exclude them from every source.
+// Detects fragrances (perfumes, EDPs) plus scented hair & body mists — all of
+// which we route into the Fragrance category. Used purely as a classifier now
+// (Selfridges ships fragrance to Lebanon).
 export function isFragrance(name: string): boolean {
   const s = (name || "").toLowerCase();
   // "Fragrance free" / "non-perfumed" / "unscented" skincare is the OPPOSITE of
-  // a fragrance — never exclude it.
+  // a fragrance — never classify it as one.
   if (/fragrance[\s-]?free|non[\s-]?perfumed|unperfumed|unscented|scent[\s-]?free/.test(s)) return false;
   if (/\b(edp|edt|edc)\b/.test(s)) return true;
+  // Scented hair & body mists (and hair perfumes) belong in Fragrance. Guard
+  // against functional mists (setting/fixing/face/thermal/toning) which are not.
+  if (/\b(hair|body)\s*mist\b/.test(s)) return true;
+  if (/hair\s*(perfume|fragrance)/.test(s)) return true;
   return (
     s.includes("eau de parfum") ||
     s.includes("eau de toilette") ||
@@ -965,10 +970,9 @@ const SELFRIDGES_LISTINGS: Record<string, string[]> = {
   // are skipped gracefully.
   Fragrance: [
     "beauty/fragrance",
-    "beauty/fragrance/womens-fragrance",
-    "beauty/fragrance/mens-fragrance",
-    "beauty/fragrance/unisex-fragrance",
-    "beauty/fragrance/niche-fragrance"
+    "beauty/fragrance/womens-perfume",
+    "beauty/fragrance/mens-aftershave",
+    "beauty/fragrance/discovery-sets"
   ]
 };
 
