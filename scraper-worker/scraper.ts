@@ -972,7 +972,16 @@ const SELFRIDGES_LISTINGS: Record<string, string[]> = {
     "beauty/fragrance",
     "beauty/fragrance/womens-perfume",
     "beauty/fragrance/mens-aftershave",
-    "beauty/fragrance/discovery-sets"
+    "beauty/fragrance/discovery-sets",
+    // Dedicated hair & body mist listing.
+    "beauty/fragrance/womens-perfume/hair-body-mists",
+    // Brand-scoped fragrance grids for premium houses that don't expose a plain
+    // /cat/<brand>/ product grid (Selfridges serves them an editorial landing).
+    "dior/beauty/fragrance/womens-perfume",
+    "dior/beauty/fragrance/mens-aftershave",
+    "gucci/beauty/fragrance",
+    "prada/beauty/fragrance",
+    "chanel/beauty/fragrance"
   ]
 };
 
