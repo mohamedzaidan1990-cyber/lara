@@ -15,17 +15,16 @@
 html,
 body {
   color: var(--ink);
+  background-color: #fbf1fa;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 body {
   font-family: var(--font-dm-sans), "DM Sans", system-ui, -apple-system, sans-serif;
-  /* Soft animated candy gradient canvas. */
-  background: linear-gradient(-45deg, #fef7ff, #ffe6f4, #fef7ff, #eedcff);
-  background-size: 400% 400%;
-  background-attachment: fixed;
-  animation: candyGradient 22s ease infinite;
+  /* Solid canvas matching the Seasons by B logo background, so the whole site
+     is one cohesive colour (no gradient banding under the hero video). */
+  background-color: #fbf1fa;
 }
 
 @keyframes candyGradient {
