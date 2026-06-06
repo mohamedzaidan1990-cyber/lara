@@ -14,7 +14,7 @@ export default function HeroSection() {
   const bespoke = whatsappRequestLink();
 
   return (
-    <section className="relative flex min-h-[88vh] flex-col lg:flex-row">
+    <section className="relative flex flex-col lg:min-h-[88vh] lg:flex-row">
       {/* Brand film side */}
       <div className="relative h-[42vh] w-full overflow-hidden bg-cream lg:h-auto lg:min-h-[88vh] lg:w-[60%]">
         <AutoVideo
