@@ -134,7 +134,7 @@ function SearchBar({ query, setQuery, onSubmit }: SearchBarProps) {
 
 function ShadeFinderBanner() {
   return (
-    <div className="mx-auto mt-12 max-w-7xl px-4 sm:px-6 lg:px-8">
+    <div className="mx-auto mt-6 max-w-7xl px-4 sm:px-6 lg:px-8">
       <Link
         href="/shade-finder"
         className="group flex flex-col items-center justify-between gap-4 overflow-hidden rounded-[2rem] border border-white/60 p-7 text-center shadow-soft transition-all duration-300 hover:-translate-y-1 sm:flex-row sm:text-left"

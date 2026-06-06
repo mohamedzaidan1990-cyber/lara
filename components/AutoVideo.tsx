@@ -36,12 +36,32 @@ export default function AutoVideo({
   const [muted, setMuted] = useState(true);
   const id = useId();
 
-  // Force muted autoplay, then kick playback off.
+  // Kick off playback. For the sound video, try to autoplay WITH sound first;
+  // browsers usually block that until the user interacts, so on failure fall
+  // back to muted autoplay (the interaction listener below unmutes on the first
+  // tap/scroll). Other videos just autoplay muted.
   useEffect(() => {
     const v = ref.current;
     if (!v) return;
-    v.muted = true;
-    v.play().catch(() => {});
+    if (soundOnInteract) {
+      v.muted = false;
+      v.volume = 1;
+      const p = v.play();
+      if (p && typeof p.then === "function") {
+        p.then(() => {
+          setMuted(false);
+          window.dispatchEvent(new CustomEvent(UNMUTE_EVENT, { detail: id }));
+        }).catch(() => {
+          v.muted = true;
+          setMuted(true);
+          v.play().catch(() => {});
+        });
+      }
+    } else {
+      v.muted = true;
+      v.play().catch(() => {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function enableSound() {
@@ -111,8 +131,8 @@ export default function AutoVideo({
         onClick={toggle}
         aria-label={muted ? "Turn sound on" : "Mute"}
         className={
-          "absolute bottom-3 z-20 inline-flex h-10 w-10 items-center justify-center rounded-full bg-ink/45 text-white shadow-lg backdrop-blur-sm transition hover:scale-105 hover:bg-ink/70 " +
-          (buttonSide === "left" ? "left-3" : "right-3")
+          "absolute bottom-2.5 z-20 inline-flex h-7 w-7 items-center justify-center rounded-full bg-ink/35 text-white shadow-md backdrop-blur-sm transition hover:bg-ink/70 " +
+          (buttonSide === "left" ? "left-2.5" : "right-2.5")
         }
       >
         {muted ? <MutedIcon /> : <SoundIcon />}
@@ -123,7 +143,7 @@ export default function AutoVideo({
 
 function SoundIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5" aria-hidden>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden>
       <path d="M11 5 6 9H2v6h4l5 4z" />
       <path d="M15.5 8.5a5 5 0 0 1 0 7" />
       <path d="M19 5a9 9 0 0 1 0 14" />
@@ -133,7 +153,7 @@ function SoundIcon() {
 
 function MutedIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5" aria-hidden>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden>
       <path d="M11 5 6 9H2v6h4l5 4z" />
       <line x1="22" y1="9" x2="16" y2="15" />
       <line x1="16" y1="9" x2="22" y2="15" />

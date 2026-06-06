@@ -22,7 +22,7 @@ export default function HeroSection() {
           wrapperClassName="absolute inset-0"
           videoClassName="h-full w-full object-cover"
           soundOnInteract
-          buttonSide="left"
+          buttonSide="right"
           label="Seasons by B brand film"
         />
         {/* soft fade so the film blends into the text side on desktop */}
@@ -30,7 +30,7 @@ export default function HeroSection() {
       </div>
 
       {/* Text side */}
-      <div className="flex w-full items-center justify-center px-6 py-12 sm:px-10 lg:w-[40%] lg:py-0">
+      <div className="flex w-full items-center justify-center px-6 pt-6 pb-10 sm:px-10 lg:w-[40%] lg:py-0">
         <motion.div
           className="max-w-md"
           initial="hidden"
