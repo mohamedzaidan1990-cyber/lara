@@ -13,6 +13,8 @@ interface Props {
   soundOnInteract?: boolean;
   /** Which corner the sound toggle sits in. */
   buttonSide?: "left" | "right";
+  /** Loop the film. When false it plays through once and stops. */
+  loop?: boolean;
   label?: string;
 }
 
@@ -30,6 +32,7 @@ export default function AutoVideo({
   poster,
   soundOnInteract = false,
   buttonSide = "right",
+  loop = true,
   label = "Brand film"
 }: Props) {
   const ref = useRef<HTMLVideoElement | null>(null);
@@ -86,6 +89,28 @@ export default function AutoVideo({
     else mute();
   }
 
+  // Pause the film (and its sound) once it scrolls out of view; resume only if
+  // it hasn't already played through. So it plays while the viewer is on it and
+  // stops the moment they scroll down the page.
+  useEffect(() => {
+    const v = ref.current;
+    if (!v || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        const e = entries[0];
+        if (!e) return;
+        if (e.isIntersecting) {
+          if (!v.ended) v.play().catch(() => {});
+        } else {
+          v.pause();
+        }
+      },
+      { threshold: 0.5 }
+    );
+    io.observe(v);
+    return () => io.disconnect();
+  }, []);
+
   // When another video turns its sound on, mute this one.
   useEffect(() => {
     function onOther(e: Event) {
@@ -120,7 +145,7 @@ export default function AutoVideo({
         src={src}
         poster={poster}
         autoPlay
-        loop
+        loop={loop}
         muted
         playsInline
         preload="auto"

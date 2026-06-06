@@ -23,6 +23,7 @@ export default function HeroSection() {
           videoClassName="h-full w-full object-cover"
           soundOnInteract
           buttonSide="right"
+          loop={false}
           label="Seasons by B brand film"
         />
         {/* soft fade so the film blends into the text side on desktop */}
