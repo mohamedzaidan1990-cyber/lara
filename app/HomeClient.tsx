@@ -7,6 +7,7 @@ import ProductCard, { type ProductCardData } from "@/components/ProductCard";
 import type { CategoryStat } from "@/lib/categories";
 import { whatsappRequestLink } from "@/lib/links";
 import HeroSection from "@/components/HeroSection";
+import AutoVideo from "@/components/AutoVideo";
 import BeeLoader from "@/components/BeeLoader";
 import { BeeMascot } from "@/components/BeeMascot";
 import SearchAutocomplete from "@/components/SearchAutocomplete";
@@ -263,25 +264,19 @@ function BespokeSection() {
   );
 }
 
-// Brand film for the personal-sourcing section. Autoplays muted on loop so it
-// behaves like ambient motion (replaces the old floating-accessory collage).
+// Brand film for the personal-sourcing section. Autoplays on loop; tap the
+// speaker to play its sound (replaces the old floating-accessory collage).
 function HeroVideo() {
   return (
     <div className="relative mx-auto w-full max-w-lg">
       {/* soft glow behind the film */}
       <div className="absolute -inset-6 rounded-[2.75rem] bg-accent/15 blur-3xl" aria-hidden />
-      <div className="relative overflow-hidden rounded-[2rem] border-2 border-white shadow-pop">
-        <video
-          className="aspect-video w-full bg-cream object-cover"
-          src="/hero.mp4"
-          autoPlay
-          muted
-          loop
-          playsInline
-          preload="metadata"
-          aria-label="Seasons by B brand film"
-        />
-      </div>
+      <AutoVideo
+        src="/hero.mp4"
+        wrapperClassName="overflow-hidden rounded-[2rem] border-2 border-white shadow-pop"
+        videoClassName="aspect-video w-full bg-cream object-cover"
+        label="Seasons by B brand film"
+      />
     </div>
   );
 }

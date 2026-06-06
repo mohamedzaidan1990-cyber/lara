@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
+import AutoVideo from "@/components/AutoVideo";
 import { whatsappRequestLink } from "@/lib/links";
 
 const fade = {
@@ -16,15 +17,13 @@ export default function HeroSection() {
     <section className="relative flex min-h-[88vh] flex-col lg:flex-row">
       {/* Brand film side */}
       <div className="relative h-[42vh] w-full overflow-hidden bg-cream lg:h-auto lg:min-h-[88vh] lg:w-[60%]">
-        <video
-          className="absolute inset-0 h-full w-full object-cover"
+        <AutoVideo
           src="/hero-top.mp4"
-          autoPlay
-          muted
-          loop
-          playsInline
-          preload="metadata"
-          aria-label="Seasons by B brand film"
+          wrapperClassName="absolute inset-0"
+          videoClassName="h-full w-full object-cover"
+          soundOnInteract
+          buttonSide="left"
+          label="Seasons by B brand film"
         />
         {/* soft fade so the film blends into the text side on desktop */}
         <div className="pointer-events-none absolute inset-0 lg:bg-gradient-to-r lg:from-transparent lg:via-transparent lg:to-cream/70" />
