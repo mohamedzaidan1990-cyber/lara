@@ -1,50 +1,8 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import Link from "next/link";
-import { Component, type ReactNode } from "react";
 import { motion } from "framer-motion";
 import { whatsappRequestLink } from "@/lib/links";
-
-// CSS-only animated fallback (also the loading state and the error fallback if
-// WebGL / Three.js fails). Overlapping gold circles drifting on cream.
-function CssHero() {
-  return (
-    <div className="absolute inset-0 overflow-hidden" style={{ backgroundColor: "#fef7ff" }}>
-      <div
-        className="bee-anim-floating absolute left-[15%] top-[20%] h-48 w-48 rounded-full blur-2xl"
-        style={{ backgroundColor: "rgba(224,64,160,0.35)" }}
-      />
-      <div
-        className="bee-anim-floating absolute right-[18%] top-[40%] h-64 w-64 rounded-full blur-2xl"
-        style={{ backgroundColor: "rgba(124,82,170,0.30)", animationDelay: "0.6s" }}
-      />
-      <div
-        className="bee-anim-floating absolute bottom-[12%] left-[35%] h-40 w-40 rounded-full blur-2xl"
-        style={{ backgroundColor: "rgba(0,150,204,0.22)", animationDelay: "1.2s" }}
-      />
-    </div>
-  );
-}
-
-const HeroScene = dynamic(() => import("./HeroScene"), {
-  ssr: false,
-  loading: () => <CssHero />
-});
-
-// If the WebGL scene throws at runtime, fall back to the CSS hero.
-class SceneBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
-  constructor(props: { children: ReactNode }) {
-    super(props);
-    this.state = { failed: false };
-  }
-  static getDerivedStateFromError() {
-    return { failed: true };
-  }
-  render() {
-    return this.state.failed ? <CssHero /> : this.props.children;
-  }
-}
 
 const fade = {
   hidden: { opacity: 0, y: 18 },
@@ -56,11 +14,20 @@ export default function HeroSection() {
 
   return (
     <section className="relative flex min-h-[88vh] flex-col lg:flex-row">
-      {/* 3D / visual side */}
-      <div className="relative h-[40vh] w-full lg:h-auto lg:min-h-[88vh] lg:w-[60%]">
-        <SceneBoundary>
-          <HeroScene />
-        </SceneBoundary>
+      {/* Brand film side */}
+      <div className="relative h-[42vh] w-full overflow-hidden bg-cream lg:h-auto lg:min-h-[88vh] lg:w-[60%]">
+        <video
+          className="absolute inset-0 h-full w-full object-cover"
+          src="/hero-top.mp4"
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="metadata"
+          aria-label="Seasons by B brand film"
+        />
+        {/* soft fade so the film blends into the text side on desktop */}
+        <div className="pointer-events-none absolute inset-0 lg:bg-gradient-to-r lg:from-transparent lg:via-transparent lg:to-cream/70" />
       </div>
 
       {/* Text side */}
