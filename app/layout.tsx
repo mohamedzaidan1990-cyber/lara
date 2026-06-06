@@ -44,7 +44,7 @@ export const metadata: Metadata = {
     siteName: "Seasons by B",
     images: [
       {
-        url: "/icons/icon-512.svg",
+        url: "/icons/icon-512.png",
         width: 512,
         height: 512,
         alt: "Seasons by B"
@@ -57,7 +57,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: SITE_TITLE,
     description: SITE_DESCRIPTION,
-    images: ["/icons/icon-512.svg"]
+    images: ["/icons/icon-512.png"]
   },
   appleWebApp: {
     capable: true,
@@ -66,11 +66,12 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/icons/icon-192.svg", sizes: "192x192", type: "image/svg+xml" },
-      { url: "/icons/icon-512.svg", sizes: "512x512", type: "image/svg+xml" }
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" }
     ],
-    apple: [{ url: "/icons/icon-512.svg" }],
-    shortcut: ["/icons/icon-192.svg"]
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180" }],
+    shortcut: ["/favicon.ico"]
   },
   category: "shopping",
   formatDetection: { telephone: false }
