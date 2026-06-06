@@ -61,8 +61,15 @@ export default function SiteHeader() {
   return (
     <header className="sticky top-0 z-40 px-3 pt-3 sm:px-6 sm:pt-4">
       <div className="mx-auto flex max-w-7xl items-center justify-between rounded-full glass-pill px-5 py-3 shadow-soft sm:px-8">
-        <Link href="/" className="flex items-baseline gap-2 leading-none" onClick={() => setMobileOpen(false)}>
-          <span className="font-serif text-2xl font-bold tracking-tight text-accent sm:text-3xl">Seasons by B</span>
+        <Link href="/" className="flex items-center leading-none" onClick={() => setMobileOpen(false)}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo.png"
+            alt="Seasons by B"
+            className="h-9 w-auto sm:h-11"
+            width={460}
+            height={188}
+          />
         </Link>
 
         <nav className="hidden items-center gap-6 text-xs font-bold uppercase tracking-[0.16em] text-ink/70 sm:flex">

@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import ProductCard, { type ProductCardData } from "@/components/ProductCard";
-import { productImageSrc } from "@/lib/images";
 import type { CategoryStat } from "@/lib/categories";
 import { whatsappRequestLink } from "@/lib/links";
 import HeroSection from "@/components/HeroSection";
@@ -258,41 +257,31 @@ function BespokeSection() {
           </div>
         </motion.div>
 
-        <FloatingLuxe />
+        <HeroVideo />
       </div>
     </section>
   );
 }
 
-// Floating luxury accessories we source — real product imagery from
-// Selfridges.com (handbags, leather goods & accessories).
-const LUXE_ACCESSORIES: Array<{ sku: string; alt: string; pos: string; size: string; rot: number; delay: string }> = [
-  { sku: "R04207583_M", alt: "Loewe Puzzle leather bag", pos: "left-[0%] top-[4%]", size: "h-44 w-36", rot: -7, delay: "0s" },
-  { sku: "R04606745_VNTGCHKSOAP_M", alt: "Burberry check bowling bag", pos: "right-[2%] top-[0%]", size: "h-40 w-32", rot: 6, delay: "0.7s" },
-  { sku: "R04205881_M", alt: "Burberry cross-body bag", pos: "right-[6%] top-[44%]", size: "h-48 w-40", rot: 4, delay: "1.2s" },
-  { sku: "R04420849_M", alt: "Gucci GG Marmont card holder", pos: "left-[4%] top-[50%]", size: "h-32 w-40", rot: -5, delay: "0.35s" },
-  { sku: "R04241632_M", alt: "Loewe Sling cross-body bag", pos: "left-[30%] bottom-[0%]", size: "h-40 w-32", rot: 8, delay: "1.6s" }
-];
-
-function luxeSrc(sku: string): string {
-  return productImageSrc(`https://images.selfridges.com/is/image/selfridges/${sku}?wid=600&hei=800&fmt=webp&qlt=85`);
-}
-
-function FloatingLuxe() {
+// Brand film for the personal-sourcing section. Autoplays muted on loop so it
+// behaves like ambient motion (replaces the old floating-accessory collage).
+function HeroVideo() {
   return (
-    <div className="relative mx-auto hidden aspect-square w-full max-w-md lg:block">
-      {/* soft glow behind the accessories */}
-      <div className="absolute left-1/2 top-1/2 h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent/15 blur-3xl" />
-      {LUXE_ACCESSORIES.map((a) => (
-        <div
-          key={a.sku}
-          className={`bee-anim-floating absolute ${a.pos} ${a.size} overflow-hidden rounded-[1.75rem] border-2 border-white bg-white shadow-pop`}
-          style={{ transform: `rotate(${a.rot}deg)`, animationDelay: a.delay }}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={luxeSrc(a.sku)} alt={a.alt} className="h-full w-full object-cover" loading="lazy" />
-        </div>
-      ))}
+    <div className="relative mx-auto w-full max-w-lg">
+      {/* soft glow behind the film */}
+      <div className="absolute -inset-6 rounded-[2.75rem] bg-accent/15 blur-3xl" aria-hidden />
+      <div className="relative overflow-hidden rounded-[2rem] border-2 border-white shadow-pop">
+        <video
+          className="aspect-video w-full bg-cream object-cover"
+          src="/hero.mp4"
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="metadata"
+          aria-label="Seasons by B brand film"
+        />
+      </div>
     </div>
   );
 }

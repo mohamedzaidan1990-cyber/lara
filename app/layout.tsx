@@ -106,7 +106,8 @@ function SiteFooter() {
     <footer className="mt-24 border-t border-accent/10 bg-white/70 backdrop-blur-sm text-ink">
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:grid-cols-2 sm:px-6 lg:grid-cols-4 lg:px-8">
         <div>
-          <p className="font-serif text-2xl text-accent">Seasons by B</p>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="Seasons by B" className="h-12 w-auto" width={460} height={188} />
           <p className="mt-3 text-sm text-ink/60">
             London&apos;s finest beauty, delivered with a pop of joy — to your door in 14 days.
           </p>
