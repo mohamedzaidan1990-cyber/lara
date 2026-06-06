@@ -270,6 +270,12 @@ export async function sendOrderConfirmation(order: EmailOrder, customer: EmailCu
     <p style="font-size:15px;line-height:1.65;color:${COLOR_INK};margin:0 0 8px;">We&rsquo;ve received your order and will source it from London&rsquo;s finest retailers.</p>
     <p style="font-size:15px;line-height:1.65;color:${COLOR_INK};margin:0;">Estimated delivery: <strong>10–14 working days</strong>.</p>
 
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:18px;">
+      <tr><td style="background-color:${COLOR_CREAM};border:1px solid rgba(35,39,42,0.08);border-radius:8px;padding:12px 14px;font-size:13px;line-height:1.6;color:${COLOR_INK};">
+        🛵 <strong>Delivery within Lebanon is $3–5</strong> depending on your location, paid in cash directly to the delivery driver on arrival — <strong>not included in this invoice</strong>.
+      </td></tr>
+    </table>
+
     ${orderCard(order)}
     ${paymentInstructionsBlock(order.payment_method, cfg)}
 
@@ -311,6 +317,7 @@ Payment method: ${paymentMethodLabel(order.payment_method)}
 ${textBody}
 
 Estimated delivery: 10–14 working days.
+Delivery within Lebanon is $3-5 depending on your location, paid in cash directly to the delivery driver on arrival — not included in this invoice.
 
 Seasons by B — London's finest, delivered to your door.`;
 
