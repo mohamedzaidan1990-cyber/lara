@@ -81,6 +81,11 @@ export default function InfoPage() {
 
       <Section title="Delivery">
         <p>10–14 working days door to door, anywhere we ship.</p>
+        <p>
+          <strong className="text-ink">Delivery within Lebanon is $3–5</strong>, depending on your location. This is
+          paid in cash directly to the delivery driver on arrival and is <strong className="text-ink">not included in
+          your invoice</strong>.
+        </p>
         <p>You&apos;ll receive email updates from order confirmation through to delivery.</p>
       </Section>
 
@@ -122,8 +127,11 @@ export default function InfoPage() {
           all original tags and packaging intact. The customer pays return shipping back to our address.
         </p>
         <p>
-          <strong className="text-ink">Non-returnable</strong> — opened beauty products, fragrances, and
-          personalised items.
+          <strong className="text-ink">Non-returnable</strong> — opened beauty products and personalised items.
+        </p>
+        <p>
+          <strong className="text-ink">Fragrances &amp; perfumes are non-returnable</strong> — Selfridges applies a
+          strict no-returns policy on fragrance, so all perfume, aftershave and scented-mist orders are final once placed.
         </p>
         <p>
           <strong className="text-ink">No exchanges</strong> — we issue refunds only.

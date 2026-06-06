@@ -443,6 +443,11 @@ function Step3Payment({
 
       <ProductSummary product={product} />
 
+      <p className="mt-4 rounded-lg bg-accent/5 px-3 py-2 text-xs leading-relaxed text-ink/70">
+        🛵 <strong className="text-ink">Delivery within Lebanon: $3–5</strong> depending on your location, paid in
+        cash directly to the delivery driver on arrival — <strong className="text-ink">not included in this invoice</strong>.
+      </p>
+
       <div className="mt-8 grid gap-4 sm:grid-cols-2">
         <PaymentCard
           active={paymentMethod === "whish_direct"}

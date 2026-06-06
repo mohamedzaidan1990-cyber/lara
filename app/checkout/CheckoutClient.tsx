@@ -18,7 +18,7 @@ function formatUsd(value: number): string {
 
 interface Confirmation {
   order_number: string;
-  items: { brand: string; name: string; quantity: number }[];
+  items: { brand: string; name: string; quantity: number; category: string }[];
   payment_method: PaymentMethod;
 }
 
@@ -28,6 +28,7 @@ export default function CheckoutClient({ whish }: { whish: string }) {
   const removeItem = useCart((s) => s.removeItem);
   const clearCart = useCart((s) => s.clearCart);
   const { totalItems, totalUSD } = computeTotals(items);
+  const hasFragrance = items.some((i) => i.category === "Fragrance");
 
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [form, setForm] = useState({ full_name: "", email: "", phone: "", address: "", notes: "" });
@@ -107,7 +108,7 @@ export default function CheckoutClient({ whish }: { whish: string }) {
       const data = (await res.json()) as { order_number: string };
       setConfirmation({
         order_number: data.order_number,
-        items: items.map((i) => ({ brand: i.brand, name: i.name, quantity: i.quantity })),
+        items: items.map((i) => ({ brand: i.brand, name: i.name, quantity: i.quantity, category: i.category })),
         payment_method: paymentMethod
       });
       clearCart();
@@ -173,6 +174,8 @@ export default function CheckoutClient({ whish }: { whish: string }) {
             <span className="text-sm uppercase tracking-[0.18em] text-ink/60">Total ({totalItems})</span>
             <span className="font-serif text-2xl text-ink">{formatUsd(totalUSD)}</span>
           </div>
+          <DeliveryNote />
+          {hasFragrance ? <FragranceNote /> : null}
           <button type="button" onClick={() => setStep(2)} className="btn-primary mt-6 w-full justify-center">
             Continue to Details
           </button>
@@ -236,6 +239,8 @@ export default function CheckoutClient({ whish }: { whish: string }) {
               <span>Total</span>
               <span>{formatUsd(totalUSD)}</span>
             </div>
+            <DeliveryNote />
+            {hasFragrance ? <FragranceNote /> : null}
           </div>
 
           <div className="mt-6 space-y-3">
@@ -305,6 +310,26 @@ function PayOption({ active, onClick, title, body }: { active: boolean; onClick:
   );
 }
 
+// Delivery within Lebanon is settled in cash with the courier, separate from
+// the invoice — shown wherever the order total appears.
+function DeliveryNote() {
+  return (
+    <p className="mt-3 rounded-lg bg-accent/5 px-3 py-2 text-xs leading-relaxed text-ink/70">
+      🛵 <strong className="text-ink">Delivery within Lebanon: $3–5</strong> depending on your location, paid in
+      cash directly to the delivery driver on arrival — <strong className="text-ink">not included in this invoice</strong>.
+    </p>
+  );
+}
+
+function FragranceNote() {
+  return (
+    <p className="mt-2 rounded-lg bg-accent/5 px-3 py-2 text-xs leading-relaxed text-ink/70">
+      🌸 <strong className="text-ink">Fragrances &amp; perfumes are non-returnable</strong> — Selfridges&rsquo; policy on
+      fragrance is strict, so perfume orders are final.
+    </p>
+  );
+}
+
 function Confirmation({ confirmation }: { confirmation: Confirmation }) {
   const names = confirmation.items.map((i) => `${i.brand} ${i.name}${i.quantity > 1 ? ` x${i.quantity}` : ""}`).join(", ");
   const msg =
@@ -328,6 +353,8 @@ function Confirmation({ confirmation }: { confirmation: Confirmation }) {
             <li key={idx}>{i.brand} — {i.name}{i.quantity > 1 ? ` ×${i.quantity}` : ""}</li>
           ))}
         </ul>
+        <DeliveryNote />
+        {confirmation.items.some((i) => i.category === "Fragrance") ? <FragranceNote /> : null}
       </div>
       <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
         <a href={wa} target="_blank" rel="noreferrer" className="btn-gold">

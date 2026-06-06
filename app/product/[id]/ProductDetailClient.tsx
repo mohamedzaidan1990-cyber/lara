@@ -211,14 +211,22 @@ export default function ProductDetailClient({ product }: Props) {
           <div className="flex items-start gap-3">
             <span aria-hidden>📦</span>
             <span>
-              <strong className="text-ink">Delivery</strong> — 10–14 working days to Lebanon, tracked.
+              <strong className="text-ink">Delivery</strong> — 10–14 working days to Lebanon, tracked. In-country
+              delivery is $3–5 paid to the driver on arrival (not in your invoice).
             </span>
           </div>
           <div className="flex items-start gap-3">
             <span aria-hidden>↩️</span>
-            <span>
-              <strong className="text-ink">Returns</strong> — 14 day returns policy.
-            </span>
+            {product.category === "Fragrance" ? (
+              <span>
+                <strong className="text-ink">Non-returnable</strong> — Selfridges&rsquo; fragrance policy is strict, so
+                perfume orders are final.
+              </span>
+            ) : (
+              <span>
+                <strong className="text-ink">Returns</strong> — 14 day returns policy.
+              </span>
+            )}
           </div>
           <div className="flex items-start gap-3">
             <BeeSvg size={16} />
