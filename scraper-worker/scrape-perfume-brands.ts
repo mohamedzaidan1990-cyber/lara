@@ -22,6 +22,10 @@ const BRANDS = [
   "sol-de-janeiro","gisou","ouai","glossier","ariana-grande"
 ];
 
+// Stray rejections from a failed Oxylabs fetch must not kill the whole run.
+process.on("unhandledRejection", (e) => console.error("  (ignored rejection)", (e as Error)?.message ?? e));
+process.on("uncaughtException", (e) => console.error("  (ignored exception)", (e as Error)?.message ?? e));
+
 (async () => {
   if (!process.env.OXYLABS_USERNAME || !process.env.OXYLABS_PASSWORD) { console.error("OXYLABS creds missing"); process.exit(1); }
   if (!process.env.DATABASE_URL) { console.error("DATABASE_URL missing"); process.exit(1); }
