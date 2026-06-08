@@ -28,10 +28,20 @@ const BRANDS = [
   const { scrapeSelfridgesBrands } = await import("./scraper");
   const { upsertProducts } = await import("./db");
   console.log(`Crawling ${BRANDS.length} perfume/mist brand pages…`);
-  const rows = await scrapeSelfridgesBrands(BRANDS);
-  const frag = rows.filter((r) => r.category === "Fragrance");
-  const mists = frag.filter((r) => /\b(hair|body)\s*mist\b/i.test(r.name));
-  console.log(`Scraped ${rows.length} products — ${frag.length} fragrance (${mists.length} hair/body mists).`);
-  if (mists.length) console.log("Mists:\n" + mists.slice(0,10).map(m=>`  ${m.brand} ${m.name} — $${m.price_usd}`).join("\n"));
-  if (rows.length) { const n = await upsertProducts(rows); console.log(`Upserted ${n}.`); }
+  let totalUp = 0, home = 0, frag = 0;
+  // One brand at a time, upserting per brand so a transient failure on one
+  // doesn't lose the whole crawl.
+  for (const brand of BRANDS) {
+    try {
+      const rows = await scrapeSelfridgesBrands([brand]);
+      if (!rows.length) continue;
+      home += rows.filter((r) => r.category === "Home Fragrance").length;
+      frag += rows.filter((r) => r.category === "Fragrance").length;
+      const n = await upsertProducts(rows);
+      totalUp += n;
+    } catch (e) {
+      console.error(`  ${brand} failed — skipping:`, (e as Error)?.message ?? e);
+    }
+  }
+  console.log(`Done. Upserted ${totalUp} (Fragrance ${frag}, Home Fragrance ${home}).`);
 })().catch((e) => { console.error("failed:", e?.message ?? e); process.exit(1); });
