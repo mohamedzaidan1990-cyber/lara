@@ -32,6 +32,13 @@ export const CATEGORY_DEFS: readonly CategoryDef[] = [
     defaultImage: "https://images.unsplash.com/photo-1541643600914-78b084683601?w=800&q=80"
   },
   {
+    slug: "home-fragrance",
+    name: "Home Fragrance",
+    label: "Home Fragrance",
+    blurb: "Scented candles, diffusers and room sprays from the great perfume houses.",
+    defaultImage: "https://images.unsplash.com/photo-1602874801007-bd458bb1b8b6?w=800&q=80"
+  },
+  {
     slug: "haircare",
     name: "Haircare",
     label: "Haircare",

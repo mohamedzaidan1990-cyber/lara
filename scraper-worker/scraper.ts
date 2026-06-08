@@ -165,15 +165,24 @@ export function isNonBeauty(name: string): boolean {
     /\brings?\b/.test(s) ||
     // electronics
     /\b(camera|headphones?|earphones?|earbuds?|airpods?|smartphone|phone case|power ?bank|projector|turntable|speaker|soundbar|console|drone)\b/.test(s) ||
-    // home fragrance / home goods (candles, room sprays, room/car/reed diffusers).
-    // "hair/blur/brush diffuser" are beauty (styling attachment / makeup) — kept.
-    /\b(candles?|wax melts?|room spray|home spray)\b/.test(s) ||
-    (/\bdiffusers?\b/.test(s) && !/\b(hair|blur|brush)\b/.test(s)) ||
+    // non-beauty homeware (towels, cushions, tableware). Scented candles,
+    // diffusers and room sprays are NOT excluded — they're routed into the
+    // dedicated Home Fragrance category (see isHomeFragrance / classify).
     /\b(bath towel|cushion cover|soap plate|stoneware mug)\b/.test(s) ||
     /\bglass(ware)?\b/.test(s) ||
     /\bclothing\b/.test(s) ||
     /\baccessor(y|ies)\b/.test(s)
   );
+}
+
+// Scented candles, diffusers and room sprays — home fragrance, routed into
+// their own category. "hair/blur/brush diffuser" are beauty (styling
+// attachment / makeup), not home fragrance.
+export function isHomeFragrance(name: string): boolean {
+  const s = (name || "").toLowerCase();
+  if (/\b(candles?|wax melts?|room spray|home spray)\b/.test(s)) return true;
+  if (/\bdiffusers?\b/.test(s) && !/\b(hair|blur|brush)\b/.test(s)) return true;
+  return false;
 }
 
 // Single gate for every source: reject non-beauty / garbage rows. Fragrances
@@ -207,9 +216,14 @@ async function toRows(raws: RawProduct[], categoryName: string, sourceBrand: str
     raws
       .filter((r) => !shouldExclude(`${r.brand} ${r.name}`))
       .map(async (r) => {
-        // Perfumes always land in the Fragrance category (flat 20% markup),
-        // regardless of which listing they were crawled from.
-        const category = isFragrance(`${r.brand} ${r.name}`) ? "Fragrance" : categoryName;
+        // Perfumes always land in Fragrance (flat 20% markup) and candles/
+        // diffusers in Home Fragrance, regardless of which listing they came from.
+        const text = `${r.brand} ${r.name}`;
+        const category = isHomeFragrance(text)
+          ? "Home Fragrance"
+          : isFragrance(text)
+            ? "Fragrance"
+            : categoryName;
         return {
           brand: r.brand || sourceBrand,
           name: r.name,
@@ -1233,6 +1247,7 @@ export const SELFRIDGES_BRAND_SLUGS: string[] = [
 // Brand pages mix categories, so classify each product by name keywords.
 function classifySelfridgesCategory(name: string): string {
   const s = (name || "").toLowerCase();
+  if (isHomeFragrance(name)) return "Home Fragrance";
   if (isFragrance(name)) return "Fragrance";
   if (/\b(brush|sponge|blender|tweezer|curler|applicator|mirror|hair ?dryer|straightener|styler|airwrap|device|sharpener)\b/.test(s)) return "Beauty tools";
   if (/\b(shampoo|conditioner|scalp|hairspray|hair ?spray|dry shampoo|leave-?in)\b/.test(s) || /\bhair\b/.test(s)) return "Haircare";

@@ -5,6 +5,7 @@ export type Category =
   | "Makeup"
   | "Skincare"
   | "Fragrance"
+  | "Home Fragrance"
   | "Bags"
   | "Haircare"
   | "Accessories"
@@ -99,12 +100,13 @@ export async function getFallbackProducts(): Promise<FeaturedProduct[]> {
   return withPrices(FALLBACK_DATA);
 }
 
-export const CATEGORIES: readonly Category[] = ["All", "Makeup", "Skincare", "Fragrance", "Haircare", "Beauty tools"] as const;
+export const CATEGORIES: readonly Category[] = ["All", "Makeup", "Skincare", "Fragrance", "Home Fragrance", "Haircare", "Beauty tools"] as const;
 
 export const PRODUCT_CATEGORIES: readonly ProductCategory[] = [
   "Makeup",
   "Skincare",
   "Fragrance",
+  "Home Fragrance",
   "Haircare",
   "Beauty tools"
 ] as const;
