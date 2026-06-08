@@ -165,8 +165,11 @@ export function isNonBeauty(name: string): boolean {
     /\brings?\b/.test(s) ||
     // electronics
     /\b(camera|headphones?|earphones?|earbuds?|airpods?|smartphone|phone case|power ?bank|projector|turntable|speaker|soundbar|console|drone)\b/.test(s) ||
-    // home goods
-    /\b(bath towel|cushion cover|soap plate|stoneware mug|incense|reed diffuser)\b/.test(s) ||
+    // home fragrance / home goods (candles, room sprays, room/car/reed diffusers).
+    // "hair/blur/brush diffuser" are beauty (styling attachment / makeup) — kept.
+    /\b(candles?|wax melts?|room spray|home spray)\b/.test(s) ||
+    (/\bdiffusers?\b/.test(s) && !/\b(hair|blur|brush)\b/.test(s)) ||
+    /\b(bath towel|cushion cover|soap plate|stoneware mug)\b/.test(s) ||
     /\bglass(ware)?\b/.test(s) ||
     /\bclothing\b/.test(s) ||
     /\baccessor(y|ies)\b/.test(s)
@@ -1234,7 +1237,7 @@ function classifySelfridgesCategory(name: string): string {
   if (/\b(brush|sponge|blender|tweezer|curler|applicator|mirror|hair ?dryer|straightener|styler|airwrap|device|sharpener)\b/.test(s)) return "Beauty tools";
   if (/\b(shampoo|conditioner|scalp|hairspray|hair ?spray|dry shampoo|leave-?in)\b/.test(s) || /\bhair\b/.test(s)) return "Haircare";
   if (/\b(lipstick|lip gloss|lip liner|lip balm|lip oil|lip stain|mascara|eyeliner|eye liner|eyeshadow|eye shadow|palette|foundation|concealer|blush|bronzer|highlighter|contour|brow|eyebrow|setting spray|setting powder|primer|kohl|lip|gloss|tint|nail|lacquer|mac)\b/.test(s)) return "Makeup";
-  if (/\b(serum|moisturiser|moisturizer|cream|cleanser|toner|essence|exfoliant|exfoliator|retinol|spf|sunscreen|sun cream|face oil|mask|eye cream|peel|balm|lotion|body|hand cream|scrub|treatment|mist)\b/.test(s)) return "Skincare";
+  if (/\b(serum|moisturiser|moisturizer|cream|cleanser|toner|essence|exfoliant|exfoliator|retinol|spf|sunscreen|sun cream|face oil|mask|eye cream|peel|balm|lotion|body|hand cream|scrub|treatment|mist|shower gel|body wash|deodorant|antiperspirant|bubble bath|bath oil|bath soak|bath salts?|hand wash|soap|body polish|body buffer)\b/.test(s)) return "Skincare";
   return "Makeup";
 }
 
