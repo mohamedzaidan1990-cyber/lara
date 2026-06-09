@@ -196,7 +196,8 @@ export async function POST(req: Request) {
     brand: it.brand,
     name: it.name,
     price_usd: it.price_usd,
-    quantity: it.quantity
+    quantity: it.quantity,
+    url: it.product_url ?? null
   }));
   const emailOrder: EmailOrder = {
     order_number: order.order_number,

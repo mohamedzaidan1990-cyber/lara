@@ -15,6 +15,7 @@ export interface EmailOrderItem {
   name: string;
   price_usd: number | string;
   quantity: number;
+  url?: string | null;
 }
 
 export interface EmailOrder {
@@ -365,14 +366,16 @@ export async function sendOrderNotification(order: EmailOrder, customer: EmailCu
 
     <table role="presentation" class="stack-block" width="100%" cellspacing="0" cellpadding="0" border="0" style="font-size:14px;line-height:1.8;color:${COLOR_INK};border:1px solid rgba(35,39,42,0.08);background-color:${COLOR_CREAM};margin-top:16px;">
       <tr><td style="padding:22px;">
-        <div style="font-size:11px;text-transform:uppercase;letter-spacing:3px;color:${COLOR_INK_MUTED};margin-bottom:8px;">${order.items && order.items.length > 0 ? "Items — find each on Selfridges" : "Product"}</div>
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:3px;color:${COLOR_INK_MUTED};margin-bottom:8px;">${order.items && order.items.length > 0 ? "Items — open each to add to basket" : "Product"}</div>
         ${
           order.items && order.items.length > 0
             ? order.items
                 .map((it) => {
-                  const term = encodeURIComponent(`${it.brand} ${it.name}`);
-                  const sel = `https://www.selfridges.com/GB/en/cat/?term=${term}`;
-                  return `<div style="margin-bottom:4px;">${it.brand} — ${it.name}${it.quantity > 1 ? ` ×${it.quantity}` : ""} · ${formatUsd(Number(it.price_usd) * it.quantity)} · <a href="${sel}" style="color:${COLOR_ACCENT};">Find on Selfridges 🔍</a></div>`;
+                  const link = it.url
+                    ? it.url
+                    : `https://www.selfridges.com/GB/en/cat/?term=${encodeURIComponent(`${it.brand} ${it.name}`)}`;
+                  const label = it.url ? "Open product 🛒" : "Find on Selfridges 🔍";
+                  return `<div style="margin-bottom:8px;">${it.brand} — ${it.name}${it.quantity > 1 ? ` ×${it.quantity}` : ""} · ${formatUsd(Number(it.price_usd) * it.quantity)}<br /><a href="${link}" style="color:${COLOR_ACCENT};word-break:break-all;">${label}</a></div>`;
                 })
                 .join("")
             : `<strong>${order.product_brand} — ${order.product_name}</strong>`
@@ -397,11 +400,20 @@ Phone: ${customer.phone}
 Email: ${customer.email}
 Address: ${customer.address}
 
-Product: ${order.product_brand} — ${order.product_name}
+${
+    order.items && order.items.length > 0
+      ? "Items:\n" +
+        order.items
+          .map(
+            (it) =>
+              `- ${it.brand} — ${it.name}${it.quantity > 1 ? ` x${it.quantity}` : ""}${it.url ? `\n  ${it.url}` : ""}`
+          )
+          .join("\n")
+      : `Product: ${order.product_brand} — ${order.product_name}${order.product_url ? `\n${order.product_url}` : ""}`
+  }
 Price: ${priceLabel}${order.price_gbp ? ` (£${order.price_gbp} GBP)` : ""}
 Payment method: ${paymentMethodLabel(order.payment_method)}
-${order.product_url ? `Source: ${order.product_url}\n` : ""}${order.notes ? `Notes: ${order.notes}\n` : ""}
-Admin: ${cfg.adminUrl}`;
+${order.notes ? `Notes: ${order.notes}\n` : ""}Admin: ${cfg.adminUrl}`;
 
   try {
     const { data, error } = await resend.emails.send({
