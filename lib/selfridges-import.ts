@@ -149,6 +149,19 @@ function cleanText(s: string | undefined | null): string {
   return (s ?? "").replace(/\s+/g, " ").trim();
 }
 
+// Selfridges PDPs embed the product price in RSC flight data:
+//   "price":{"currency":"GBP","current":449,"was":579,"wasWas":null}
+// `was` is only set while the item is on sale and holds the pre-sale price.
+// We always import the pre-sale price — a Selfridges promotion must not
+// lower the catalogue price. (The quotes are backslash-escaped inside the
+// flight payload, hence the \\? in the pattern.)
+function extractFlightPrice(html: string): number | null {
+  const m = html.match(/\\?"current\\?":(\d+(?:\.\d+)?),\\?"was\\?":(\d+(?:\.\d+)?|null),\\?"wasWas\\?":/);
+  if (!m) return null;
+  const was = m[2] === "null" ? null : Number(m[2]);
+  return was ?? Number(m[1]);
+}
+
 interface LdFields {
   name?: string;
   brand?: string;
@@ -259,7 +272,10 @@ export function parseProductHtml(html: string, url: string): Omit<ImportedProduc
     cleanText($('[itemprop="brand"]').first().text()) ||
     cleanText($('meta[property="og:brand"]').attr("content"));
 
+  // Flight data first: JSON-LD/meta prices reflect the discounted price
+  // during sales, whereas the flight payload exposes the pre-sale `was`.
   const priceRaw =
+    extractFlightPrice(html) ??
     ld.price ??
     ($('[data-test="price"]').first().text() ||
       $('meta[itemprop="price"]').attr("content") ||

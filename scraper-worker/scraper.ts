@@ -1098,11 +1098,18 @@ function parseNextDataProducts(html: string, origin: string): RawProduct[] {
         : brandRaw && typeof brandRaw === "object" && typeof (brandRaw as Record<string, unknown>).name === "string"
           ? ((brandRaw as Record<string, unknown>).name as string)
           : "";
+    // Selfridges price objects look like {currency, current, was, wasWas} —
+    // `was` is only set during a sale and holds the pre-sale price, which is
+    // the one we list (promotions must not lower the catalogue price).
+    const pricing = obj.pricing as Record<string, unknown> | undefined;
     const priceRaw =
-      obj.price ?? obj.currentPrice ?? obj.amount ?? obj.value ?? (obj.pricing as Record<string, unknown> | undefined)?.current;
+      obj.price ?? obj.currentPrice ?? obj.amount ?? obj.value ?? (pricing && (pricing.was ?? pricing.current));
     const priceGbp = parsePrice(
       typeof priceRaw === "object" && priceRaw !== null
-        ? ((priceRaw as Record<string, unknown>).value ?? (priceRaw as Record<string, unknown>).amount)
+        ? ((priceRaw as Record<string, unknown>).was ??
+            (priceRaw as Record<string, unknown>).value ??
+            (priceRaw as Record<string, unknown>).amount ??
+            (priceRaw as Record<string, unknown>).current)
         : (priceRaw as string | number | undefined)
     );
     if (!name || !brand || priceGbp === null) continue;
@@ -1161,7 +1168,16 @@ function parseSelfridgesCards($: cheerio.CheerioAPI, origin: string): RawProduct
     const a = c.find('a[data-analytics-link="product_card_link"]').first();
     const name = a.text().trim();
     const href = a.attr("href") || "";
-    const price = parsePrice(c.find('[data-testid="product-price"]').first().text().replace(/price:/i, "").trim());
+    // Sale cards render TWO price <li>s — "Discount price:" then "Previous
+    // price:". We always list the pre-sale price: Selfridges promotions must
+    // not lower the catalogue price, so prefer "Previous price" when present.
+    const priceEls = c.find('[data-testid="product-price"]');
+    let priceText = priceEls.first().text();
+    priceEls.each((_, p) => {
+      const t = $(p).text();
+      if (/previous\s*price/i.test(t)) priceText = t;
+    });
+    const price = parsePrice(priceText.replace(/^.*price:/i, "").trim());
     if (!brandRaw || !name || price === null || !href) return;
     const sku = selfridgesSku(href);
     out.push({
