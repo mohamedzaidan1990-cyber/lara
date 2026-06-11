@@ -26,7 +26,11 @@ Never invent products, prices, or links — only use the CATALOGUE MATCHES list.
 Write links as plain URLs exactly as given (no markdown, no brackets) — the chat turns them into buttons.
 Never mention Selfridges, Space NK, or any sourcing retailer.`;
 
-const SITE_BASE = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://seasonsbyb.co.uk").replace(/\/$/, "");
+// `||` (not `??`) so an empty env var still falls back; www is stripped
+// because the www host has no certificate of its own — links must use the apex.
+const SITE_BASE = (process.env.NEXT_PUBLIC_SITE_URL || "https://seasonsbyb.co.uk")
+  .replace(/\/$/, "")
+  .replace(/^https?:\/\/www\./, "https://");
 
 interface CatalogMatch {
   id: string;
