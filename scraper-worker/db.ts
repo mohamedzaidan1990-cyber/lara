@@ -31,6 +31,9 @@ export interface ScrapedProductRow {
   // null for brand-page finds, which aren't relevance-ordered per category.
   popularity?: number | null;
   is_bestseller?: boolean;
+  // Name-derived browse filter ("Foundation", "Lipstick", …); "Other" when
+  // no rule matches.
+  subcategory?: string;
 }
 
 export async function ensureSchema(): Promise<void> {
@@ -57,6 +60,7 @@ export async function ensureSchema(): Promise<void> {
 
     ALTER TABLE products ADD COLUMN IF NOT EXISTS popularity int;
     ALTER TABLE products ADD COLUMN IF NOT EXISTS is_bestseller boolean DEFAULT false;
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS subcategory text;
 
     CREATE TABLE IF NOT EXISTS scrape_logs (
       id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -82,8 +86,8 @@ export async function upsertProducts(products: ScrapedProductRow[]): Promise<num
     try {
       await client.query(
         `INSERT INTO products
-           (brand, name, category, price_gbp, price_usd, deliverable_lebanon, product_url, image_url, images, popularity, is_bestseller)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+           (brand, name, category, price_gbp, price_usd, deliverable_lebanon, product_url, image_url, images, popularity, is_bestseller, subcategory)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
          ON CONFLICT (product_url) DO UPDATE SET
            brand = excluded.brand,
            name = excluded.name,
@@ -100,6 +104,7 @@ export async function upsertProducts(products: ScrapedProductRow[]): Promise<num
            -- category crawl assigned.
            popularity = coalesce(excluded.popularity, products.popularity),
            is_bestseller = excluded.is_bestseller,
+           subcategory = coalesce(excluded.subcategory, products.subcategory),
            scraped_at = now()`,
         [
           p.brand,
@@ -112,7 +117,8 @@ export async function upsertProducts(products: ScrapedProductRow[]): Promise<num
           p.image_url,
           images,
           p.popularity ?? null,
-          p.is_bestseller ?? false
+          p.is_bestseller ?? false,
+          p.subcategory ?? null
         ]
       );
       n += 1;

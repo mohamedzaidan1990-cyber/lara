@@ -7,10 +7,12 @@ import {
   getCategoryBrands,
   getCategoryBySlug,
   getCategoryProducts,
+  getCategorySubcategories,
   getPopularBrands,
   parseBrand,
   parsePage,
-  parseSort
+  parseSort,
+  parseSubcategory
 } from "@/lib/categories";
 import { BeeMascot } from "@/components/BeeMascot";
 import CategoryControls from "./CategoryControls";
@@ -27,6 +29,7 @@ interface SearchParams {
   sort?: string | string[];
   page?: string | string[];
   brand?: string | string[];
+  sub?: string | string[];
 }
 
 export const dynamic = "force-dynamic";
@@ -59,13 +62,16 @@ export default async function CategoryPage({
   const sort = parseSort(searchParams.sort);
   const page = parsePage(searchParams.page);
   const brand = parseBrand(searchParams.brand);
-  const [result, brands, popularBrands] = await Promise.all([
-    getCategoryProducts(def.name, sort, page, { brand }),
+  const sub = parseSubcategory(searchParams.sub);
+  const [result, brands, popularBrands, subcategories] = await Promise.all([
+    getCategoryProducts(def.name, sort, page, { brand, subcategory: sub }),
     getCategoryBrands(def.name),
-    getPopularBrands(def.name)
+    getPopularBrands(def.name),
+    getCategorySubcategories(def.name)
   ]);
   const { products, total, categoryTotal, totalPages } = result;
   const activeBrand = result.brand;
+  const activeSub = result.subcategory;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
@@ -83,11 +89,11 @@ export default async function CategoryPage({
           <p className="relative text-[11px] font-bold uppercase tracking-[0.32em] text-white/80">Shop the edit</p>
           <h1 className="relative mt-2 font-serif text-4xl font-bold sm:text-5xl">{def.label}</h1>
           <p className="relative mt-3 text-sm text-white/85">
-            {activeBrand ? (
+            {activeBrand || activeSub ? (
               <>
-                Showing {total} of {categoryTotal} products ({activeBrand}).{" "}
+                Showing {total} of {categoryTotal} products ({[activeBrand, activeSub].filter(Boolean).join(" · ")}).{" "}
                 <Link href={`/category/${def.slug}`} className="font-bold underline hover:text-white">
-                  Clear filter
+                  Clear filters
                 </Link>
               </>
             ) : (
@@ -112,7 +118,14 @@ export default async function CategoryPage({
           </div>
         ) : null}
         <div className="mt-5 flex justify-end rounded-[2rem] border border-white/60 bg-white/40 p-4 backdrop-blur-sm">
-          <CategoryControls current={sort} brands={brands} currentBrand={activeBrand} slug={def.slug} />
+          <CategoryControls
+            current={sort}
+            brands={brands}
+            currentBrand={activeBrand}
+            subcategories={subcategories}
+            currentSubcategory={activeSub}
+            slug={def.slug}
+          />
         </div>
       </header>
 
@@ -144,7 +157,7 @@ export default async function CategoryPage({
             ))}
           </div>
 
-          <Pagination slug={def.slug} sort={sort} page={page} totalPages={totalPages} brand={activeBrand} />
+          <Pagination slug={def.slug} sort={sort} page={page} totalPages={totalPages} brand={activeBrand} sub={activeSub} />
         </>
       )}
     </div>
@@ -156,13 +169,15 @@ function Pagination({
   sort,
   page,
   totalPages,
-  brand
+  brand,
+  sub
 }: {
   slug: string;
   sort: string;
   page: number;
   totalPages: number;
   brand: string | null;
+  sub: string | null;
 }) {
   if (totalPages <= 1) return null;
 
@@ -170,6 +185,7 @@ function Pagination({
     const sp = new URLSearchParams();
     if (sort && sort !== "featured") sp.set("sort", sort);
     if (brand) sp.set("brand", brand);
+    if (sub) sp.set("sub", sub);
     if (target > 1) sp.set("page", String(target));
     const qs = sp.toString();
     return qs ? `/category/${slug}?${qs}` : `/category/${slug}`;

@@ -239,7 +239,8 @@ async function toRows(raws: RawProduct[], categoryName: string, sourceBrand: str
           product_url: r.product_url,
           image_url: r.image_url,
           popularity: r.popularity ?? null,
-          is_bestseller: r.bestseller ?? false
+          is_bestseller: r.bestseller ?? false,
+          subcategory: classifySubcategory(category, r.name)
         };
       })
   );
@@ -1295,6 +1296,84 @@ function classifySelfridgesCategory(name: string): string {
   return "Makeup";
 }
 
+// Classify a product into a browseable subcategory from its name. First match
+// wins, so specific rules sit above generic ones ("powder blush" → Blush, not
+// Powder). Unmatched products land in "Other" so the storefront filter always
+// covers the whole grid.
+const SUBCATEGORY_RULES: Record<string, Array<[RegExp, string]>> = {
+  Makeup: [
+    [/\bprimer\b/, "Primer"],
+    [/setting spray|fixing spray|fix\s*\+/, "Setting Spray"],
+    [/\bconcealer\b/, "Concealer"],
+    [/foundation|skin tint|tinted serum|tinted moisturis/, "Foundation"],
+    [/\bblush(er)?\b/, "Blush"],
+    [/bronzer|contour/, "Bronzer & Contour"],
+    [/highlight(er)?|light wand|glow wand/, "Highlighter"],
+    [/\bpowder\b/, "Powder"],
+    [/mascara|\blash(es)?\b/, "Mascara"],
+    [/eyeliner|eye liner|eye pencil|\bkohl\b|kajal/, "Eyeliner"],
+    [/eyeshadow|eye shadow|eye palette|shadow stick/, "Eyeshadow"],
+    [/\bbrow\b|eyebrow/, "Brows"],
+    [/\bcheek\b/, "Blush"],
+    [/lip liner|lip pencil/, "Lip Liner"],
+    [/lip gloss|lip oil|gloss bomb|lip lacquer|lip luminizer/, "Lip Gloss & Oil"],
+    [/lip balm|lip butter|lip mask|lip treatment|lip scrub/, "Lip Care"],
+    [/lipstick|liquid lip|lip tint|lip stain|lip cr[eè]me|lip colour|lip color|\brouge\b/, "Lipstick"],
+    [/\bnail|polish remover|lacquer/, "Nails"],
+    [/palette/, "Palettes"],
+    [/\bset\b|\bkit\b|\bduo\b|\btrio\b|collection/, "Sets"]
+  ],
+  Skincare: [
+    [/spf|sunscreen|sun cream|sun fluid|uv defense|uv protect/, "SPF & Sun Care"],
+    [/cleanser|cleansing|face wash|micellar|makeup remover|make-up remover/, "Cleanser"],
+    [/exfoli|\bpeel\b|\bscrub\b|resurfac/, "Exfoliator & Peel"],
+    [/eye cream|eye serum|eye balm|eye gel|eye mask|eye patch|eye treatment/, "Eye Care"],
+    [/\bmask\b|masque/, "Masks"],
+    [/toner|essence|face mist|facial mist|facial spray/, "Toner & Essence"],
+    [/serum|ampoule|concentrate\b/, "Serum"],
+    [/face oil|facial oil/, "Face Oil"],
+    [/body|shower|\bbath\b|deodorant|\bhand\b|\bsoap\b|\bfoot\b/, "Body & Hand"],
+    [/\blip\b/, "Lip Care"],
+    [/moisturis|moisturiz|cr[eè]me|\bcream\b|lotion|hydrator/, "Moisturiser"],
+    [/\bset\b|\bkit\b|\bduo\b|\btrio\b|collection/, "Sets"]
+  ],
+  Fragrance: [
+    [/\bset\b|discovery|collection|\bduo\b|\btrio\b/, "Gift Sets"],
+    [/\bmist\b/, "Hair & Body Mist"],
+    [/eau de toilette|\bedt\b/, "Eau de Toilette"],
+    [/cologne/, "Cologne"],
+    [/eau de parfum|\bedp\b|parfum|elixir|extrait/, "Eau de Parfum"]
+  ],
+  Haircare: [
+    [/shampoo/, "Shampoo"],
+    [/conditioner/, "Conditioner"],
+    [/\bmask\b|treatment|repair|\bbond\b|leave-in|scalp/, "Treatments & Masks"],
+    [/\boil\b/, "Hair Oil"],
+    [/spray|\bgel\b|mousse|paste|\bwax\b|styl|texturis|\bcream\b|balm/, "Styling"]
+  ],
+  "Beauty tools": [
+    [/dryer|straightener|curl|airwrap|waver|styler|crimper|hot brush/, "Hair Tools"],
+    [/\bled\b|microcurrent|device|gua sha|roller|sculpt|cryo|therapy/, "Skin Devices"],
+    [/brush|sponge|blender|applicator|\bpuff\b/, "Brushes & Applicators"],
+    [/mirror|tweezer|sharpener|curler|\bcase\b|\bbag\b/, "Accessories"]
+  ],
+  "Home Fragrance": [
+    [/candle/, "Candles"],
+    [/diffuser/, "Diffusers"],
+    [/room spray|pillow|linen/, "Room Sprays"]
+  ]
+};
+
+export function classifySubcategory(category: string, name: string): string {
+  const rules = SUBCATEGORY_RULES[category];
+  if (!rules) return "Other";
+  const s = (name || "").toLowerCase();
+  for (const [re, label] of rules) {
+    if (re.test(s)) return label;
+  }
+  return "Other";
+}
+
 // Derive a Selfridges brand-page slug from a brand name
 // ("Estée Lauder" → "estee-lauder", "NARS" → "nars").
 export function brandToSlug(brand: string): string {
@@ -1339,7 +1418,9 @@ export async function scrapeSelfridgesBrands(slugs: string[] = SELFRIDGES_BRAND_
         price_usd: await convertGbpToUsd(r.priceGbp, category),
         deliverable_lebanon: true,
         product_url: r.product_url,
-        image_url: r.image_url
+        image_url: r.image_url,
+        is_bestseller: r.bestseller ?? false,
+        subcategory: classifySubcategory(category, r.name)
       });
       added += 1;
     }

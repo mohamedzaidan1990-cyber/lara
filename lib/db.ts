@@ -63,6 +63,8 @@ export const SCHEMA_STATEMENTS = [
   // Selfridges relevance rank within the category (1 = most wanted) + badge.
   `alter table products add column if not exists popularity int`,
   `alter table products add column if not exists is_bestseller boolean default false`,
+  // Name-derived browse filter ("Foundation", "Lipstick", …).
+  `alter table products add column if not exists subcategory text`,
   `update products set images = jsonb_build_array(image_url)
      where images is null and image_url is not null and image_url <> ''`,
   `create table if not exists scrape_logs (

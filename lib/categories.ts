@@ -85,6 +85,33 @@ export function parseBrand(value: string | string[] | undefined): string | null 
   return trimmed.length > 0 ? trimmed : null;
 }
 
+// Subcategory query param shares brand's parsing rules (free-text, matched
+// exactly against the stored value).
+export const parseSubcategory = parseBrand;
+
+export interface SubcategoryCount {
+  subcategory: string;
+  count: number;
+}
+
+// Distinct subcategories within a category, for the filter dropdown. "Other"
+// sorts last so the real groups lead.
+export async function getCategorySubcategories(categoryName: ProductCategory): Promise<SubcategoryCount[]> {
+  try {
+    const sql = getSql();
+    const rows = (await sql`
+      select subcategory, count(*)::int as count
+      from products
+      where category = ${categoryName} and coalesce(subcategory, '') <> ''
+      group by subcategory
+      order by (subcategory = 'Other') asc, subcategory asc
+    `) as SubcategoryCount[];
+    return rows;
+  } catch {
+    return [];
+  }
+}
+
 // Stable per-day seed: the catalog reshuffles each calendar day but stays
 // consistent for everyone (and across pagination) within that day.
 export function dailySeed(): string {
@@ -199,10 +226,12 @@ export interface CategoryProductsResult {
   totalPages: number;
   sort: CategorySort;
   brand: string | null;
+  subcategory: string | null;
 }
 
 export interface CategoryProductsOptions {
   brand?: string | null;
+  subcategory?: string | null;
   seed?: string;
 }
 
@@ -214,6 +243,7 @@ export async function getCategoryProducts(
 ): Promise<CategoryProductsResult> {
   const sql = getSql();
   const brand = opts.brand?.trim() ? opts.brand.trim() : null;
+  const sub = opts.subcategory?.trim() ? opts.subcategory.trim() : null;
   const seed = opts.seed ?? dailySeed();
   const safePage = page < 1 ? 1 : page;
   const offset = (safePage - 1) * PAGE_SIZE;
@@ -231,6 +261,7 @@ export async function getCategoryProducts(
     from products
     where category = ${categoryName}
       and (${brand}::text is null or brand = ${brand})
+      and (${sub}::text is null or subcategory = ${sub})
   `) as Array<{ n: number }>;
   const total = totalRows[0]?.n ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -242,6 +273,7 @@ export async function getCategoryProducts(
              deliverable_lebanon, product_url, image_url
       from products
       where category = ${categoryName} and (${brand}::text is null or brand = ${brand})
+        and (${sub}::text is null or subcategory = ${sub})
       order by price_gbp asc, scraped_at desc
       limit ${PAGE_SIZE} offset ${offset}
     `) as ProductListRow[];
@@ -251,6 +283,7 @@ export async function getCategoryProducts(
              deliverable_lebanon, product_url, image_url
       from products
       where category = ${categoryName} and (${brand}::text is null or brand = ${brand})
+        and (${sub}::text is null or subcategory = ${sub})
       order by price_gbp desc, scraped_at desc
       limit ${PAGE_SIZE} offset ${offset}
     `) as ProductListRow[];
@@ -260,6 +293,7 @@ export async function getCategoryProducts(
              deliverable_lebanon, product_url, image_url
       from products
       where category = ${categoryName} and (${brand}::text is null or brand = ${brand})
+        and (${sub}::text is null or subcategory = ${sub})
       order by scraped_at desc, brand asc
       limit ${PAGE_SIZE} offset ${offset}
     `) as ProductListRow[];
@@ -272,6 +306,7 @@ export async function getCategoryProducts(
              deliverable_lebanon, product_url, image_url
       from products
       where category = ${categoryName} and (${brand}::text is null or brand = ${brand})
+        and (${sub}::text is null or subcategory = ${sub})
       order by coalesce(is_bestseller, false) desc, popularity asc nulls last, md5(id::text || ${seed}) asc
       limit ${PAGE_SIZE} offset ${offset}
     `) as ProductListRow[];
@@ -285,7 +320,8 @@ export async function getCategoryProducts(
     pageSize: PAGE_SIZE,
     totalPages,
     sort,
-    brand
+    brand,
+    subcategory: sub
   };
 }
 
