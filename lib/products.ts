@@ -6,6 +6,7 @@ export interface ProductDetail {
   brand: string;
   name: string;
   category: ProductCategory;
+  subcategory: string | null;
   price_gbp: number;
   price_usd: number;
   deliverable_lebanon: boolean;
@@ -42,7 +43,7 @@ export async function getProductById(id: string): Promise<ProductDetail | null> 
   try {
     const sql = getSql();
     const rows = (await sql`
-      select id, brand, name, category,
+      select id, brand, name, category, subcategory,
              price_gbp::float8 as price_gbp, price_usd::float8 as price_usd,
              deliverable_lebanon, product_url, image_url, images
       from products

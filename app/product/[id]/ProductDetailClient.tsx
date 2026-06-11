@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { productImageSrc } from "@/lib/images";
@@ -8,6 +8,11 @@ import { useCart } from "@/lib/cart";
 import { whatsappRequestLink } from "@/lib/links";
 import { BeeSvg } from "@/components/BeeMascot";
 import type { ProductDetail } from "@/lib/products";
+import {
+  COMPLEXION_SUBCATEGORIES,
+  isShadeRelevant,
+  type ShadeOption
+} from "@/lib/shade-options";
 
 function formatUsd(value: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -19,6 +24,90 @@ function formatUsd(value: number): string {
 
 interface Props {
   product: ProductDetail;
+}
+
+// Available shades/colours for the product, fetched lazily (the first visitor
+// triggers a one-time PDP lookup server-side; afterwards it's cached in the
+// DB). Selection is OPTIONAL — customers can still add to cart without one.
+function ShadePicker({
+  productId,
+  label,
+  selected,
+  onSelect
+}: {
+  productId: string;
+  label: string;
+  selected: string | null;
+  onSelect: (name: string | null) => void;
+}) {
+  const [shades, setShades] = useState<ShadeOption[] | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/product-shades?id=${productId}`)
+      .then((r) => (r.ok ? r.json() : { shades: [] }))
+      .then((data: { shades?: ShadeOption[] }) => {
+        if (!cancelled) setShades(Array.isArray(data.shades) ? data.shades : []);
+      })
+      .catch(() => {
+        if (!cancelled) setShades([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [productId]);
+
+  if (shades === null) {
+    return (
+      <div className="mt-6">
+        <span className="text-[10px] uppercase tracking-[0.2em] text-ink/60">{label}</span>
+        <div className="mt-2 flex gap-2">
+          {[0, 1, 2, 3, 4].map((i) => (
+            <span key={i} className="h-9 w-9 animate-pulse rounded-full bg-ink/[0.07]" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+  if (shades.length === 0) return null;
+
+  return (
+    <div className="mt-6">
+      <div className="flex items-baseline gap-3">
+        <span className="text-[10px] uppercase tracking-[0.2em] text-ink/60">{label}</span>
+        <span className="text-xs text-ink/70">{selected ?? `${shades.length} available`}</span>
+        {selected ? (
+          <button type="button" onClick={() => onSelect(null)} className="text-[10px] uppercase tracking-[0.14em] text-accent underline">
+            Clear
+          </button>
+        ) : null}
+      </div>
+      <div className="mt-2 flex max-h-44 flex-wrap gap-2 overflow-y-auto pr-1">
+        {shades.map((s) => {
+          const active = selected === s.name;
+          const swatch = productImageSrc(s.swatch_url);
+          return (
+            <button
+              key={s.name}
+              type="button"
+              onClick={() => onSelect(active ? null : s.name)}
+              title={s.name}
+              className={
+                "flex items-center gap-2 rounded-full border px-2 py-1 text-xs transition-colors " +
+                (active ? "border-accent bg-accent/10 text-ink" : "border-ink/15 bg-white text-ink/80 hover:border-ink/40")
+              }
+            >
+              {swatch ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={swatch} alt="" className="h-6 w-6 rounded-full object-cover" loading="lazy" />
+              ) : null}
+              <span className="max-w-[120px] truncate">{s.name}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 export default function ProductDetailClient({ product }: Props) {
@@ -35,13 +124,22 @@ export default function ProductDetailClient({ product }: Props) {
   const activeSrc = productImageSrc(gallery[activeImage]);
   const showActive = Boolean(activeSrc) && !imgFailed[activeImage];
 
-  const isComplexion = /foundation|concealer|tint|bb cream|cc cream|cushion|complexion/i.test(product.name);
+  // Complexion products get the optional Shade Finder prompt; anything
+  // shade/colour-relevant gets the shade picker.
+  const isComplexion =
+    (product.subcategory != null && COMPLEXION_SUBCATEGORIES.has(product.subcategory)) ||
+    /foundation|concealer|tint|bb cream|cc cream|cushion|complexion/i.test(product.name);
+  const shadeRelevant = isShadeRelevant(product.subcategory, product.name);
+  const shadeLabel = isComplexion ? "Shade" : "Colour";
+  const [selectedShade, setSelectedShade] = useState<string | null>(null);
 
   function addToCart(open: boolean) {
+    const baseId = product.product_url || product.id || `${product.brand}|${product.name}`;
     addItem({
-      id: product.product_url || product.id || `${product.brand}|${product.name}`,
+      // Distinct cart lines per shade, so two shades of one product don't merge.
+      id: selectedShade ? `${baseId}#${selectedShade}` : baseId,
       brand: product.brand,
-      name: product.name,
+      name: selectedShade ? `${product.name} — ${shadeLabel}: ${selectedShade}` : product.name,
       price_usd: product.price_usd,
       price_gbp: product.price_gbp,
       image_url: product.image_url ?? "",
@@ -153,12 +251,16 @@ export default function ProductDetailClient({ product }: Props) {
 
         <p className="mt-5 max-w-prose text-sm leading-relaxed text-ink/70">{description}</p>
 
+        {shadeRelevant ? (
+          <ShadePicker productId={product.id} label={shadeLabel} selected={selectedShade} onSelect={setSelectedShade} />
+        ) : null}
+
         {isComplexion ? (
           <Link
             href="/shade-finder"
             className="mt-6 flex items-center justify-center gap-2 rounded-md border border-gold/50 bg-gold/15 px-4 py-3 text-center text-xs uppercase tracking-[0.18em] text-ink transition-colors hover:bg-gold/25"
           >
-            Not sure about your shade? Try our Shade Finder 🐝
+            Need help choosing the right shade? Try our Shade Finder 🐝
           </Link>
         ) : null}
 

@@ -65,6 +65,9 @@ export const SCHEMA_STATEMENTS = [
   `alter table products add column if not exists is_bestseller boolean default false`,
   // Name-derived browse filter ("Foundation", "Lipstick", …).
   `alter table products add column if not exists subcategory text`,
+  // Shade/colour options scraped on demand from the product's PDP.
+  `alter table products add column if not exists shades jsonb`,
+  `alter table products add column if not exists shades_checked_at timestamp`,
   `update products set images = jsonb_build_array(image_url)
      where images is null and image_url is not null and image_url <> ''`,
   `create table if not exists scrape_logs (
