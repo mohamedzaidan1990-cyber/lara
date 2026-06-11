@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSql } from "@/lib/db";
 import { categorySlug } from "@/lib/categories";
+import { normalizeQueryTokens, normalizedHaystackSql } from "@/lib/search";
 import type { ProductCategory } from "@/lib/featured";
 
 export const runtime = "nodejs";
@@ -25,19 +26,28 @@ export async function GET(req: Request) {
     return NextResponse.json({ brands: [], products: [] });
   }
 
-  const pattern = `%${q.toLowerCase()}%`;
+  // Token-based matching with accents/punctuation stripped — see /api/search.
+  const tokens = normalizeQueryTokens(q);
+  if (tokens.length === 0) {
+    return NextResponse.json({ brands: [], products: [] });
+  }
+
+  const brandHay = normalizedHaystackSql("brand");
+  const hay = normalizedHaystackSql("brand || ' ' || name");
 
   try {
     const sql = getSql();
 
     // Brands + their dominant category (so we can deep-link to the right
     // category page with the brand filter applied).
-    const brandRows = (await sql`
-      select brand, category, count(*)::int as n
-      from products
-      where lower(brand) like ${pattern}
-      group by brand, category
-    `) as Array<{ brand: string; category: ProductCategory; n: number }>;
+    const brandRows = (await sql(
+      `select brand, category, count(*)::int as n
+       from products
+       where (select bool_and(${brandHay} like '%' || t || '%')
+              from unnest($1::text[]) as t)
+       group by brand, category`,
+      [tokens]
+    )) as Array<{ brand: string; category: ProductCategory; n: number }>;
 
     const topByBrand = new Map<string, { category: ProductCategory; n: number }>();
     for (const r of brandRows) {
@@ -49,13 +59,17 @@ export async function GET(req: Request) {
       .slice(0, 5)
       .map(([brand, info]) => ({ brand, category: info.category, slug: categorySlug(info.category) }));
 
-    const products = (await sql`
-      select id, name, brand
-      from products
-      where lower(name) like ${pattern}
-      order by brand asc, name asc
-      limit 10
-    `) as ProductSuggestion[];
+    // Product suggestions match against brand+name combined, so typing
+    // "dior lipstick" still surfaces products.
+    const products = (await sql(
+      `select id, name, brand
+       from products
+       where (select bool_and(${hay} like '%' || t || '%')
+              from unnest($1::text[]) as t)
+       order by brand asc, name asc
+       limit 10`,
+      [tokens]
+    )) as ProductSuggestion[];
 
     return NextResponse.json({ brands, products });
   } catch {
