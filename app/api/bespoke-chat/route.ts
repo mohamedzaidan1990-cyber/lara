@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { ensureSchema, getSql } from "@/lib/db";
+import { normalizedHaystackSql } from "@/lib/search";
 import { sendBespokeAlert } from "@/lib/whatsapp";
 
 export const runtime = "nodejs";
@@ -22,6 +23,7 @@ How to help:
 - Only collect contact details when sourcing an item we don't have, or when the customer is ready to order.
 
 Never invent products, prices, or links — only use the CATALOGUE MATCHES list.
+Write links as plain URLs exactly as given (no markdown, no brackets) — the chat turns them into buttons.
 Never mention Selfridges, Space NK, or any sourcing retailer.`;
 
 const SITE_BASE = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://seasonsbyb.co.uk").replace(/\/$/, "");
@@ -68,24 +70,47 @@ function extractBudgetUsd(text: string): number | null {
 // Search the live catalogue for products matching the customer's request, so
 // Béa recommends real items (with price + link) instead of only collecting a
 // contact. Returns up to 4 budget-friendly, deliverable matches.
+//
+// Ranking matters: products matching MORE of the customer's words come first,
+// so "dior spf matte foundation" surfaces the Dior foundation rather than the
+// four cheapest products that happen to contain any single word. Brand+name
+// are matched with accents/punctuation stripped (Kiehl'S, Crème…).
 async function searchCatalog(text: string, maxUsd: number | null): Promise<CatalogMatch[]> {
-  const tokens = (text.toLowerCase().match(/[a-zà-ÿ][a-zà-ÿ'-]{2,}/gi) ?? [])
-    .map((t) => t.replace(/[''']/g, "'"))
-    .filter((t) => !STOP.has(t));
-  const stems = [...new Set(tokens.map((t) => STEM[t] ?? t))];
-  if (stems.length === 0) return [];
-  const pats = stems.map((s) => `%${s}%`);
+  const tokens = [
+    ...new Set(
+      text
+        .normalize("NFD")
+        .replace(/[̀-ͯ]/g, "")
+        .toLowerCase()
+        .split(/[^a-z0-9]+/)
+        .filter((t) => t.length >= 3 || /^\d+$/.test(t))
+        .filter((t) => !STOP.has(t))
+        .map((t) => (STEM[t] ?? t).replace(/[^a-z0-9]/g, ""))
+        .filter(Boolean)
+    )
+  ].slice(0, 8);
+  if (tokens.length === 0) return [];
+  // Chat phrasing is noisy, so require only half the tokens — full matches
+  // still rank first via the hits ordering.
+  const minHits = Math.max(1, Math.ceil(tokens.length / 2));
+  const hay = normalizedHaystackSql("brand || ' ' || name");
+  const brandHay = normalizedHaystackSql("brand");
+  const hits = `(select count(*) from unnest($1::text[]) as t where ${hay} like '%' || t || '%')`;
+  // Brand matches count double, so "kiehls moisturizer" leads with Kiehl's
+  // moisturisers rather than any cheaper moisturiser.
+  const brandHits = `(select count(*) from unnest($1::text[]) as t where ${brandHay} like '%' || t || '%')`;
   try {
     const sql = getSql();
-    const rows = (await sql`
-      select id, brand, name, price_usd::float8 as price_usd
-      from products
-      where (lower(name) like any(${pats}::text[]) or lower(brand) like any(${pats}::text[]))
-        and (${maxUsd}::float8 is null or (price_usd is not null and price_usd <= ${maxUsd}))
-        and coalesce(image_url, '') <> ''
-      order by deliverable_lebanon desc nulls last, price_usd asc nulls last
-      limit 4
-    `) as CatalogMatch[];
+    const rows = (await sql(
+      `select id, brand, name, price_usd::float8 as price_usd
+       from products
+       where ${hits} >= $2
+         and ($3::float8 is null or (price_usd is not null and price_usd <= $3))
+         and coalesce(image_url, '') <> ''
+       order by (${hits} + ${brandHits}) desc, deliverable_lebanon desc nulls last, price_usd asc nulls last
+       limit 4`,
+      [tokens, minHits, maxUsd]
+    )) as CatalogMatch[];
     return rows;
   } catch {
     return [];

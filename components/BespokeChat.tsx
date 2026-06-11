@@ -22,6 +22,37 @@ function formatTime(ts: number): string {
   }
 }
 
+// Renders URLs inside Béa's replies as tappable links. Product links show a
+// clean "View product →" label instead of the raw UUID URL; everything else
+// keeps its hostname as the label. Opens in a new tab so the chat stays put.
+function MessageContent({ text }: { text: string }) {
+  const parts = text.split(/(https?:\/\/[^\s]+)/g);
+  return (
+    <>
+      {parts.map((part, i) => {
+        if (!/^https?:\/\//.test(part)) return <span key={i}>{part}</span>;
+        // Trailing sentence punctuation isn't part of the URL.
+        const url = part.replace(/[.,;:!?)\]]+$/, "");
+        const trailing = part.slice(url.length);
+        const label = /\/product\//.test(url) ? "View product →" : url.replace(/^https?:\/\//, "");
+        return (
+          <span key={i}>
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-accent underline underline-offset-2"
+            >
+              {label}
+            </a>
+            {trailing}
+          </span>
+        );
+      })}
+    </>
+  );
+}
+
 function ChatPanel({ embedded, onClose }: { embedded: boolean; onClose?: () => void }) {
   const [messages, setMessages] = useState<Msg[]>([{ role: "assistant", content: WELCOME, ts: 0 }]);
   const [input, setInput] = useState("");
@@ -99,7 +130,7 @@ function ChatPanel({ embedded, onClose }: { embedded: boolean; onClose?: () => v
                 (m.role === "user" ? "bg-accent text-white" : "border border-ink/10 bg-white text-ink")
               }
             >
-              {m.content}
+              {m.role === "assistant" ? <MessageContent text={m.content} /> : m.content}
             </div>
             {m.ts ? <span className="mt-1 text-[10px] text-ink/35">{formatTime(m.ts)}</span> : null}
           </div>
