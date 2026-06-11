@@ -134,6 +134,33 @@ export async function getCategoryBrands(categoryName: ProductCategory): Promise<
   }
 }
 
+export interface PopularBrand {
+  brand: string;
+  count: number;
+}
+
+// "Most wanted" brands in a category, ranked by how Selfridges ranks them:
+// bestseller-badge count first, then best (lowest) relevance rank. Brands
+// with neither signal are excluded, so the strip simply hides until the
+// scraper has captured popularity data.
+export async function getPopularBrands(categoryName: ProductCategory, limit = 8): Promise<PopularBrand[]> {
+  try {
+    const sql = getSql();
+    const rows = (await sql`
+      select brand, count(*)::int as count
+      from products
+      where category = ${categoryName}
+      group by brand
+      having count(*) filter (where coalesce(is_bestseller, false)) > 0 or min(popularity) is not null
+      order by count(*) filter (where coalesce(is_bestseller, false)) desc, min(popularity) asc nulls last
+      limit ${limit}
+    `) as PopularBrand[];
+    return rows;
+  } catch {
+    return [];
+  }
+}
+
 interface CountRow {
   category: ProductCategory;
   n: number;
@@ -237,13 +264,15 @@ export async function getCategoryProducts(
       limit ${PAGE_SIZE} offset ${offset}
     `) as ProductListRow[];
   } else {
-    // featured — deterministic daily shuffle, stable across pagination.
+    // featured — most-wanted first: Selfridges bestseller badge, then the
+    // relevance rank captured by the scraper, then a deterministic daily
+    // shuffle for everything unranked (stable across pagination).
     rows = (await sql`
       select id, brand, name, category, price_gbp::float8 as price_gbp, price_usd::float8 as price_usd,
              deliverable_lebanon, product_url, image_url
       from products
       where category = ${categoryName} and (${brand}::text is null or brand = ${brand})
-      order by md5(id::text || ${seed}) asc
+      order by coalesce(is_bestseller, false) desc, popularity asc nulls last, md5(id::text || ${seed}) asc
       limit ${PAGE_SIZE} offset ${offset}
     `) as ProductListRow[];
   }

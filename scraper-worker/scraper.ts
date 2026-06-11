@@ -64,6 +64,11 @@ interface RawProduct {
   priceGbp: number;
   image_url: string;
   product_url: string;
+  // Position in the relevance-sorted Selfridges listing (1 = most wanted);
+  // assigned during the category crawl, absent for brand-page/fallback parses.
+  popularity?: number;
+  // Card carried Selfridges' "Bestseller" badge.
+  bestseller?: boolean;
 }
 
 function parsePrice(raw: unknown): number | null {
@@ -232,7 +237,9 @@ async function toRows(raws: RawProduct[], categoryName: string, sourceBrand: str
           price_usd: await convertGbpToUsd(r.priceGbp, category),
           deliverable_lebanon: true,
           product_url: r.product_url,
-          image_url: r.image_url
+          image_url: r.image_url,
+          popularity: r.popularity ?? null,
+          is_bestseller: r.bestseller ?? false
         };
       })
   );
@@ -1185,12 +1192,18 @@ function parseSelfridgesCards($: cheerio.CheerioAPI, origin: string): RawProduct
     const price = parsePrice(priceText.replace(/^.*price:/i, "").trim());
     if (!brandRaw || !name || price === null || !href) return;
     const sku = selfridgesSku(href);
+    // Selfridges badges bestsellers with a plain <span>Bestseller</span>.
+    const bestseller = c
+      .find("span")
+      .toArray()
+      .some((s) => /^bestsellers?$/i.test($(s).text().trim()));
     out.push({
       brand: titleCaseBrand(brandRaw),
       name,
       priceGbp: price,
       image_url: selfridgesImage(sku),
-      product_url: resolveUrl(href.split("#")[0], origin)
+      product_url: resolveUrl(href.split("#")[0], origin),
+      bestseller
     });
   });
   return out;
@@ -1212,6 +1225,7 @@ export async function scrapeSelfridgesCategory(category: string): Promise<Scrape
 
   const collected: RawProduct[] = [];
   const seen = new Set<string>();
+  let rank = 0;
   for (const slug of slugs) {
     const url = `${SELFRIDGES_ORIGIN}/GB/en/cat/${slug}/?pge=1&ppp=60&sort=relevance`;
     const html = await fetchWithWebUnblocker(url, { browserInstructions: SELFRIDGES_SCROLL_INSTRUCTIONS });
@@ -1228,6 +1242,10 @@ export async function scrapeSelfridgesCategory(category: string): Promise<Scrape
       seen.add(k);
       return true;
     });
+    // Crawl order IS Selfridges' relevance order (listings are fetched with
+    // sort=relevance, main listing first), so first-seen position is the
+    // category-wide "most wanted" rank.
+    for (const p of fresh) p.popularity = ++rank;
     collected.push(...fresh);
     console.log(`[scraper] Selfridges ${slug} → ${products.length} parsed (${fresh.length} new, ${collected.length} total)`);
     await delay(1500, 3500); // rate limiting between listing pages

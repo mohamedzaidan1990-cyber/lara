@@ -27,6 +27,10 @@ export interface ScrapedProductRow {
   deliverable_lebanon: boolean;
   product_url: string;
   image_url: string;
+  // Selfridges relevance rank within the category crawl (1 = most wanted);
+  // null for brand-page finds, which aren't relevance-ordered per category.
+  popularity?: number | null;
+  is_bestseller?: boolean;
 }
 
 export async function ensureSchema(): Promise<void> {
@@ -50,6 +54,9 @@ export async function ensureSchema(): Promise<void> {
     CREATE UNIQUE INDEX IF NOT EXISTS products_product_url_idx ON products (product_url);
 
     ALTER TABLE products ADD COLUMN IF NOT EXISTS images jsonb;
+
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS popularity int;
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS is_bestseller boolean DEFAULT false;
 
     CREATE TABLE IF NOT EXISTS scrape_logs (
       id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -75,8 +82,8 @@ export async function upsertProducts(products: ScrapedProductRow[]): Promise<num
     try {
       await client.query(
         `INSERT INTO products
-           (brand, name, category, price_gbp, price_usd, deliverable_lebanon, product_url, image_url, images)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+           (brand, name, category, price_gbp, price_usd, deliverable_lebanon, product_url, image_url, images, popularity, is_bestseller)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
          ON CONFLICT (product_url) DO UPDATE SET
            brand = excluded.brand,
            name = excluded.name,
@@ -89,6 +96,10 @@ export async function upsertProducts(products: ScrapedProductRow[]): Promise<num
            -- image (<SKU>_<shade>_M). Don't let the daily run clobber it.
            image_url = case when coalesce(products.image_url, '') = '' then excluded.image_url else products.image_url end,
            images = case when coalesce(products.image_url, '') = '' then excluded.images else products.images end,
+           -- Brand-page finds carry no rank; never let them wipe the rank the
+           -- category crawl assigned.
+           popularity = coalesce(excluded.popularity, products.popularity),
+           is_bestseller = excluded.is_bestseller,
            scraped_at = now()`,
         [
           p.brand,
@@ -99,7 +110,9 @@ export async function upsertProducts(products: ScrapedProductRow[]): Promise<num
           p.deliverable_lebanon,
           p.product_url,
           p.image_url,
-          images
+          images,
+          p.popularity ?? null,
+          p.is_bestseller ?? false
         ]
       );
       n += 1;

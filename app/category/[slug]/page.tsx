@@ -7,6 +7,7 @@ import {
   getCategoryBrands,
   getCategoryBySlug,
   getCategoryProducts,
+  getPopularBrands,
   parseBrand,
   parsePage,
   parseSort
@@ -58,9 +59,10 @@ export default async function CategoryPage({
   const sort = parseSort(searchParams.sort);
   const page = parsePage(searchParams.page);
   const brand = parseBrand(searchParams.brand);
-  const [result, brands] = await Promise.all([
+  const [result, brands, popularBrands] = await Promise.all([
     getCategoryProducts(def.name, sort, page, { brand }),
-    getCategoryBrands(def.name)
+    getCategoryBrands(def.name),
+    getPopularBrands(def.name)
   ]);
   const { products, total, categoryTotal, totalPages } = result;
   const activeBrand = result.brand;
@@ -95,6 +97,20 @@ export default async function CategoryPage({
             )}
           </p>
         </div>
+        {popularBrands.length > 0 && !activeBrand ? (
+          <div className="mt-5 flex flex-wrap items-center gap-2 rounded-[2rem] border border-white/60 bg-white/40 p-4 backdrop-blur-sm">
+            <span className="mr-1 text-[10px] uppercase tracking-[0.2em] text-ink/50">Most wanted</span>
+            {popularBrands.map((b) => (
+              <Link
+                key={b.brand}
+                href={`/category/${def.slug}?brand=${encodeURIComponent(b.brand)}`}
+                className="rounded-full border border-ink/15 bg-white px-4 py-1.5 text-xs uppercase tracking-[0.14em] text-ink hover:border-accent hover:text-accent"
+              >
+                {b.brand}
+              </Link>
+            ))}
+          </div>
+        ) : null}
         <div className="mt-5 flex justify-end rounded-[2rem] border border-white/60 bg-white/40 p-4 backdrop-blur-sm">
           <CategoryControls current={sort} brands={brands} currentBrand={activeBrand} slug={def.slug} />
         </div>

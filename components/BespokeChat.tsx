@@ -22,6 +22,20 @@ function formatTime(ts: number): string {
   }
 }
 
+// Renders **bold** markdown spans as real <strong> elements (the model loves
+// emphasising product names; raw asterisks must never reach the customer).
+function BoldText({ text }: { text: string }) {
+  const segments = text.split(/\*\*([^*]+)\*\*/g);
+  return (
+    <>
+      {segments.map((seg, i) =>
+        // Odd indices are the captured bold groups.
+        i % 2 === 1 ? <strong key={i}>{seg}</strong> : <span key={i}>{seg}</span>
+      )}
+    </>
+  );
+}
+
 // Renders URLs inside Béa's replies as tappable links. Product links show a
 // clean "View product →" label instead of the raw UUID URL; everything else
 // keeps its hostname as the label. Opens in a new tab so the chat stays put.
@@ -30,7 +44,7 @@ function MessageContent({ text }: { text: string }) {
   return (
     <>
       {parts.map((part, i) => {
-        if (!/^https?:\/\//.test(part)) return <span key={i}>{part}</span>;
+        if (!/^https?:\/\//.test(part)) return <BoldText key={i} text={part} />;
         // Trailing sentence punctuation isn't part of the URL.
         const url = part.replace(/[.,;:!?)\]]+$/, "");
         const trailing = part.slice(url.length);

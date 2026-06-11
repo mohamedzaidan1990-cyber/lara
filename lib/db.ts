@@ -60,6 +60,9 @@ export const SCHEMA_STATEMENTS = [
   // Multiple product images for the detail-page gallery. Backfilled from the
   // single image_url; the scraper will populate richer galleries over time.
   `alter table products add column if not exists images jsonb`,
+  // Selfridges relevance rank within the category (1 = most wanted) + badge.
+  `alter table products add column if not exists popularity int`,
+  `alter table products add column if not exists is_bestseller boolean default false`,
   `update products set images = jsonb_build_array(image_url)
      where images is null and image_url is not null and image_url <> ''`,
   `create table if not exists scrape_logs (
