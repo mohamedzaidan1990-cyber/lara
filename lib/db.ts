@@ -8,7 +8,10 @@ export function getSql(): ReturnType<typeof neon> {
     if (!url) {
       throw new Error("DATABASE_URL is not set");
     }
-    cached = neon(url);
+    // The driver runs queries as fetch() POSTs, which Next.js can cache in
+    // the Vercel Data Cache — serving stale rows for identical queries even
+    // across deployments. Query results must never be cached.
+    cached = neon(url, { fetchOptions: { cache: "no-store" } });
   }
   return cached;
 }
