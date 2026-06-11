@@ -1135,10 +1135,15 @@ function parseNextDataProducts(html: string, origin: string): RawProduct[] {
 function titleCaseBrand(s: string): string {
   const t = s.trim();
   if (/[a-z]/.test(t)) return t; // already mixed/normal case → leave alone
-  return t
-    .toLowerCase()
-    .replace(/\b([a-z])/g, (m) => m.toUpperCase())
-    .replace(/\bAnd\b/g, "and");
+  return (
+    t
+      .toLowerCase()
+      .replace(/\b([a-z])/g, (m) => m.toUpperCase())
+      .replace(/\bAnd\b/g, "and")
+      // Possessive 'S must stay lowercase ("Kiehl'S" → "Kiehl's") — but only
+      // when it ends the word, so prefixes like L'Occitane keep their capital.
+      .replace(/'S\b/g, "'s")
+  );
 }
 
 // Selfridges product hrefs end in `_<SKU>/` (optionally with a #colour fragment).
