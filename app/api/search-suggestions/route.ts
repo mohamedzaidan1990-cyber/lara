@@ -1,16 +1,17 @@
 import { NextResponse } from "next/server";
 import { getSql } from "@/lib/db";
-import { categorySlug } from "@/lib/categories";
+import { brandSlug } from "@/lib/brands";
 import { normalizeQueryTokens, normalizedHaystackSql } from "@/lib/search";
-import type { ProductCategory } from "@/lib/featured";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export interface BrandSuggestion {
   brand: string;
+  // Slug for the /brand/[slug] page, which lists the brand across ALL
+  // categories (a brand pick must never hide part of their range).
   slug: string;
-  category: ProductCategory;
+  count: number;
 }
 
 export interface ProductSuggestion {
@@ -38,26 +39,22 @@ export async function GET(req: Request) {
   try {
     const sql = getSql();
 
-    // Brands + their dominant category (so we can deep-link to the right
-    // category page with the brand filter applied).
     const brandRows = (await sql(
-      `select brand, category, count(*)::int as n
+      `select brand, count(*)::int as n
        from products
        where (select bool_and(${brandHay} like '%' || t || '%')
               from unnest($1::text[]) as t)
-       group by brand, category`,
+       group by brand
+       order by n desc
+       limit 5`,
       [tokens]
-    )) as Array<{ brand: string; category: ProductCategory; n: number }>;
+    )) as Array<{ brand: string; n: number }>;
 
-    const topByBrand = new Map<string, { category: ProductCategory; n: number }>();
-    for (const r of brandRows) {
-      const cur = topByBrand.get(r.brand);
-      if (!cur || r.n > cur.n) topByBrand.set(r.brand, { category: r.category, n: r.n });
-    }
-    const brands: BrandSuggestion[] = Array.from(topByBrand.entries())
-      .sort((a, b) => b[1].n - a[1].n)
-      .slice(0, 5)
-      .map(([brand, info]) => ({ brand, category: info.category, slug: categorySlug(info.category) }));
+    const brands: BrandSuggestion[] = brandRows.map((r) => ({
+      brand: r.brand,
+      slug: brandSlug(r.brand),
+      count: r.n
+    }));
 
     // Product suggestions match against brand+name combined, so typing
     // "dior lipstick" still surfaces products.

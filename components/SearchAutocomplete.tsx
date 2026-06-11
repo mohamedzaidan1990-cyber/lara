@@ -76,7 +76,8 @@ export default function SearchAutocomplete({ query, setQuery, onSubmit }: Props)
 
   function selectBrand(b: BrandSuggestion) {
     setOpen(false);
-    if (b.slug) router.push(`/category/${b.slug}?brand=${encodeURIComponent(b.brand)}`);
+    // The brand page shows the brand's FULL range across every category.
+    if (b.slug) router.push(`/brand/${b.slug}`);
   }
 
   function selectProduct(p: ProductSuggestion) {
@@ -158,7 +159,9 @@ export default function SearchAutocomplete({ query, setQuery, onSubmit }: Props)
                 >
                   <BeeSvg size={15} />
                   <span className="font-medium">{b.brand}</span>
-                  <span className="ml-auto text-[10px] uppercase tracking-[0.16em] text-ink/40">{b.category}</span>
+                  <span className="ml-auto text-[10px] uppercase tracking-[0.16em] text-ink/40">
+                    {b.count} {b.count === 1 ? "product" : "products"}
+                  </span>
                 </button>
               </li>
             );
