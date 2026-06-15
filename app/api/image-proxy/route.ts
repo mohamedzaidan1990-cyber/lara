@@ -39,6 +39,14 @@ const ALLOWED_HOSTS = [
   "k18hair.com",
   "kyliecosmetics.com",
   "soldejaneiro.com",
+  // Korean beauty brand CDNs (products sourced via Selfridges but may link
+  // to brand-owned image hosts):
+  "cosrx.com",
+  "beautyofjoseon.com",
+  "anuaofficial.com",
+  "skin1004.com",
+  "glow-recipe.com",
+  "glowrecipe.com",
   // Common beauty-retailer / generic image CDNs:
   "cloudinary.com",
   "imgix.net",

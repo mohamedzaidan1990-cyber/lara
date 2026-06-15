@@ -104,7 +104,10 @@ export default function HomeClient({ categories }: Props) {
           ) : null}
         </section>
       ) : (
-        <CategoryCards categories={categories} />
+        <>
+          <CategoryCards categories={categories} />
+          <KBeautyTeaser />
+        </>
       )}
 
       <BespokeSection />
@@ -278,6 +281,43 @@ function HeroVideo() {
         label="Seasons by B brand film"
       />
     </div>
+  );
+}
+
+function KBeautyTeaser() {
+  return (
+    <section className="mx-auto max-w-7xl px-4 pb-6 sm:px-6 lg:px-8">
+      <Link
+        href="/k-beauty"
+        className="group relative block overflow-hidden rounded-[2rem] border border-white/60 shadow-soft transition-all duration-300 hover:-translate-y-1 hover:shadow-pop"
+        style={{
+          background:
+            "linear-gradient(135deg, #ffe0ef 0%, #f97db8 45%, #c94f92 80%, #8a2560 100%)"
+        }}
+      >
+        <span aria-hidden className="pointer-events-none absolute right-6 top-4 text-6xl opacity-20">
+          🌸
+        </span>
+        <span aria-hidden className="pointer-events-none absolute right-20 bottom-4 text-3xl opacity-15">
+          🌸
+        </span>
+        <div className="relative flex flex-col items-start justify-between gap-6 p-8 sm:flex-row sm:items-center">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.36em] text-white/70">New on Seasons</p>
+            <h3 className="mt-2 font-serif text-2xl text-white sm:text-3xl">
+              K-뷰티 — Korean Beauty
+            </h3>
+            <p className="mt-2 max-w-sm text-sm text-white/80">
+              COSRX, Laneige, Dr. Jart+, Beauty of Joseon and more — sourced from Selfridges,
+              delivered to Lebanon.
+            </p>
+          </div>
+          <span className="inline-flex shrink-0 items-center gap-2 rounded-full bg-white px-6 py-3 text-xs font-bold uppercase tracking-[0.16em] text-accent shadow-lg transition-transform group-hover:scale-[1.05]">
+            Explore K-Beauty 🌸
+          </span>
+        </div>
+      </Link>
+    </section>
   );
 }
 

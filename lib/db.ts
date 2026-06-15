@@ -68,6 +68,8 @@ export const SCHEMA_STATEMENTS = [
   // Shade/colour options scraped on demand from the product's PDP.
   `alter table products add column if not exists shades jsonb`,
   `alter table products add column if not exists shades_checked_at timestamp`,
+  // Korean-beauty flag for the /k-beauty hub.
+  `alter table products add column if not exists k_beauty boolean default false`,
   `update products set images = jsonb_build_array(image_url)
      where images is null and image_url is not null and image_url <> ''`,
   `create table if not exists scrape_logs (

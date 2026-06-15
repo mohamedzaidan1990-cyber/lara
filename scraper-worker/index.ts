@@ -1,6 +1,6 @@
 import cron from "node-cron";
 import { ensureSchema, logScrape, upsertProducts, type ScrapedProductRow } from "./db";
-import { scrapeSelfridgesCategory, scrapeSelfridgesBrands, webUnblockerEnabled, SCRAPE_CATEGORIES } from "./scraper";
+import { scrapeSelfridgesCategory, scrapeSelfridgesBrands, scrapeSelfridgesKBeauty, webUnblockerEnabled, SCRAPE_CATEGORIES } from "./scraper";
 
 // Dedupe by product URL (or brand|name) so Selfridges + Space NK overlap once.
 function dedupeProducts(rows: ScrapedProductRow[]): ScrapedProductRow[] {
@@ -69,6 +69,29 @@ async function runOnce(): Promise<void> {
     failedCategories += 1;
     console.error("[worker] Selfridges brand scrape failed — continuing", err);
   }
+
+  // K-Beauty dedicated crawl — Korean-brand pages + k-beauty category listings.
+  // Runs after brand pages so the category loop can still overwrite with precise
+  // category assignments, but the k_beauty flag is coalesced (never wiped).
+  try {
+    console.log("[worker] scraping Selfridges K-Beauty pages…");
+    const kbRows = dedupeProducts(await scrapeSelfridgesKBeauty());
+    totalProducts += kbRows.length;
+    totalDeliverable += kbRows.filter((p) => p.deliverable_lebanon).length;
+    if (kbRows.length > 0) {
+      const n = await upsertProducts(kbRows);
+      totalUpserted += n;
+      await logScrape("selfridges_kbeauty", "ok", kbRows.length);
+      console.log(`[worker] Selfridges K-Beauty → ${kbRows.length} products, upserted ${n}`);
+    } else {
+      await logScrape("selfridges_kbeauty", "empty", 0).catch(() => {});
+    }
+  } catch (err) {
+    failedCategories += 1;
+    console.error("[worker] Selfridges K-Beauty scrape failed — continuing", err);
+  }
+
+  await sleep(3000);
 
   for (const category of SCRAPE_CATEGORIES) {
     console.log(`[worker] scraping category "${category}"`);

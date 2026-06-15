@@ -240,7 +240,8 @@ async function toRows(raws: RawProduct[], categoryName: string, sourceBrand: str
           image_url: r.image_url,
           popularity: r.popularity ?? null,
           is_bestseller: r.bestseller ?? false,
-          subcategory: classifySubcategory(category, r.name)
+          subcategory: classifySubcategory(category, r.name),
+          k_beauty: isKBeautyBrand(r.brand || sourceBrand)
         };
       })
   );
@@ -1137,6 +1138,98 @@ function parseNextDataProducts(html: string, origin: string): RawProduct[] {
   return out;
 }
 
+// ---------- K-Beauty ----------
+// Korean beauty brands (lowercase, matched against the scraped brand). Kept in
+// sync with lib/kbeauty.ts and scripts/tag-kbeauty.ts in the main app.
+const KBEAUTY_BRANDS = new Set([
+  "cosrx", "laneige", "innisfree", "some by mi", "beauty of joseon",
+  "anua", "klairs", "dear klairs", "skin1004", "torriden", "round lab",
+  "medicube", "numbuzin", "dr. jart+", "dr jart", "dr jart+", "sulwhasoo", "missha",
+  "etude house", "etude", "tony moly", "tonymoly", "the face shop",
+  "peach & lily", "glow recipe", "iunik", "3ce", "romand", "abib",
+  "mary&may", "haruharu wonder", "axis-y", "mixsoon", "purito",
+  "rovectin", "thank you farmer", "benton", "pyunkang yul", "isntree",
+  "tocobo", "holika holika", "skinfood", "nature republic", "belif",
+  "banila co", "its skin", "the saem", "neogen", "acwell", "goodal",
+  "by wishtrend", "im from", "biodance", "aestura", "a-true", "ma:nyo",
+  "vt cosmetics"
+]);
+
+export function isKBeautyBrand(brand: string): boolean {
+  return KBEAUTY_BRANDS.has((brand || "").trim().toLowerCase());
+}
+
+// K-Beauty listing + brand-search pages on Selfridges, crawled in addition to
+// the regular category listings so the Korean range goes deeper than what the
+// generic skincare/makeup grids surface.
+export const SELFRIDGES_KBEAUTY_URLS: string[] = [
+  // K-Beauty category pages on Selfridges
+  "https://www.selfridges.com/GB/en/cat/k-beauty/?pge=1&ppp=60&sort=relevance",
+  "https://www.selfridges.com/GB/en/cat/beauty/skincare/k-beauty/?pge=1&ppp=60",
+  // Individual Korean brand pages on Selfridges
+  "https://www.selfridges.com/GB/en/cat/?pge=1&ppp=60&sort=relevance&term=cosrx",
+  "https://www.selfridges.com/GB/en/cat/?pge=1&ppp=60&sort=relevance&term=laneige",
+  "https://www.selfridges.com/GB/en/cat/?pge=1&ppp=60&sort=relevance&term=innisfree",
+  "https://www.selfridges.com/GB/en/cat/?pge=1&ppp=60&sort=relevance&term=dr+jart",
+  "https://www.selfridges.com/GB/en/cat/?pge=1&ppp=60&sort=relevance&term=sulwhasoo",
+  "https://www.selfridges.com/GB/en/cat/?pge=1&ppp=60&sort=relevance&term=some+by+mi",
+  "https://www.selfridges.com/GB/en/cat/?pge=1&ppp=60&sort=relevance&term=beauty+of+joseon",
+  "https://www.selfridges.com/GB/en/cat/?pge=1&ppp=60&sort=relevance&term=anua",
+  "https://www.selfridges.com/GB/en/cat/?pge=1&ppp=60&sort=relevance&term=skin1004",
+  "https://www.selfridges.com/GB/en/cat/?pge=1&ppp=60&sort=relevance&term=torriden",
+  "https://www.selfridges.com/GB/en/cat/?pge=1&ppp=60&sort=relevance&term=medicube",
+  "https://www.selfridges.com/GB/en/cat/?pge=1&ppp=60&sort=relevance&term=glow+recipe",
+  "https://www.selfridges.com/GB/en/cat/?pge=1&ppp=60&sort=relevance&term=peach+lily",
+  "https://www.selfridges.com/GB/en/cat/?pge=1&ppp=60&sort=relevance&term=klairs",
+  "https://www.selfridges.com/GB/en/cat/?pge=1&ppp=60&sort=relevance&term=neogen",
+  "https://www.selfridges.com/GB/en/cat/?pge=1&ppp=60&sort=relevance&term=round+lab"
+];
+
+// Crawl the K-Beauty listing/search pages. Each product is classified by name
+// (the pages mix skincare/makeup/haircare) and tagged k_beauty when the brand
+// is on the Korean list. A page returning 0 products logs and continues.
+export async function scrapeSelfridgesKBeauty(): Promise<ScrapedProductRow[]> {
+  if (!webUnblockerEnabled()) return [];
+  const collected: ScrapedProductRow[] = [];
+  const seen = new Set<string>();
+  for (const url of SELFRIDGES_KBEAUTY_URLS) {
+    const label = url.match(/term=([^&]+)/)?.[1]?.replace(/\+/g, " ") ?? url.match(/cat\/([^/?]+)/)?.[1] ?? url;
+    const html = await fetchWithWebUnblocker(url, { browserInstructions: SELFRIDGES_SCROLL_INSTRUCTIONS });
+    if (!html || html.length < 1000) {
+      console.log(`[scraper] K-Beauty Selfridges ${label} → empty response`);
+      await delay(1000, 2500);
+      continue;
+    }
+    const $ = cheerio.load(html);
+    const raws = extractSelfridgesProducts($, html, SELFRIDGES_ORIGIN);
+    let added = 0;
+    for (const r of raws) {
+      const k = r.product_url || `${r.brand}|${r.name}`;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      if (shouldExclude(`${r.brand} ${r.name}`)) continue;
+      const category = classifySelfridgesCategory(`${r.brand} ${r.name}`);
+      collected.push({
+        brand: r.brand,
+        name: r.name,
+        category,
+        price_gbp: r.priceGbp,
+        price_usd: await convertGbpToUsd(r.priceGbp, category),
+        deliverable_lebanon: true,
+        product_url: r.product_url,
+        image_url: r.image_url,
+        is_bestseller: r.bestseller ?? false,
+        subcategory: classifySubcategory(category, r.name),
+        k_beauty: isKBeautyBrand(r.brand)
+      });
+      added += 1;
+    }
+    console.log(`[scraper] K-Beauty Selfridges ${label} → ${added} products`);
+    await delay(1500, 3500);
+  }
+  return collected;
+}
+
 // Title-case an UPPERCASE Selfridges brand ("CHARLOTTE TILBURY" → "Charlotte
 // Tilbury") so it matches the catalog's casing for the brand filter. Words that
 // are already mixed-case are left alone.
@@ -1420,7 +1513,8 @@ export async function scrapeSelfridgesBrands(slugs: string[] = SELFRIDGES_BRAND_
         product_url: r.product_url,
         image_url: r.image_url,
         is_bestseller: r.bestseller ?? false,
-        subcategory: classifySubcategory(category, r.name)
+        subcategory: classifySubcategory(category, r.name),
+        k_beauty: isKBeautyBrand(r.brand)
       });
       added += 1;
     }

@@ -106,6 +106,9 @@ export default function SiteHeader() {
               </div>
             ) : null}
           </div>
+          <Link href="/k-beauty" className="nav-underline hover:text-accent" style={{ color: "#e84393" }}>
+            K-Beauty 🌸
+          </Link>
           <Link href="/shade-finder" className="nav-underline hover:text-accent">
             Shade Finder ✨
           </Link>
@@ -160,6 +163,14 @@ export default function SiteHeader() {
               ))}
             </ul>
             <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-accent/10 pt-3 text-xs font-bold uppercase tracking-[0.16em]">
+              <Link
+                href="/k-beauty"
+                onClick={() => setMobileOpen(false)}
+                className="hover:text-accent"
+                style={{ color: "#e84393" }}
+              >
+                K-Beauty 🌸
+              </Link>
               <Link
                 href="/shade-finder"
                 onClick={() => setMobileOpen(false)}

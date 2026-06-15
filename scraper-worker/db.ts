@@ -34,6 +34,8 @@ export interface ScrapedProductRow {
   // Name-derived browse filter ("Foundation", "Lipstick", …); "Other" when
   // no rule matches.
   subcategory?: string;
+  // Korean-beauty flag; set when the brand is on the K-Beauty list.
+  k_beauty?: boolean;
 }
 
 export async function ensureSchema(): Promise<void> {
@@ -61,6 +63,7 @@ export async function ensureSchema(): Promise<void> {
     ALTER TABLE products ADD COLUMN IF NOT EXISTS popularity int;
     ALTER TABLE products ADD COLUMN IF NOT EXISTS is_bestseller boolean DEFAULT false;
     ALTER TABLE products ADD COLUMN IF NOT EXISTS subcategory text;
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS k_beauty boolean DEFAULT false;
 
     CREATE TABLE IF NOT EXISTS scrape_logs (
       id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -86,8 +89,8 @@ export async function upsertProducts(products: ScrapedProductRow[]): Promise<num
     try {
       await client.query(
         `INSERT INTO products
-           (brand, name, category, price_gbp, price_usd, deliverable_lebanon, product_url, image_url, images, popularity, is_bestseller, subcategory)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+           (brand, name, category, price_gbp, price_usd, deliverable_lebanon, product_url, image_url, images, popularity, is_bestseller, subcategory, k_beauty)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
          ON CONFLICT (product_url) DO UPDATE SET
            brand = excluded.brand,
            name = excluded.name,
@@ -105,6 +108,9 @@ export async function upsertProducts(products: ScrapedProductRow[]): Promise<num
            popularity = coalesce(excluded.popularity, products.popularity),
            is_bestseller = excluded.is_bestseller,
            subcategory = coalesce(excluded.subcategory, products.subcategory),
+           -- Preserve manual k_beauty tags from the tagging script; only update
+           -- when the scraper explicitly knows it's K-Beauty.
+           k_beauty = coalesce(excluded.k_beauty, products.k_beauty),
            scraped_at = now()`,
         [
           p.brand,
@@ -118,7 +124,8 @@ export async function upsertProducts(products: ScrapedProductRow[]): Promise<num
           images,
           p.popularity ?? null,
           p.is_bestseller ?? false,
-          p.subcategory ?? null
+          p.subcategory ?? null,
+          p.k_beauty ?? null
         ]
       );
       n += 1;
