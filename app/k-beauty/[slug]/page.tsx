@@ -27,7 +27,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   if (!def) return { title: "K-Beauty — Seasons by B" };
   return {
     title: `${def.label} — K-Beauty — Seasons by B`,
-    description: `Shop K-Beauty ${def.label.toLowerCase()} from Selfridges London, delivered to Lebanon.`
+    description: `Shop K-Beauty ${def.label.toLowerCase()} — curated in London and delivered to Lebanon.`
   };
 }
 
@@ -98,7 +98,7 @@ export default async function KBeautySlugPage({
             <div>
               <h1 className="font-serif text-3xl text-white sm:text-4xl">{def.label}</h1>
               <p className="mt-1 text-sm text-white/80">
-                {total} product{total !== 1 ? "s" : ""} · Selfridges London → Lebanon
+                {total} product{total !== 1 ? "s" : ""} · Curated in London · Delivered to Lebanon
               </p>
             </div>
           </div>

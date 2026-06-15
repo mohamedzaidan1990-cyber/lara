@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "K-Beauty — Seasons by B",
   description:
-    "Korean beauty from Laneige, Dr. Jart+, COSRX, Beauty of Joseon and more — sourced from Selfridges London, delivered to Lebanon."
+    "Korean beauty from Laneige, Dr. Jart+, COSRX, Beauty of Joseon and more — curated in London and delivered to Lebanon."
 };
 
 const ROUTINE_STEPS = [
@@ -81,7 +81,7 @@ export default async function KBeautyPage() {
           <p className="mt-2 font-serif text-2xl text-white/90 sm:text-3xl">Korean Beauty</p>
           <p className="mx-auto mt-6 max-w-xl text-sm leading-relaxed text-white/80 sm:text-base">
             The world&apos;s most innovative skincare and makeup — COSRX, Laneige, Dr. Jart+,
-            Beauty of Joseon and more. Sourced from Selfridges London, delivered to Lebanon.
+            Beauty of Joseon and more. Curated in London, delivered to your door in Lebanon.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
             <Link
