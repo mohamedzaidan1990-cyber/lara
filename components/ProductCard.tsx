@@ -47,9 +47,164 @@ function ShareIcon() {
   );
 }
 
-function ShareButton({ product, detailHref }: { product: ProductCardData; detailHref: string }) {
+async function loadCanvasImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+}
+
+function canvasWrapText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  maxWidth: number,
+  lineHeight: number,
+  maxLines: number
+): number {
+  const words = text.split(" ");
+  let line = "";
+  let curY = y;
+  let drawn = 0;
+  for (let i = 0; i < words.length; i++) {
+    const test = line + (line ? " " : "") + words[i];
+    if (ctx.measureText(test).width > maxWidth && line !== "") {
+      if (drawn >= maxLines - 1) {
+        ctx.fillText(line.trim() + "…", x, curY);
+        return curY + lineHeight;
+      }
+      ctx.fillText(line.trim(), x, curY);
+      line = words[i];
+      curY += lineHeight;
+      drawn++;
+    } else {
+      line = test;
+    }
+  }
+  if (line) ctx.fillText(line.trim(), x, curY);
+  return curY + lineHeight;
+}
+
+async function generateStoryImage(
+  product: ProductCardData,
+  imgSrc: string | null
+): Promise<Blob | null> {
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = 1080;
+    canvas.height = 1920;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+
+    ctx.fillStyle = "#FFFDF5";
+    ctx.fillRect(0, 0, 1080, 1920);
+
+    // Product photo (cover top 62% of canvas)
+    const IMG_H = 1200;
+    if (imgSrc) {
+      try {
+        const img = await loadCanvasImage(imgSrc);
+        const scale = Math.max(1080 / img.width, IMG_H / img.height);
+        const dw = img.width * scale;
+        const dh = img.height * scale;
+        ctx.drawImage(img, (1080 - dw) / 2, 0, dw, dh);
+      } catch {
+        ctx.fillStyle = "#FFF0F8";
+        ctx.fillRect(0, 0, 1080, IMG_H);
+        ctx.font = "bold 260px Georgia, serif";
+        ctx.fillStyle = "#F4D360";
+        ctx.textAlign = "center";
+        ctx.fillText((product.brand || "S").charAt(0).toUpperCase(), 540, 760);
+        ctx.textAlign = "left";
+      }
+    } else {
+      ctx.fillStyle = "#FFF0F8";
+      ctx.fillRect(0, 0, 1080, IMG_H);
+      ctx.font = "bold 260px Georgia, serif";
+      ctx.fillStyle = "#F4D360";
+      ctx.textAlign = "center";
+      ctx.fillText((product.brand || "S").charAt(0).toUpperCase(), 540, 760);
+      ctx.textAlign = "left";
+    }
+
+    // Gradient overlay: image fades to cream
+    const grad = ctx.createLinearGradient(0, 820, 0, 1260);
+    grad.addColorStop(0, "rgba(255,253,245,0)");
+    grad.addColorStop(1, "rgba(255,253,245,1)");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 1080, 1920);
+
+    const PAD = 80;
+
+    // Brand
+    ctx.font = "bold 36px -apple-system, Arial, Helvetica, sans-serif";
+    ctx.fillStyle = "#c94f92";
+    ctx.fillText(product.brand.toUpperCase(), PAD, 1310);
+
+    // Product name (max 3 lines)
+    ctx.font = "600 52px Georgia, serif";
+    ctx.fillStyle = "#1a1008";
+    const afterName = canvasWrapText(ctx, product.name, PAD, 1378, 1080 - PAD * 2, 66, 3);
+
+    // Price
+    const priceY = Math.min(afterName + 50, 1700);
+    ctx.font = "bold 82px Georgia, serif";
+    ctx.fillStyle = "#c94f92";
+    ctx.fillText(formatUsd(product.price_usd), PAD, priceY);
+
+    // Tagline
+    ctx.font = "30px -apple-system, Arial, Helvetica, sans-serif";
+    ctx.fillStyle = "#999";
+    ctx.fillText("London beauty · Delivered to Lebanon", PAD, priceY + 50);
+
+    // Pink CTA bar at bottom
+    const barCY = 1860;
+    const barH = 58;
+    const barR = 29;
+    const bx = PAD, bw = 1080 - PAD * 2, by = barCY - barH / 2;
+    ctx.fillStyle = "#c94f92";
+    ctx.beginPath();
+    ctx.moveTo(bx + barR, by);
+    ctx.lineTo(bx + bw - barR, by);
+    ctx.quadraticCurveTo(bx + bw, by, bx + bw, by + barR);
+    ctx.lineTo(bx + bw, by + barH - barR);
+    ctx.quadraticCurveTo(bx + bw, by + barH, bx + bw - barR, by + barH);
+    ctx.lineTo(bx + barR, by + barH);
+    ctx.quadraticCurveTo(bx, by + barH, bx, by + barH - barR);
+    ctx.lineTo(bx, by + barR);
+    ctx.quadraticCurveTo(bx, by, bx + barR, by);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.font = "bold 26px -apple-system, Arial, Helvetica, sans-serif";
+    ctx.fillStyle = "#fff";
+    ctx.textAlign = "center";
+    ctx.fillText("seasonsbyb.co.uk  🐝", 540, barCY + 9);
+    ctx.textAlign = "left";
+
+    return new Promise<Blob | null>((resolve) =>
+      canvas.toBlob((b) => resolve(b), "image/jpeg", 0.92)
+    );
+  } catch {
+    return null;
+  }
+}
+
+function ShareButton({
+  product,
+  detailHref,
+  imgSrc
+}: {
+  product: ProductCardData;
+  detailHref: string;
+  imgSrc: string | null;
+}) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [buildingStory, setBuildingStory] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -66,21 +221,22 @@ function ShareButton({ product, detailHref }: { product: ProductCardData; detail
     return origin + detailHref;
   }
 
-  async function handleShare() {
-    const url = getUrl();
-    const title = `${product.brand} — ${product.name}`;
-    const text = `${formatUsd(product.price_usd)} · London beauty, delivered to Lebanon 🐝`;
-    if (typeof navigator !== "undefined" && navigator.share) {
-      try { await navigator.share({ title, text, url }); } catch { /* cancelled */ }
-    } else {
-      setOpen((v) => !v);
-    }
-  }
-
   function waHref() {
     const url = getUrl();
     const text = `${product.brand} — ${product.name}\n${formatUsd(product.price_usd)} · Seasons by B 🐝\n${url}`;
     return `https://wa.me/?text=${encodeURIComponent(text)}`;
+  }
+
+  async function nativeShare() {
+    setOpen(false);
+    const url = getUrl();
+    try {
+      await navigator.share({
+        title: `${product.brand} — ${product.name}`,
+        text: `${formatUsd(product.price_usd)} · London beauty, delivered to Lebanon 🐝`,
+        url
+      });
+    } catch { /* cancelled */ }
   }
 
   async function copyLink() {
@@ -89,15 +245,54 @@ function ShareButton({ product, detailHref }: { product: ProductCardData; detail
     setTimeout(() => { setCopied(false); setOpen(false); }, 1400);
   }
 
+  async function shareStory() {
+    setOpen(false);
+    setBuildingStory(true);
+    try {
+      const blob = await generateStoryImage(product, imgSrc);
+      if (!blob) return;
+      const file = new File([blob], "seasons-story.jpg", { type: "image/jpeg" });
+      if (
+        typeof navigator !== "undefined" &&
+        navigator.share &&
+        typeof navigator.canShare === "function" &&
+        navigator.canShare({ files: [file] })
+      ) {
+        await navigator.share({ files: [file] });
+      } else {
+        // Desktop: download the story card for manual upload
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "seasons-story.jpg";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+    } catch { /* cancelled */ }
+    setBuildingStory(false);
+  }
+
+  const canNativeShare = typeof navigator !== "undefined" && !!navigator.share;
+
   return (
     <div ref={ref} className="relative shrink-0">
       <button
         type="button"
         aria-label="Share product"
-        onClick={handleShare}
-        className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-accent/25 bg-white text-ink/60 transition-colors hover:border-accent hover:text-accent"
+        onClick={() => setOpen((v) => !v)}
+        disabled={buildingStory}
+        className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-accent/25 bg-white text-ink/60 transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
       >
-        <ShareIcon />
+        {buildingStory ? (
+          <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity="0.25" />
+            <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+          </svg>
+        ) : (
+          <ShareIcon />
+        )}
       </button>
 
       <AnimatePresence>
@@ -107,18 +302,35 @@ function ShareButton({ product, detailHref }: { product: ProductCardData; detail
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.92, y: 6 }}
             transition={{ duration: 0.15 }}
-            className="absolute bottom-full right-0 mb-2 z-50 w-44 overflow-hidden rounded-2xl border border-accent/15 bg-white shadow-pop"
+            className="absolute bottom-full right-0 mb-2 z-50 w-52 overflow-hidden rounded-2xl border border-accent/15 bg-white shadow-pop"
           >
             <p className="px-4 pt-3 pb-1 text-[10px] font-bold uppercase tracking-[0.2em] text-ink/40">Share via</p>
-            <a
-              href={waHref()}
-              target="_blank"
-              rel="noreferrer"
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-ink transition-colors hover:bg-accent/8 hover:text-accent"
+            {canNativeShare ? (
+              <button
+                type="button"
+                onClick={nativeShare}
+                className="flex w-full items-center gap-3 px-4 py-2.5 text-sm font-medium text-ink transition-colors hover:bg-accent/8 hover:text-accent"
+              >
+                <span className="text-base">↗️</span> Share…
+              </button>
+            ) : (
+              <a
+                href={waHref()}
+                target="_blank"
+                rel="noreferrer"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-ink transition-colors hover:bg-accent/8 hover:text-accent"
+              >
+                <span className="text-base">💬</span> WhatsApp
+              </a>
+            )}
+            <button
+              type="button"
+              onClick={shareStory}
+              className="flex w-full items-center gap-3 px-4 py-2.5 text-sm font-medium text-ink transition-colors hover:bg-accent/8 hover:text-accent"
             >
-              <span className="text-base">💬</span> WhatsApp
-            </a>
+              <span className="text-base">📸</span> Instagram Story
+            </button>
             <button
               type="button"
               onClick={copyLink}
@@ -250,7 +462,7 @@ export default function ProductCard({ product, index = 0 }: Props) {
           >
             Add to Cart
           </button>
-          <ShareButton product={product} detailHref={detailHref} />
+          <ShareButton product={product} detailHref={detailHref} imgSrc={imgSrc} />
         </div>
       </div>
     </motion.article>
