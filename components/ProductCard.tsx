@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { productImageSrc } from "@/lib/images";
 import { BeeSvg } from "./BeeMascot";
@@ -33,6 +33,105 @@ function formatUsd(value: number): string {
     currency: "USD",
     maximumFractionDigits: 0
   }).format(value);
+}
+
+function ShareIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+      <circle cx="18" cy="5" r="3" />
+      <circle cx="6" cy="12" r="3" />
+      <circle cx="18" cy="19" r="3" />
+      <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+      <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+    </svg>
+  );
+}
+
+function ShareButton({ product, detailHref }: { product: ProductCardData; detailHref: string }) {
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  function getUrl() {
+    const origin = typeof window !== "undefined" ? window.location.origin : "https://www.seasonsbyb.co.uk";
+    return origin + detailHref;
+  }
+
+  async function handleShare() {
+    const url = getUrl();
+    const title = `${product.brand} — ${product.name}`;
+    const text = `${formatUsd(product.price_usd)} · London beauty, delivered to Lebanon 🐝`;
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try { await navigator.share({ title, text, url }); } catch { /* cancelled */ }
+    } else {
+      setOpen((v) => !v);
+    }
+  }
+
+  function waHref() {
+    const url = getUrl();
+    const text = `${product.brand} — ${product.name}\n${formatUsd(product.price_usd)} · Seasons by B 🐝\n${url}`;
+    return `https://wa.me/?text=${encodeURIComponent(text)}`;
+  }
+
+  async function copyLink() {
+    try { await navigator.clipboard.writeText(getUrl()); } catch { /* noop */ }
+    setCopied(true);
+    setTimeout(() => { setCopied(false); setOpen(false); }, 1400);
+  }
+
+  return (
+    <div ref={ref} className="relative shrink-0">
+      <button
+        type="button"
+        aria-label="Share product"
+        onClick={handleShare}
+        className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-accent/25 bg-white text-ink/60 transition-colors hover:border-accent hover:text-accent"
+      >
+        <ShareIcon />
+      </button>
+
+      <AnimatePresence>
+        {open ? (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.92, y: 6 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.92, y: 6 }}
+            transition={{ duration: 0.15 }}
+            className="absolute bottom-full right-0 mb-2 z-50 w-44 overflow-hidden rounded-2xl border border-accent/15 bg-white shadow-pop"
+          >
+            <p className="px-4 pt-3 pb-1 text-[10px] font-bold uppercase tracking-[0.2em] text-ink/40">Share via</p>
+            <a
+              href={waHref()}
+              target="_blank"
+              rel="noreferrer"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-ink transition-colors hover:bg-accent/8 hover:text-accent"
+            >
+              <span className="text-base">💬</span> WhatsApp
+            </a>
+            <button
+              type="button"
+              onClick={copyLink}
+              className="flex w-full items-center gap-3 px-4 py-2.5 pb-3 text-sm font-medium text-ink transition-colors hover:bg-accent/8 hover:text-accent"
+            >
+              <span className="text-base">{copied ? "✓" : "🔗"}</span>
+              {copied ? "Copied!" : "Copy link"}
+            </button>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </div>
+  );
 }
 
 // Branded fallback when an image is missing or fails to load: cream ground with
@@ -140,17 +239,18 @@ export default function ProductCard({ product, index = 0 }: Props) {
         </Link>
         <p className="mt-3 font-serif text-xl font-bold text-accent">{formatUsd(product.price_usd)}</p>
 
-        <div className="mt-4">
+        <div className="mt-4 flex items-center gap-2">
           <button
             type="button"
             onClick={() => {
               addToCart();
               openCart();
             }}
-            className="btn-primary w-full justify-center transition-transform hover:scale-[1.02]"
+            className="btn-primary flex-1 justify-center transition-transform hover:scale-[1.02]"
           >
             Add to Cart
           </button>
+          <ShareButton product={product} detailHref={detailHref} />
         </div>
       </div>
     </motion.article>
