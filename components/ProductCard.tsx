@@ -107,24 +107,12 @@ export default function ProductCard({ product, index = 0 }: Props) {
         ) : (
           <ImageFallback brand={product.brand} name={product.name} />
         )}
-        <span
-          className={
-            "absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] uppercase tracking-[0.2em] " +
-            (product.deliverable_lebanon ? "bg-cream/95 text-ink" : "bg-ink/85 text-cream")
-          }
-        >
-          {product.deliverable_lebanon ? (
-            <>
-              <BeeSvg size={14} />
-              Ships Worldwide
-            </>
-          ) : (
-            <>
-              <span className="h-1.5 w-1.5 rounded-full bg-cream/70" />
-              Ask us
-            </>
-          )}
-        </span>
+        {!product.deliverable_lebanon ? (
+          <span className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-ink/85 px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-cream">
+            <span className="h-1.5 w-1.5 rounded-full bg-cream/70" />
+            Ask us
+          </span>
+        ) : null}
 
         {/* Added-to-cart confirmation */}
         <AnimatePresence>
