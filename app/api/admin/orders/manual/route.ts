@@ -45,11 +45,12 @@ export async function POST(req: Request) {
   const sql = getSql();
 
   // Create customer
-  const [cust] = await sql`
+  const custRows = (await sql`
     insert into customers (full_name, phone, address)
     values (${customer.full_name.trim()}, ${customer.phone.trim()}, ${customer.address.trim()})
     returning id
-  `;
+  `) as Array<{ id: string }>;
+  const cust = custRows[0];
 
   const totalUsd = items.reduce((s, i) => s + i.price_usd * (i.quantity || 1), 0);
   const totalGbp = totalUsd / 1.30;
@@ -60,7 +61,7 @@ export async function POST(req: Request) {
 
   const status = payment_confirmed ? "payment_confirmed" : "pending";
 
-  const [order] = await sql`
+  const orderRows = (await sql`
     insert into orders (
       order_number, customer_id, customer_email,
       product_name, product_brand,
@@ -75,7 +76,8 @@ export async function POST(req: Request) {
       ${notes?.trim() || null}, ${source || "direct"}
     )
     returning id, order_number, created_at
-  `;
+  `) as Array<{ id: string; order_number: string; created_at: string }>;
+  const order = orderRows[0];
 
   for (const it of items) {
     const qty = it.quantity || 1;
@@ -88,7 +90,7 @@ export async function POST(req: Request) {
   }
 
   // Return the order joined with customer so the dashboard can prepend it
-  const [full] = await sql`
+  const fullRows = (await sql`
     select o.*, c.full_name, c.phone, c.address,
            coalesce(
              (select json_agg(json_build_object(
@@ -100,7 +102,7 @@ export async function POST(req: Request) {
     from orders o
     left join customers c on c.id = o.customer_id
     where o.id = ${order.id}
-  `;
+  `) as Array<Record<string, unknown>>;
 
-  return NextResponse.json(full, { status: 201 });
+  return NextResponse.json(fullRows[0], { status: 201 });
 }
