@@ -115,6 +115,8 @@ export const SCHEMA_STATEMENTS = [
   `alter table orders add column if not exists platform_fee_usd numeric`,
   `alter table orders add column if not exists profit_usd numeric`,
   `alter table orders add column if not exists profit_notes text`,
+  // ----- Price lock: prevents the scraper from overwriting manually set prices -----
+  `alter table products add column if not exists price_locked boolean default false`,
   // ----- Order source (website checkout vs manual instagram/whatsapp) -----
   `alter table orders add column if not exists source text default 'website'`,
   // ----- Bespoke consultation requests (AI chat) -----

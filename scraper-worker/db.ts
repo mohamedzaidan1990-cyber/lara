@@ -64,6 +64,7 @@ export async function ensureSchema(): Promise<void> {
     ALTER TABLE products ADD COLUMN IF NOT EXISTS is_bestseller boolean DEFAULT false;
     ALTER TABLE products ADD COLUMN IF NOT EXISTS subcategory text;
     ALTER TABLE products ADD COLUMN IF NOT EXISTS k_beauty boolean DEFAULT false;
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS price_locked boolean DEFAULT false;
 
     CREATE TABLE IF NOT EXISTS scrape_logs (
       id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -95,8 +96,8 @@ export async function upsertProducts(products: ScrapedProductRow[]): Promise<num
            brand = excluded.brand,
            name = excluded.name,
            category = excluded.category,
-           price_gbp = excluded.price_gbp,
-           price_usd = excluded.price_usd,
+           price_gbp = case when products.price_locked then products.price_gbp else excluded.price_gbp end,
+           price_usd = case when products.price_locked then products.price_usd else excluded.price_usd end,
            deliverable_lebanon = excluded.deliverable_lebanon,
            -- Preserve an existing image: the crawl only knows the guessed
            -- <SKU>_M URL, but a backfill may have stored the correct shade
