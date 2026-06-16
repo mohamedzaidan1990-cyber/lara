@@ -115,6 +115,8 @@ export const SCHEMA_STATEMENTS = [
   `alter table orders add column if not exists platform_fee_usd numeric`,
   `alter table orders add column if not exists profit_usd numeric`,
   `alter table orders add column if not exists profit_notes text`,
+  // ----- Order source (website checkout vs manual instagram/whatsapp) -----
+  `alter table orders add column if not exists source text default 'website'`,
   // ----- Bespoke consultation requests (AI chat) -----
   `create table if not exists bespoke_requests (
     id uuid default gen_random_uuid() primary key,
@@ -204,6 +206,7 @@ export interface OrderRow {
   platform_fee_usd?: string | number | null;
   profit_usd?: string | number | null;
   profit_notes?: string | null;
+  source?: string | null;
 }
 
 export interface OrderLineItem {

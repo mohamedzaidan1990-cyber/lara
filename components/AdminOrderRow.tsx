@@ -170,7 +170,14 @@ export default function AdminOrderRow({ order, onUpdated }: Props) {
   return (
     <>
       <tr className="cursor-pointer border-b border-ink/10 hover:bg-ink/[0.02]" onClick={() => setOpen((v) => !v)}>
-        <td className="px-4 py-3 font-mono text-xs text-ink">{local.order_number}</td>
+        <td className="px-4 py-3 font-mono text-xs text-ink">
+          {local.order_number}
+          {local.source && local.source !== "website" ? (
+            <span className="ml-1.5 inline-block rounded bg-accent/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em] text-accent">
+              {local.source === "instagram" ? "📸 IG" : local.source === "whatsapp" ? "💬 WA" : "📞"}
+            </span>
+          ) : null}
+        </td>
         <td className="px-4 py-3 text-sm text-ink">{local.full_name}</td>
         <td className="px-4 py-3 text-sm text-ink/70">{local.phone}</td>
         <td className="px-4 py-3 text-sm text-ink">

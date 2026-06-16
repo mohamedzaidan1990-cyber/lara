@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AdminOrderRow from "@/components/AdminOrderRow";
 import AdminBespokeRow from "@/components/AdminBespokeRow";
+import AdminManualOrderModal from "@/components/AdminManualOrderModal";
 import type { OrderWithCustomer, BespokeRequestRow } from "@/lib/db";
 
 interface Props {
@@ -34,6 +35,7 @@ export default function AdminDashboard({ initialOrders, initialBespoke = [] }: P
   const [orders, setOrders] = useState(initialOrders);
   const [tab, setTab] = useState<Tab>("orders");
   const [filter, setFilter] = useState<string | null>(null);
+  const [showManual, setShowManual] = useState(false);
 
   const counts = useMemo(() => {
     const c: Record<string, number> = {};
@@ -94,7 +96,17 @@ export default function AdminDashboard({ initialOrders, initialBespoke = [] }: P
 
       {tab === "orders" ? (
         <>
-          <section className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-5">
+          <div className="mt-6 flex justify-end">
+            <button
+              type="button"
+              onClick={() => setShowManual(true)}
+              className="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2.5 text-xs font-bold uppercase tracking-[0.16em] text-white shadow-md transition-opacity hover:opacity-90"
+            >
+              <span aria-hidden>+</span> Add Manual Order
+            </button>
+          </div>
+
+          <section className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
             {GROUPS.map((g) => {
               const active = filter === g.key;
               return (
@@ -181,6 +193,15 @@ export default function AdminDashboard({ initialOrders, initialBespoke = [] }: P
           </table>
         </section>
       )}
+      {showManual ? (
+        <AdminManualOrderModal
+          onClose={() => setShowManual(false)}
+          onCreated={(order) => {
+            setOrders((prev) => [order, ...prev]);
+            setShowManual(false);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
