@@ -7,6 +7,7 @@ import AdminOrderRow from "@/components/AdminOrderRow";
 import AdminBespokeRow from "@/components/AdminBespokeRow";
 import AdminManualOrderModal from "@/components/AdminManualOrderModal";
 import AdminAccountingTab from "@/components/AdminAccountingTab";
+import AdminAwaitingOrderTab from "@/components/AdminAwaitingOrderTab";
 import type { OrderWithCustomer, BespokeRequestRow, ExpenseRow } from "@/lib/db";
 
 interface Props {
@@ -15,7 +16,7 @@ interface Props {
   initialExpenses?: ExpenseRow[];
 }
 
-type Tab = "orders" | "bespoke" | "accounting";
+type Tab = "orders" | "awaiting" | "bespoke" | "accounting";
 
 interface Group {
   key: string;
@@ -63,6 +64,13 @@ export default function AdminDashboard({ initialOrders, initialBespoke = [], ini
     return { revenue, cost, profit, margin, hasCost: costed.length > 0 };
   }, [orders]);
 
+  const awaitingCount = useMemo(() => {
+    return orders
+      .filter((o) => o.payment_confirmed && !["shipped", "in_lebanon", "delivered", "cancelled", "refunded"].includes(o.status))
+      .flatMap((o) => o.items ?? [])
+      .filter((it) => it.id && !it.sourced).length;
+  }, [orders]);
+
   function handleUpdated(next: OrderWithCustomer) {
     setOrders((prev) => prev.map((o) => (o.id === next.id ? next : o)));
   }
@@ -95,11 +103,18 @@ export default function AdminDashboard({ initialOrders, initialBespoke = [], ini
           onClick={() => setTab("bespoke")}
           label={`Bespoke Requests${newBespoke > 0 ? ` · ${newBespoke} new` : ` (${initialBespoke.length})`}`}
         />
+        <TabButton
+          active={tab === "awaiting"}
+          onClick={() => setTab("awaiting")}
+          label={`Awaiting Order${awaitingCount > 0 ? ` · ${awaitingCount}` : ""}`}
+        />
         <TabButton active={tab === "accounting"} onClick={() => setTab("accounting")} label="Accounting" />
       </div>
 
       {tab === "accounting" ? (
         <AdminAccountingTab orders={orders} expenses={expenses} onExpensesChange={setExpenses} />
+      ) : tab === "awaiting" ? (
+        <AdminAwaitingOrderTab orders={orders} onOrderUpdated={handleUpdated} />
       ) : tab === "orders" ? (
         <>
           <div className="mt-6 flex justify-end">
