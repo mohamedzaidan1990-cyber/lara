@@ -20,9 +20,8 @@ load(resolve(__dirname, ".env"));
   const sql = neon(process.env.DATABASE_URL!);
   const rows = await sql`
     select name, price_usd from products
-    where lower(brand) like '%clarins%'
+    where lower(brand) like '%bobbi brown%'
     order by name
   ` as any[];
-  // Output as JSON for easy comparison
   console.log(JSON.stringify(rows));
 })().catch(e => { console.error(e.message); process.exit(1); });
