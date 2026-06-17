@@ -1,5 +1,5 @@
 /**
- * Debug: find Attraqt zone ID in Tealium utag.js + try app-specific chunks.
+ * Debug: find Attraqt/Crownpeak zone ID in app chunk + call API with live key.
  * Run: railway run --service lara npx tsx scraper-worker/debug-benefit.ts
  */
 import { readFileSync } from "node:fs";
@@ -19,78 +19,84 @@ function load(f: string): void {
 load(resolve(__dirname, "..", ".env.local"));
 load(resolve(__dirname, ".env"));
 
+const LIVE_KEY = "ddc91fb9-7db9-4fcc-90f0-4f0b770abf56";
+const TEST_KEY = "2038840f-437c-4401-a023-42bf5afed4eb";
+
 (async () => {
   if (!process.env.OXYLABS_USERNAME) { console.error("No OXYLABS creds"); process.exit(1); }
   const { fetchWithWebUnblocker } = await import("./scraper");
 
-  // 1. Fetch Tealium utag.js for Selfridges — contains Attraqt zone config
-  console.log("=== Step 1: Tealium utag.js ===");
+  // 1. Look in the 382KB app chunk for zone ID and API endpoint
+  console.log("=== Step 1: scan 382KB chunk for Attraqt/Crownpeak zone ===");
+  const chunk = await fetchWithWebUnblocker(
+    "https://www.selfridges.com/static-mfe-plp/_next/static/chunks/61721e05-f20ea982f6316ee4.js",
+    {} as never
+  );
+  if (chunk && chunk.length > 1000) {
+    console.log("Chunk size:", (chunk.length / 1024).toFixed(0), "KB");
+
+    // Search for known Attraqt/Crownpeak patterns
+    for (const kw of ["attraqt", "crownpeak", "xo.all", "zone", "lister", "eu1", "eu2", "api.xo", "search-api", "searchapi"]) {
+      const idx = chunk.toLowerCase().indexOf(kw.toLowerCase());
+      if (idx >= 0) {
+        console.log(`[${kw}]: ...${chunk.slice(Math.max(0, idx-30), idx+200)}...`);
+      }
+    }
+
+    // All HTTPS URLs
+    const allUrls = [...new Set(chunk.match(/https?:\\?\/\\?\/[^"'`\s\\)]{10,120}/g) ?? [])];
+    const relevantUrls = allUrls.filter(u =>
+      /attraqt|crownpeak|search|catalog|product|lister|xo\./i.test(u)
+    );
+    if (relevantUrls.length) console.log("Relevant URLs:", relevantUrls.join("\n  "));
+    else console.log("No relevant URLs found. Total URLs:", allUrls.length, "Sample:", allUrls.slice(0, 3).join(", "));
+
+    // UUID-like strings that could be zone IDs
+    const uuids = [...new Set(chunk.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi) ?? [])];
+    console.log("UUID-like strings in chunk:", uuids.join(", ") || "None");
+  }
+
+  // 2. Try calling the Crownpeak/Attraqt API directly with the live key
+  // Common Crownpeak Search endpoint patterns
+  console.log("\n=== Step 2: try Crownpeak/Attraqt API with live key ===");
+  const crownpeakEndpoints = [
+    `https://lister.eu1.attraqt.io/zones-v2/?key=${LIVE_KEY}&pge=1&ppp=60&term=benefit`,
+    `https://lister.eu1.attraqt.io/zones-v2/?key=${LIVE_KEY}&brand=benefit-cosmetics&pge=1&ppp=60`,
+    `https://api.crownpeak.io/zones-v2/?key=${LIVE_KEY}&pge=1&ppp=60&term=benefit+cosmetics`,
+    `https://lister.eu2.attraqt.io/zones-v2/?key=${LIVE_KEY}&pge=1&ppp=60&brand=benefit`,
+    `https://search.selfridges.com/zones-v2/?key=${LIVE_KEY}&pge=1&ppp=60&term=benefit+cosmetics`,
+    `https://lister.eu1.attraqt.io/search?apiKey=${LIVE_KEY}&query=benefit+cosmetics&rows=60`,
+  ];
+  for (const url of crownpeakEndpoints) {
+    const resp = await fetchWithWebUnblocker(url, {} as never);
+    const isJson = resp?.trim().startsWith("{") || resp?.trim().startsWith("[");
+    console.log("→", url.slice(0, 70), "→", resp?.length ?? 0, "bytes", isJson ? "JSON" : "");
+    if (isJson && resp && resp.length > 100) {
+      console.log("  Response:", resp.slice(0, 400));
+      break;
+    }
+  }
+
+  // 3. Look at the utag.js more carefully for the Attraqt zone setup
+  console.log("\n=== Step 3: full Attraqt config from utag.js ===");
   const utagJs = await fetchWithWebUnblocker(
     "https://tags.tiqcdn.com/utag/selfridges/main/prod/utag.js",
     {} as never
   );
   if (utagJs && utagJs.length > 1000) {
-    console.log("utag size:", (utagJs.length / 1024).toFixed(0), "KB");
-    // Find Attraqt-related config
-    const attraqtIdx = utagJs.toLowerCase().indexOf("attraqt");
-    if (attraqtIdx >= 0) {
-      console.log("Attraqt config snippet:", utagJs.slice(Math.max(0, attraqtIdx - 50), attraqtIdx + 300));
-    } else {
-      console.log("No 'attraqt' in utag.js");
+    // Get more context around crownpeak/attraqt
+    let idx = 0;
+    let found = 0;
+    while (found < 5) {
+      const next = utagJs.toLowerCase().indexOf("attraqt", idx);
+      if (next < 0) break;
+      console.log(`Attraqt[${found}]: ${utagJs.slice(Math.max(0, next-20), next+300)}`);
+      idx = next + 1;
+      found++;
     }
-    // Find XO config
-    const xoIdx = utagJs.indexOf('"xo"');
-    if (xoIdx >= 0) console.log("XO config:", utagJs.slice(xoIdx, xoIdx + 200));
-    // Find lister/search endpoints
-    const listerMatch = utagJs.match(/lister[^"'\s]{0,60}/gi) ?? [];
-    console.log("Lister refs:", [...new Set(listerMatch)].slice(0, 5).join(", "));
-    // Find zone IDs
-    const zoneMatch = utagJs.match(/zone[^"'\s]{0,50}/gi) ?? [];
-    console.log("Zone refs:", [...new Set(zoneMatch)].slice(0, 5).join(", "));
-    // Find any API URLs
-    const apiUrls = [...new Set(utagJs.match(/https?:\/\/[^"'\s]{10,80}(?:attraqt|search|api|catalog)[^"'\s]{0,40}/gi) ?? [])];
-    console.log("API URLs:", apiUrls.slice(0, 10).join("\n  ") || "None");
-  } else {
-    console.log("Empty utag.js");
-  }
-
-  // 2. Fetch app-specific PLP chunks from the RSC payload chunk references
-  // RSC mentioned: 61721e05-f20ea982f6316ee4.js, 891cff7f-...
-  console.log("\n=== Step 2: app PLP chunks from RSC references ===");
-  const appChunks = [
-    "https://www.selfridges.com/static-mfe-plp/_next/static/chunks/61721e05-f20ea982f6316ee4.js",
-    "https://www.selfridges.com/static-mfe-plp/_next/static/chunks/125-dc8dbcc481ecd967.js",
-    "https://www.selfridges.com/static-mfe-plp/_next/static/chunks/387-d3f35cc7e6b7a3fd.js",
-  ];
-  for (const url of appChunks) {
-    const name = url.split("/").pop()!;
-    const js = await fetchWithWebUnblocker(url, {} as never);
-    if (!js || js.length < 500) { console.log(name, "→ empty"); continue; }
-    console.log(name, "→", (js.length / 1024).toFixed(0), "KB");
-    const allUrls = [...new Set(js.match(/https?:\\?\/\\?\/[^"'`\s\\]{10,100}/g) ?? [])];
-    const apiUrls = allUrls.filter(u => /attraqt|search|catalog|api|product|lister/i.test(u));
-    if (apiUrls.length > 0) console.log("  API URLs:", apiUrls.slice(0, 5).join("\n    "));
-    const attraqt = js.toLowerCase().indexOf("attraqt");
-    if (attraqt >= 0) console.log("  Attraqt snippet:", js.slice(Math.max(0,attraqt-20), attraqt+200));
-  }
-
-  // 3. Try Attraqt's public XO API with common Selfridges patterns
-  console.log("\n=== Step 3: try common Attraqt XO API patterns ===");
-  const xoEndpoints = [
-    "https://lister.eu1.attraqt.io/zones-v2/?zone=selfridges_gb_en_benefit-cosmetics&pge=1&ppp=60",
-    "https://lister.eu1.attraqt.io/zones-v2/?zone=selfridges_plp&term=benefit+cosmetics&pge=1",
-    "https://lister.eu2.attraqt.io/zones-v2/?zone=selfridges_gb_en&term=benefit+cosmetics",
-    "https://api.xo.io/zones/selfridges/gb/en/benefit-cosmetics?pge=1&ppp=60",
-  ];
-  for (const url of xoEndpoints) {
-    const resp = await fetchWithWebUnblocker(url, {} as never);
-    const isJson = resp?.trim().startsWith("{") || resp?.trim().startsWith("[");
-    if (resp && resp.length > 50 && isJson) {
-      console.log("JSON HIT:", url);
-      console.log("Response:", resp.slice(0, 400));
-      break;
-    }
-    console.log("No hit:", url.slice(0, 70));
+    // Find UUID patterns (zone IDs)
+    const uuids = [...new Set(utagJs.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi) ?? [])];
+    console.log("UUIDs in utag.js:", uuids.join(", ") || "None");
   }
 
   console.log("\nDone.");
