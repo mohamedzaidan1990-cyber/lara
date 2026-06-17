@@ -1,5 +1,5 @@
 /**
- * Debug: find Attraqt endpoint in PLP chunk raw content + try longer page wait.
+ * Debug: find Attraqt zone ID in Tealium utag.js + try app-specific chunks.
  * Run: railway run --service lara npx tsx scraper-worker/debug-benefit.ts
  */
 import { readFileSync } from "node:fs";
@@ -19,81 +19,78 @@ function load(f: string): void {
 load(resolve(__dirname, "..", ".env.local"));
 load(resolve(__dirname, ".env"));
 
-const VERY_LONG_WAIT = [
-  { type: "wait", wait_time_s: 15 },
-  { type: "scroll", x: 0, y: 1000 }, { type: "wait", wait_time_s: 5 },
-  { type: "scroll", x: 0, y: 3000 }, { type: "wait", wait_time_s: 5 },
-  { type: "scroll", x: 0, y: 6000 }, { type: "wait", wait_time_s: 5 },
-  { type: "scroll", x: 0, y: 10000 }, { type: "wait", wait_time_s: 8 },
-];
-
 (async () => {
   if (!process.env.OXYLABS_USERNAME) { console.error("No OXYLABS creds"); process.exit(1); }
   const { fetchWithWebUnblocker } = await import("./scraper");
-  const cheerio = await import("cheerio");
 
-  // 1. Look at the raw chunk content for URLs and API patterns
-  console.log("=== Step 1: raw chunk analysis ===");
-  const chunkJs = await fetchWithWebUnblocker(
-    "https://www.selfridges.com/static-mfe-plp/_next/static/chunks/87c73c54-dd8d81ac9604067c.js",
+  // 1. Fetch Tealium utag.js for Selfridges — contains Attraqt zone config
+  console.log("=== Step 1: Tealium utag.js ===");
+  const utagJs = await fetchWithWebUnblocker(
+    "https://tags.tiqcdn.com/utag/selfridges/main/prod/utag.js",
     {} as never
   );
-  if (chunkJs && chunkJs.length > 1000) {
-    console.log("Chunk size:", (chunkJs.length / 1024).toFixed(0), "KB");
-    // All https URLs
-    const allUrls = [...new Set(chunkJs.match(/https?:\\?\/\\?\/[^"'`\s\\]{10,100}/g) ?? [])];
-    console.log("All HTTPS URLs in chunk:", allUrls.length);
-    allUrls.forEach(u => console.log(" ", u.slice(0, 100)));
-
-    // Find patterns around "zone", "search", "api", "lister"
-    const snippets: string[] = [];
-    for (const kw of ["zone", "lister", "attraqt", "fredhopper", "xo", "XO", "catalog", "search", "endpoint"]) {
-      const idx = chunkJs.indexOf(kw);
-      if (idx >= 0) snippets.push(`[${kw}]: ...${chunkJs.slice(Math.max(0, idx-20), idx+100)}...`);
+  if (utagJs && utagJs.length > 1000) {
+    console.log("utag size:", (utagJs.length / 1024).toFixed(0), "KB");
+    // Find Attraqt-related config
+    const attraqtIdx = utagJs.toLowerCase().indexOf("attraqt");
+    if (attraqtIdx >= 0) {
+      console.log("Attraqt config snippet:", utagJs.slice(Math.max(0, attraqtIdx - 50), attraqtIdx + 300));
+    } else {
+      console.log("No 'attraqt' in utag.js");
     }
-    console.log("Keyword snippets:", snippets.slice(0, 8).join("\n  "));
+    // Find XO config
+    const xoIdx = utagJs.indexOf('"xo"');
+    if (xoIdx >= 0) console.log("XO config:", utagJs.slice(xoIdx, xoIdx + 200));
+    // Find lister/search endpoints
+    const listerMatch = utagJs.match(/lister[^"'\s]{0,60}/gi) ?? [];
+    console.log("Lister refs:", [...new Set(listerMatch)].slice(0, 5).join(", "));
+    // Find zone IDs
+    const zoneMatch = utagJs.match(/zone[^"'\s]{0,50}/gi) ?? [];
+    console.log("Zone refs:", [...new Set(zoneMatch)].slice(0, 5).join(", "));
+    // Find any API URLs
+    const apiUrls = [...new Set(utagJs.match(/https?:\/\/[^"'\s]{10,80}(?:attraqt|search|api|catalog)[^"'\s]{0,40}/gi) ?? [])];
+    console.log("API URLs:", apiUrls.slice(0, 10).join("\n  ") || "None");
   } else {
-    console.log("Chunk empty or too small");
+    console.log("Empty utag.js");
   }
 
-  // 2. Try fetching the 18-xx chunk as well
-  console.log("\n=== Step 2: check chunk 18 ===");
-  const chunk18 = await fetchWithWebUnblocker(
-    "https://www.selfridges.com/static-mfe-plp/_next/static/chunks/18-a82232ccf032754b.js",
-    {} as never
-  );
-  if (chunk18 && chunk18.length > 1000) {
-    console.log("Chunk18 size:", (chunk18.length / 1024).toFixed(0), "KB");
-    const allUrls18 = [...new Set(chunk18.match(/https?:\\?\/\\?\/[^"'`\s\\]{10,100}/g) ?? [])];
-    console.log("HTTPS URLs:", allUrls18.map(u => u.slice(0, 100)).join("\n  ") || "None");
-    const snippets18: string[] = [];
-    for (const kw of ["zone", "lister", "attraqt", "catalog", "search", "endpoint", "api"]) {
-      const idx = chunk18.indexOf(kw);
-      if (idx >= 0) snippets18.push(`[${kw}]: ...${chunk18.slice(Math.max(0, idx-20), idx+80)}...`);
+  // 2. Fetch app-specific PLP chunks from the RSC payload chunk references
+  // RSC mentioned: 61721e05-f20ea982f6316ee4.js, 891cff7f-...
+  console.log("\n=== Step 2: app PLP chunks from RSC references ===");
+  const appChunks = [
+    "https://www.selfridges.com/static-mfe-plp/_next/static/chunks/61721e05-f20ea982f6316ee4.js",
+    "https://www.selfridges.com/static-mfe-plp/_next/static/chunks/125-dc8dbcc481ecd967.js",
+    "https://www.selfridges.com/static-mfe-plp/_next/static/chunks/387-d3f35cc7e6b7a3fd.js",
+  ];
+  for (const url of appChunks) {
+    const name = url.split("/").pop()!;
+    const js = await fetchWithWebUnblocker(url, {} as never);
+    if (!js || js.length < 500) { console.log(name, "→ empty"); continue; }
+    console.log(name, "→", (js.length / 1024).toFixed(0), "KB");
+    const allUrls = [...new Set(js.match(/https?:\\?\/\\?\/[^"'`\s\\]{10,100}/g) ?? [])];
+    const apiUrls = allUrls.filter(u => /attraqt|search|catalog|api|product|lister/i.test(u));
+    if (apiUrls.length > 0) console.log("  API URLs:", apiUrls.slice(0, 5).join("\n    "));
+    const attraqt = js.toLowerCase().indexOf("attraqt");
+    if (attraqt >= 0) console.log("  Attraqt snippet:", js.slice(Math.max(0,attraqt-20), attraqt+200));
+  }
+
+  // 3. Try Attraqt's public XO API with common Selfridges patterns
+  console.log("\n=== Step 3: try common Attraqt XO API patterns ===");
+  const xoEndpoints = [
+    "https://lister.eu1.attraqt.io/zones-v2/?zone=selfridges_gb_en_benefit-cosmetics&pge=1&ppp=60",
+    "https://lister.eu1.attraqt.io/zones-v2/?zone=selfridges_plp&term=benefit+cosmetics&pge=1",
+    "https://lister.eu2.attraqt.io/zones-v2/?zone=selfridges_gb_en&term=benefit+cosmetics",
+    "https://api.xo.io/zones/selfridges/gb/en/benefit-cosmetics?pge=1&ppp=60",
+  ];
+  for (const url of xoEndpoints) {
+    const resp = await fetchWithWebUnblocker(url, {} as never);
+    const isJson = resp?.trim().startsWith("{") || resp?.trim().startsWith("[");
+    if (resp && resp.length > 50 && isJson) {
+      console.log("JSON HIT:", url);
+      console.log("Response:", resp.slice(0, 400));
+      break;
     }
-    console.log("Keyword snippets:", snippets18.slice(0, 6).join("\n  "));
-  }
-
-  // 3. Retry brand page with much longer wait
-  console.log("\n=== Step 3: brand page with 15s initial wait ===");
-  const brandHtml = await fetchWithWebUnblocker(
-    "https://www.selfridges.com/GB/en/cat/benefit-cosmetics/?pge=1&ppp=60&sort=relevance",
-    { browserInstructions: VERY_LONG_WAIT } as never
-  );
-  if (brandHtml && brandHtml.length > 1000) {
-    const $ = cheerio.load(brandHtml);
-    const cards = $("[data-testid='product-card']").length;
-    const testIds = new Set<string>();
-    $("[data-testid]").each((_, el) => testIds.add($(el).attr("data-testid") ?? ""));
-    console.log("HTML size:", (brandHtml.length / 1024).toFixed(0), "KB");
-    console.log("Product cards:", cards);
-    console.log("All data-testid values:", [...testIds].join(", "));
-    // Price patterns
-    const prices = brandHtml.match(/£\d[\d.,]*/g) ?? [];
-    console.log("Prices:", [...new Set(prices)].join(", "));
-    // Product URLs
-    const productLinks = [...new Set(brandHtml.match(/\/en\/product\/[^"'\s]{5,60}/g) ?? [])];
-    console.log("Product URLs:", productLinks.length, productLinks.slice(0, 5).join("\n  "));
+    console.log("No hit:", url.slice(0, 70));
   }
 
   console.log("\nDone.");
