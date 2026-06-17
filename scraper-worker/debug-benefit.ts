@@ -1,5 +1,6 @@
 /**
- * Debug: try benefit-cosmetics slug with full scroll depth + inspect fallback parsers.
+ * Debug: inspect the raw HTML of the benefit-cosmetics brand page to find
+ * where product data lives, and try the Next.js RSC JSON endpoint.
  * Run: railway run --service lara npx tsx scraper-worker/debug-benefit.ts
  */
 import { readFileSync } from "node:fs";
@@ -19,66 +20,88 @@ function load(f: string): void {
 load(resolve(__dirname, "..", ".env.local"));
 load(resolve(__dirname, ".env"));
 
-// Full scroll instructions (same as main scraper)
 const FULL_SCROLL = [
-  { type: "wait", wait_time_s: 6 },
-  { type: "scroll", x: 0, y: 2000 }, { type: "wait", wait_time_s: 2 },
-  { type: "scroll", x: 0, y: 5000 }, { type: "wait", wait_time_s: 2 },
-  { type: "scroll", x: 0, y: 9000 }, { type: "wait", wait_time_s: 2 },
-  { type: "scroll", x: 0, y: 14000 }, { type: "wait", wait_time_s: 3 },
-];
-
-const CANDIDATES = [
-  // Slug with full scroll
-  "https://www.selfridges.com/GB/en/cat/benefit-cosmetics/?pge=1&ppp=60&sort=relevance",
-  // Try without ppp/sort params — plain brand page
-  "https://www.selfridges.com/GB/en/cat/benefit-cosmetics/",
-  // Try their newer URL format
-  "https://www.selfridges.com/GB/en/brands/benefit-cosmetics/",
-  // Try beauty sub-path under brand slug
-  "https://www.selfridges.com/GB/en/cat/benefit-cosmetics/beauty/",
+  { type: "wait", wait_time_s: 8 },
+  { type: "scroll", x: 0, y: 2000 }, { type: "wait", wait_time_s: 3 },
+  { type: "scroll", x: 0, y: 5000 }, { type: "wait", wait_time_s: 3 },
+  { type: "scroll", x: 0, y: 9000 }, { type: "wait", wait_time_s: 3 },
+  { type: "scroll", x: 0, y: 14000 }, { type: "wait", wait_time_s: 5 },
 ];
 
 (async () => {
   if (!process.env.OXYLABS_USERNAME) { console.error("No OXYLABS creds"); process.exit(1); }
-  const { fetchWithWebUnblocker, extractSelfridgesProducts } = await import("./scraper");
+  const { fetchWithWebUnblocker } = await import("./scraper");
   const cheerio = await import("cheerio");
 
-  for (const url of CANDIDATES) {
-    console.log(`\n=== ${url} ===`);
-    const html = await fetchWithWebUnblocker(url, { browserInstructions: FULL_SCROLL } as never);
-    if (!html || html.length < 1000) { console.log("  → Empty/blocked"); continue; }
-    console.log(`  → HTML: ${(html.length / 1024).toFixed(0)} KB`);
-    const $ = cheerio.load(html);
-
-    // Check what structures exist
-    const productCards = $('[data-testid="product-card"]').length;
-    const jsonLd = $('script[type="application/ld+json"]').length;
-    const hasNextData = html.includes("__NEXT_DATA__");
-    console.log(`  → product-cards: ${productCards}, JSON-LD scripts: ${jsonLd}, __NEXT_DATA__: ${hasNextData}`);
-
-    const raws = extractSelfridgesProducts($, html, "https://www.selfridges.com");
-    const benefit = raws.filter(r => r.brand.toLowerCase().includes("benefit"));
-    console.log(`  → Parsed: ${raws.length} total, ${benefit.length} Benefit`);
-    if (benefit.length > 0) {
-      benefit.forEach(r => console.log(`     ✓ ${r.name} | £${r.priceGbp}`));
-    } else if (raws.length > 0) {
-      console.log(`  → Sample brands: ${[...new Set(raws.map(r => r.brand))].slice(0, 5).join(", ")}`);
-    }
-
-    // If __NEXT_DATA__ exists, show a snippet to understand the data shape
-    if (hasNextData && raws.length === 0) {
-      const match = html.match(/"brand"\s*:\s*"([^"]{1,50})"/g);
-      if (match) {
-        const brands = [...new Set(match.map(m => m.replace(/.*"brand"\s*:\s*"/, "").replace(/"$/, "")))];
-        console.log(`  → Brands in __NEXT_DATA__: ${brands.slice(0, 10).join(", ")}`);
-      }
-      // Check for product count hint
-      const countMatch = html.match(/"(?:totalCount|itemsCount|count)"\s*:\s*(\d+)/);
-      if (countMatch) console.log(`  → Count in data: ${countMatch[1]}`);
-    }
-
-    await new Promise(r => setTimeout(r, 3000));
+  // 1. Fetch a known-working page to extract the Next.js build ID
+  console.log("=== Step 1: get Next.js build ID from working page ===");
+  const makeupHtml = await fetchWithWebUnblocker(
+    "https://www.selfridges.com/GB/en/cat/beauty/makeup/?pge=1&ppp=60&sort=relevance",
+    { browserInstructions: FULL_SCROLL } as never
+  );
+  let buildId = "";
+  if (makeupHtml) {
+    const m = makeupHtml.match(/"buildId"\s*:\s*"([^"]+)"/);
+    if (m) { buildId = m[1]; console.log("Build ID:", buildId); }
+    else console.log("No buildId found in makeup page");
   }
+
+  // 2. If we have a buildId, try the Next.js JSON data endpoint
+  if (buildId) {
+    console.log("\n=== Step 2: try /_next/data/ endpoint for benefit-cosmetics ===");
+    const dataUrl = `https://www.selfridges.com/_next/data/${buildId}/GB/en/cat/benefit-cosmetics.json?pge=1&ppp=60&sort=relevance`;
+    console.log("URL:", dataUrl);
+    const dataHtml = await fetchWithWebUnblocker(dataUrl, {} as never);
+    if (dataHtml && dataHtml.length > 100) {
+      console.log("Response length:", dataHtml.length);
+      // Look for product-like data
+      const nameMatches = dataHtml.match(/"(?:name|productName)"\s*:\s*"([^"]{5,80})"/g)?.slice(0, 10);
+      if (nameMatches) console.log("Product names found:", nameMatches);
+      else console.log("No product names found. First 500 chars:", dataHtml.slice(0, 500));
+    } else {
+      console.log("Empty/short response");
+    }
+  }
+
+  // 3. Inspect the benefit-cosmetics brand page HTML structure
+  console.log("\n=== Step 3: inspect benefit-cosmetics brand page structure ===");
+  const brandHtml = await fetchWithWebUnblocker(
+    "https://www.selfridges.com/GB/en/cat/benefit-cosmetics/?pge=1&ppp=60&sort=relevance",
+    { browserInstructions: FULL_SCROLL } as never
+  );
+  if (brandHtml && brandHtml.length > 1000) {
+    const $ = cheerio.load(brandHtml);
+    console.log("HTML size:", (brandHtml.length / 1024).toFixed(0), "KB");
+
+    // What data-testid values exist?
+    const testIds = new Set<string>();
+    $("[data-testid]").each((_, el) => testIds.add($(el).attr("data-testid") ?? ""));
+    console.log("data-testid values:", [...testIds].slice(0, 20).join(", "));
+
+    // What script tags contain useful data?
+    let scriptDataFound = false;
+    $("script").each((_, el) => {
+      const content = $(el).html() ?? "";
+      if (content.includes("Benefit") && content.length > 200) {
+        console.log("Script with Benefit data (first 300 chars):", content.slice(0, 300));
+        scriptDataFound = true;
+        return false; // break
+      }
+    });
+    if (!scriptDataFound) console.log("No script tags contain 'Benefit'");
+
+    // Look for any product-like anchors
+    const productLinks = $("a[href*='/product/']").length;
+    console.log("Product link <a> tags:", productLinks);
+    if (productLinks > 0) {
+      $("a[href*='/product/']").slice(0, 5).each((_, el) => {
+        console.log(" ", $(el).attr("href")?.slice(0, 80));
+      });
+    }
+
+    // First 1000 chars of body to see page type
+    console.log("Page body start:", $("body").text().slice(0, 300).replace(/\s+/g, " "));
+  }
+
   console.log("\nDone.");
 })().catch(e => { console.error(e?.message ?? e); process.exit(1); });
