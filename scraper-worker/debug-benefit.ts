@@ -1,5 +1,5 @@
 /**
- * Debug: call Attraqt/Crownpeak API DIRECTLY (no Oxylabs) using Node.js fetch.
+ * Debug: extract all URLs from XO script + try Selfridges' own product API.
  * Run: railway run --service lara npx tsx scraper-worker/debug-benefit.ts
  */
 import { readFileSync } from "node:fs";
@@ -19,73 +19,89 @@ function load(f: string): void {
 load(resolve(__dirname, "..", ".env.local"));
 load(resolve(__dirname, ".env"));
 
-const LIVE_KEY = "ddc91fb9-7db9-4fcc-90f0-4f0b770abf56";
-const THIRD_UUID = "a8156fd8-8ef4-4421-a4d0-e2e26fd1ff1d";
-
-async function directFetch(url: string, label?: string): Promise<string> {
+async function directFetch(url: string): Promise<string> {
   try {
     const r = await fetch(url, {
       headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "application/json, */*",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "application/json, text/html, */*",
         "Referer": "https://www.selfridges.com/",
         "Origin": "https://www.selfridges.com",
-      }
+      },
+      signal: AbortSignal.timeout(10000),
     });
-    const text = await r.text();
-    const logLabel = label ?? url.slice(0, 70);
-    console.log(`${logLabel} → HTTP ${r.status}, ${text.length} bytes`);
-    if (text.length > 0) console.log("  First 300:", text.slice(0, 300));
-    return text;
-  } catch (e: any) {
-    console.log(`${url.slice(0, 70)} → ERROR: ${e.message}`);
+    return await r.text();
+  } catch {
     return "";
   }
 }
 
 (async () => {
-  // 1. Try the Attraqt config endpoint to discover zones
-  console.log("=== Step 1: Attraqt config discovery ===");
-  await directFetch(`https://cdn.attraqt.io/config.js?siteId=${LIVE_KEY}`, "config with LIVE_KEY");
-  await directFetch(`https://cdn.attraqt.io/config.js?siteId=${THIRD_UUID}`, "config with THIRD_UUID");
-  await directFetch(`https://cdn.attraqt.io/sites/${LIVE_KEY}.json`, "sites with LIVE_KEY");
-  await directFetch(`https://cdn.attraqt.io/sites/${THIRD_UUID}.json`, "sites with THIRD_UUID");
+  // 1. Read XO script and extract all URLs / API patterns
+  console.log("=== Step 1: XO.js URL analysis ===");
+  const xoJs = await directFetch("https://cdn.attraqt.io/xo.all-2.min.js");
+  if (xoJs && xoJs.length > 1000) {
+    const allUrls = [...new Set(xoJs.match(/["']https?:\/\/[^"'\s]{10,100}["']/g) ?? [])];
+    console.log("All URLs in XO.js:", allUrls.map(u => u.replace(/["']/g, "")).join("\n  ") || "None");
 
-  // 2. Try the Attraqt zones API with discovered UUIDs as zone IDs
-  console.log("\n=== Step 2: Attraqt zones-v2 API (direct fetch) ===");
-  const zoneEndpoints = [
-    `https://lister.eu1.attraqt.io/zones-v2/?zone=${THIRD_UUID}&pge=1&ppp=60`,
-    `https://lister.eu1.attraqt.io/zones-v2/?zone=${LIVE_KEY}&pge=1&ppp=60`,
-    `https://lister.eu1.attraqt.io/zones-v2/?zone=${THIRD_UUID}&pge=1&ppp=60&term=benefit+cosmetics`,
-    `https://lister.eu1.attraqt.io/zones-v2/?zone=${LIVE_KEY}&pge=1&ppp=60&term=benefit+cosmetics`,
-    `https://lister.eu2.attraqt.io/zones-v2/?zone=${THIRD_UUID}&pge=1&ppp=60`,
-    `https://lister.eu2.attraqt.io/zones-v2/?zone=${LIVE_KEY}&pge=1&ppp=60`,
+    // Domain stems (without https://)
+    const domains = [...new Set(xoJs.match(/["'][a-z0-9-]+\.(?:attraqt|crownpeak|xo|io|com)[^"']{0,40}["']/gi) ?? [])];
+    console.log("Domain patterns:", domains.slice(0, 10).join(", ") || "None");
+
+    // "lister" keyword
+    const lIdx = xoJs.toLowerCase().indexOf("lister");
+    if (lIdx >= 0) console.log("lister snippet:", xoJs.slice(Math.max(0,lIdx-30), lIdx+200));
+
+    // "zones" keyword
+    const zIdx = xoJs.indexOf("zones");
+    if (zIdx >= 0) console.log("zones snippet:", xoJs.slice(Math.max(0,zIdx-30), zIdx+200));
+
+    // ".io" or ".com" stems
+    const stemMatches = xoJs.match(/["'][a-z0-9._-]{3,}\.(?:io|com|net)(?:\/[^"']{0,60})?["']/gi) ?? [];
+    console.log("Domain stems:", [...new Set(stemMatches)].slice(0, 20).join("\n  "));
+  }
+
+  // 2. Try Selfridges' own product search API (internal)
+  console.log("\n=== Step 2: Selfridges internal API ===");
+  const selfridgesApis = [
+    "https://www.selfridges.com/api/products?brand=benefit-cosmetics&pge=1&ppp=60",
+    "https://www.selfridges.com/api/catalog/products?brand=benefit-cosmetics&pge=1",
+    "https://www.selfridges.com/int/v1/catalog/categories/beauty/benefit-cosmetics/products?pge=1&ppp=60",
+    "https://api.selfridges.com/product-catalogue/v1/catalog/categories/benefit-cosmetics/products",
+    "https://api.selfridges.com/product-catalogue/v2/products?brand=benefit-cosmetics",
+    "https://www.selfridges.com/cat/benefit-cosmetics/?format=json&pge=1&ppp=60",
+    "https://www.selfridges.com/GB/en/cat/benefit-cosmetics/?format=json",
   ];
-  for (const url of zoneEndpoints) {
+  for (const url of selfridgesApis) {
     const resp = await directFetch(url);
-    if (resp && resp.length > 100 && (resp.startsWith("{") || resp.startsWith("["))) {
-      console.log("** JSON HIT **", url);
-      break;
+    const isJson = resp?.trim().startsWith("{") || resp?.trim().startsWith("[");
+    if (resp && resp.length > 50) {
+      console.log(`${url.slice(40, 90)}: HTTP ${resp.length} bytes, ${isJson ? "JSON" : resp.slice(0,30)}`);
+      if (isJson) {
+        console.log("JSON response:", resp.slice(0, 500));
+        break;
+      }
+    } else {
+      console.log(`${url.slice(40, 90)}: empty`);
     }
   }
 
-  // 3. Try the newer Crownpeak Search APIs
-  console.log("\n=== Step 3: Crownpeak Search API ===");
-  const crownpeakEndpoints = [
-    `https://api.crownpeak.io/v2/products?siteId=${LIVE_KEY}&brand=benefit-cosmetics`,
-    `https://search.crownpeak.io/v1/query?siteId=${LIVE_KEY}&q=benefit+cosmetics`,
-    `https://cdn.attraqt.io/xo.all-2.min.js`,
+  // 3. Try DNS resolution of Attraqt lister domains
+  console.log("\n=== Step 3: Attraqt domain resolution test ===");
+  const domains = [
+    "https://lister.eu1.attraqt.io/",
+    "https://lister.attraqt.io/",
+    "https://api.attraqt.com/",
+    "https://lister.crownpeak.io/",
+    "https://api.crownpeak.com/",
   ];
-  for (const url of crownpeakEndpoints) {
-    await directFetch(url);
-  }
-
-  // 4. Inspect what the XO config script actually does when fetched with site context
-  console.log("\n=== Step 4: XO script with key ===");
-  const xoWithKey = await directFetch(`https://cdn.attraqt.io/xo.all-?key=${LIVE_KEY}`, "XO with key");
-  if (xoWithKey.length > 100) {
-    const apiUrlMatch = xoWithKey.match(/https?:\/\/[^"'\s]{20,100}(?:lister|zones|search|api)[^"'\s]{0,60}/gi);
-    if (apiUrlMatch) console.log("API URLs in XO response:", [...new Set(apiUrlMatch)].slice(0, 5).join("\n  "));
+  for (const url of domains) {
+    try {
+      const r = await fetch(url, { signal: AbortSignal.timeout(5000) });
+      console.log(url, "→ HTTP", r.status, (await r.text()).slice(0, 80));
+    } catch (e: any) {
+      console.log(url, "→ ERROR:", e.message?.slice(0, 60));
+    }
   }
 
   console.log("\nDone.");
