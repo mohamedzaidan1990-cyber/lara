@@ -21,12 +21,12 @@ load(resolve(__dirname, ".env"));
 
   // Find matching products
   const rows = await sql`
-    select id, brand, name, price_usd, price_gbp, original_price_usd
+    select id, brand, name, price_usd, price_gbp
     from products
     where lower(name) like '%avocado%' and lower(brand) like '%kiehl%'
     order by name
   ` as any[];
 
   console.log("Found:", rows.length);
-  rows.forEach(r => console.log(`  [${r.id}] ${r.name} | $${r.price_usd} / £${r.price_gbp} | orig:$${r.original_price_usd}`));
+  rows.forEach(r => console.log(`  [${r.id}] ${r.name} | $${r.price_usd} / £${r.price_gbp}`));
 })().catch(e => { console.error(e.message); process.exit(1); });
