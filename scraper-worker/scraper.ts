@@ -1230,11 +1230,35 @@ export async function scrapeSelfridgesKBeauty(): Promise<ScrapedProductRow[]> {
   return collected;
 }
 
-// Benefit Cosmetics — brand slug 404s on Selfridges, so we use search URLs instead.
-// Two pages: one for all Benefit products, one specifically for sets/kits/gift sets.
+// Benefit Cosmetics — brand slug 404s on Selfridges, so we use targeted search
+// URLs per product category to surface the full range. Each search returns up to
+// 60 results; targeted terms keep Benefit products as the majority so the brand
+// filter has less to drop.
 export const SELFRIDGES_BENEFIT_URLS: string[] = [
+  // General — pages 1–3
   "https://www.selfridges.com/GB/en/cat/?pge=1&ppp=60&sort=relevance&term=benefit+cosmetics",
-  "https://www.selfridges.com/GB/en/cat/?pge=1&ppp=60&sort=relevance&term=benefit+sets",
+  "https://www.selfridges.com/GB/en/cat/?pge=2&ppp=60&sort=relevance&term=benefit+cosmetics",
+  "https://www.selfridges.com/GB/en/cat/?pge=3&ppp=60&sort=relevance&term=benefit+cosmetics",
+  // Brows (Benefit's largest category)
+  "https://www.selfridges.com/GB/en/cat/?pge=1&ppp=60&sort=relevance&term=benefit+brow",
+  // Mascaras
+  "https://www.selfridges.com/GB/en/cat/?pge=1&ppp=60&sort=relevance&term=benefit+mascara",
+  // Face: bronzer, blush, highlighter
+  "https://www.selfridges.com/GB/en/cat/?pge=1&ppp=60&sort=relevance&term=benefit+bronzer",
+  "https://www.selfridges.com/GB/en/cat/?pge=1&ppp=60&sort=relevance&term=benefit+blush",
+  "https://www.selfridges.com/GB/en/cat/?pge=1&ppp=60&sort=relevance&term=benefit+highlighter",
+  // Face: base & concealer
+  "https://www.selfridges.com/GB/en/cat/?pge=1&ppp=60&sort=relevance&term=benefit+primer",
+  "https://www.selfridges.com/GB/en/cat/?pge=1&ppp=60&sort=relevance&term=benefit+concealer",
+  "https://www.selfridges.com/GB/en/cat/?pge=1&ppp=60&sort=relevance&term=benefit+foundation",
+  // Eyes & lips
+  "https://www.selfridges.com/GB/en/cat/?pge=1&ppp=60&sort=relevance&term=benefit+liner",
+  "https://www.selfridges.com/GB/en/cat/?pge=1&ppp=60&sort=relevance&term=benefit+lip",
+  // Skincare (POREfessional, Bad Habits, etc.)
+  "https://www.selfridges.com/GB/en/cat/?pge=1&ppp=60&sort=relevance&term=benefit+pore",
+  // Gift sets & beauty sets
+  "https://www.selfridges.com/GB/en/cat/?pge=1&ppp=60&sort=relevance&term=benefit+gift+set",
+  "https://www.selfridges.com/GB/en/cat/?pge=1&ppp=60&sort=relevance&term=benefit+beauty+set",
 ];
 
 // Generic URL-based scraper — same logic as scrapeSelfridgesKBeauty but accepts
