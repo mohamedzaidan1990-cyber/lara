@@ -1,5 +1,5 @@
 /**
- * Debug: find Attraqt/Crownpeak zone ID in app chunk + call API with live key.
+ * Debug: call Attraqt/Crownpeak API DIRECTLY (no Oxylabs) using Node.js fetch.
  * Run: railway run --service lara npx tsx scraper-worker/debug-benefit.ts
  */
 import { readFileSync } from "node:fs";
@@ -20,83 +20,72 @@ load(resolve(__dirname, "..", ".env.local"));
 load(resolve(__dirname, ".env"));
 
 const LIVE_KEY = "ddc91fb9-7db9-4fcc-90f0-4f0b770abf56";
-const TEST_KEY = "2038840f-437c-4401-a023-42bf5afed4eb";
+const THIRD_UUID = "a8156fd8-8ef4-4421-a4d0-e2e26fd1ff1d";
+
+async function directFetch(url: string, label?: string): Promise<string> {
+  try {
+    const r = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "application/json, */*",
+        "Referer": "https://www.selfridges.com/",
+        "Origin": "https://www.selfridges.com",
+      }
+    });
+    const text = await r.text();
+    const logLabel = label ?? url.slice(0, 70);
+    console.log(`${logLabel} → HTTP ${r.status}, ${text.length} bytes`);
+    if (text.length > 0) console.log("  First 300:", text.slice(0, 300));
+    return text;
+  } catch (e: any) {
+    console.log(`${url.slice(0, 70)} → ERROR: ${e.message}`);
+    return "";
+  }
+}
 
 (async () => {
-  if (!process.env.OXYLABS_USERNAME) { console.error("No OXYLABS creds"); process.exit(1); }
-  const { fetchWithWebUnblocker } = await import("./scraper");
+  // 1. Try the Attraqt config endpoint to discover zones
+  console.log("=== Step 1: Attraqt config discovery ===");
+  await directFetch(`https://cdn.attraqt.io/config.js?siteId=${LIVE_KEY}`, "config with LIVE_KEY");
+  await directFetch(`https://cdn.attraqt.io/config.js?siteId=${THIRD_UUID}`, "config with THIRD_UUID");
+  await directFetch(`https://cdn.attraqt.io/sites/${LIVE_KEY}.json`, "sites with LIVE_KEY");
+  await directFetch(`https://cdn.attraqt.io/sites/${THIRD_UUID}.json`, "sites with THIRD_UUID");
 
-  // 1. Look in the 382KB app chunk for zone ID and API endpoint
-  console.log("=== Step 1: scan 382KB chunk for Attraqt/Crownpeak zone ===");
-  const chunk = await fetchWithWebUnblocker(
-    "https://www.selfridges.com/static-mfe-plp/_next/static/chunks/61721e05-f20ea982f6316ee4.js",
-    {} as never
-  );
-  if (chunk && chunk.length > 1000) {
-    console.log("Chunk size:", (chunk.length / 1024).toFixed(0), "KB");
-
-    // Search for known Attraqt/Crownpeak patterns
-    for (const kw of ["attraqt", "crownpeak", "xo.all", "zone", "lister", "eu1", "eu2", "api.xo", "search-api", "searchapi"]) {
-      const idx = chunk.toLowerCase().indexOf(kw.toLowerCase());
-      if (idx >= 0) {
-        console.log(`[${kw}]: ...${chunk.slice(Math.max(0, idx-30), idx+200)}...`);
-      }
-    }
-
-    // All HTTPS URLs
-    const allUrls = [...new Set(chunk.match(/https?:\\?\/\\?\/[^"'`\s\\)]{10,120}/g) ?? [])];
-    const relevantUrls = allUrls.filter(u =>
-      /attraqt|crownpeak|search|catalog|product|lister|xo\./i.test(u)
-    );
-    if (relevantUrls.length) console.log("Relevant URLs:", relevantUrls.join("\n  "));
-    else console.log("No relevant URLs found. Total URLs:", allUrls.length, "Sample:", allUrls.slice(0, 3).join(", "));
-
-    // UUID-like strings that could be zone IDs
-    const uuids = [...new Set(chunk.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi) ?? [])];
-    console.log("UUID-like strings in chunk:", uuids.join(", ") || "None");
-  }
-
-  // 2. Try calling the Crownpeak/Attraqt API directly with the live key
-  // Common Crownpeak Search endpoint patterns
-  console.log("\n=== Step 2: try Crownpeak/Attraqt API with live key ===");
-  const crownpeakEndpoints = [
-    `https://lister.eu1.attraqt.io/zones-v2/?key=${LIVE_KEY}&pge=1&ppp=60&term=benefit`,
-    `https://lister.eu1.attraqt.io/zones-v2/?key=${LIVE_KEY}&brand=benefit-cosmetics&pge=1&ppp=60`,
-    `https://api.crownpeak.io/zones-v2/?key=${LIVE_KEY}&pge=1&ppp=60&term=benefit+cosmetics`,
-    `https://lister.eu2.attraqt.io/zones-v2/?key=${LIVE_KEY}&pge=1&ppp=60&brand=benefit`,
-    `https://search.selfridges.com/zones-v2/?key=${LIVE_KEY}&pge=1&ppp=60&term=benefit+cosmetics`,
-    `https://lister.eu1.attraqt.io/search?apiKey=${LIVE_KEY}&query=benefit+cosmetics&rows=60`,
+  // 2. Try the Attraqt zones API with discovered UUIDs as zone IDs
+  console.log("\n=== Step 2: Attraqt zones-v2 API (direct fetch) ===");
+  const zoneEndpoints = [
+    `https://lister.eu1.attraqt.io/zones-v2/?zone=${THIRD_UUID}&pge=1&ppp=60`,
+    `https://lister.eu1.attraqt.io/zones-v2/?zone=${LIVE_KEY}&pge=1&ppp=60`,
+    `https://lister.eu1.attraqt.io/zones-v2/?zone=${THIRD_UUID}&pge=1&ppp=60&term=benefit+cosmetics`,
+    `https://lister.eu1.attraqt.io/zones-v2/?zone=${LIVE_KEY}&pge=1&ppp=60&term=benefit+cosmetics`,
+    `https://lister.eu2.attraqt.io/zones-v2/?zone=${THIRD_UUID}&pge=1&ppp=60`,
+    `https://lister.eu2.attraqt.io/zones-v2/?zone=${LIVE_KEY}&pge=1&ppp=60`,
   ];
-  for (const url of crownpeakEndpoints) {
-    const resp = await fetchWithWebUnblocker(url, {} as never);
-    const isJson = resp?.trim().startsWith("{") || resp?.trim().startsWith("[");
-    console.log("→", url.slice(0, 70), "→", resp?.length ?? 0, "bytes", isJson ? "JSON" : "");
-    if (isJson && resp && resp.length > 100) {
-      console.log("  Response:", resp.slice(0, 400));
+  for (const url of zoneEndpoints) {
+    const resp = await directFetch(url);
+    if (resp && resp.length > 100 && (resp.startsWith("{") || resp.startsWith("["))) {
+      console.log("** JSON HIT **", url);
       break;
     }
   }
 
-  // 3. Look at the utag.js more carefully for the Attraqt zone setup
-  console.log("\n=== Step 3: full Attraqt config from utag.js ===");
-  const utagJs = await fetchWithWebUnblocker(
-    "https://tags.tiqcdn.com/utag/selfridges/main/prod/utag.js",
-    {} as never
-  );
-  if (utagJs && utagJs.length > 1000) {
-    // Get more context around crownpeak/attraqt
-    let idx = 0;
-    let found = 0;
-    while (found < 5) {
-      const next = utagJs.toLowerCase().indexOf("attraqt", idx);
-      if (next < 0) break;
-      console.log(`Attraqt[${found}]: ${utagJs.slice(Math.max(0, next-20), next+300)}`);
-      idx = next + 1;
-      found++;
-    }
-    // Find UUID patterns (zone IDs)
-    const uuids = [...new Set(utagJs.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi) ?? [])];
-    console.log("UUIDs in utag.js:", uuids.join(", ") || "None");
+  // 3. Try the newer Crownpeak Search APIs
+  console.log("\n=== Step 3: Crownpeak Search API ===");
+  const crownpeakEndpoints = [
+    `https://api.crownpeak.io/v2/products?siteId=${LIVE_KEY}&brand=benefit-cosmetics`,
+    `https://search.crownpeak.io/v1/query?siteId=${LIVE_KEY}&q=benefit+cosmetics`,
+    `https://cdn.attraqt.io/xo.all-2.min.js`,
+  ];
+  for (const url of crownpeakEndpoints) {
+    await directFetch(url);
+  }
+
+  // 4. Inspect what the XO config script actually does when fetched with site context
+  console.log("\n=== Step 4: XO script with key ===");
+  const xoWithKey = await directFetch(`https://cdn.attraqt.io/xo.all-?key=${LIVE_KEY}`, "XO with key");
+  if (xoWithKey.length > 100) {
+    const apiUrlMatch = xoWithKey.match(/https?:\/\/[^"'\s]{20,100}(?:lister|zones|search|api)[^"'\s]{0,60}/gi);
+    if (apiUrlMatch) console.log("API URLs in XO response:", [...new Set(apiUrlMatch)].slice(0, 5).join("\n  "));
   }
 
   console.log("\nDone.");
