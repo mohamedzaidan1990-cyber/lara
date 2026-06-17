@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { productImageSrc } from "@/lib/images";
 import { BeeSvg } from "./BeeMascot";
 import { useCart } from "@/lib/cart";
+import { getPromo } from "@/lib/promotions";
 
 export interface ProductCardData {
   // Present for catalogue products (links to the detail page). Live search
@@ -381,6 +382,7 @@ export default function ProductCard({ product, index = 0 }: Props) {
 
   const imgSrc = productImageSrc(product.image_url);
   const showImage = Boolean(imgSrc) && !imgFailed;
+  const promo = getPromo(product.id);
 
   function addToCart() {
     addItem({
@@ -418,7 +420,11 @@ export default function ProductCard({ product, index = 0 }: Props) {
         ) : (
           <ImageFallback brand={product.brand} name={product.name} />
         )}
-        {!product.deliverable_lebanon ? (
+        {promo ? (
+          <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-accent px-3 py-1 text-[9px] font-bold uppercase tracking-[0.15em] text-white shadow">
+            ✦ {promo.label}
+          </span>
+        ) : !product.deliverable_lebanon ? (
           <span className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-ink/85 px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-cream">
             <span className="h-1.5 w-1.5 rounded-full bg-cream/70" />
             Ask us
@@ -449,7 +455,14 @@ export default function ProductCard({ product, index = 0 }: Props) {
         <Link href={detailHref} className="mt-1.5 line-clamp-2 text-sm font-medium text-ink transition-colors hover:text-accent">
           {product.name}
         </Link>
-        <p className="mt-3 font-serif text-xl font-bold text-accent">{formatUsd(product.price_usd)}</p>
+        {promo ? (
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="font-serif text-xl font-bold text-accent">{formatUsd(product.price_usd)}</span>
+            <span className="text-sm text-ink/40 line-through">{formatUsd(promo.compareAtUsd)}</span>
+          </div>
+        ) : (
+          <p className="mt-3 font-serif text-xl font-bold text-accent">{formatUsd(product.price_usd)}</p>
+        )}
 
         <div className="mt-4 flex items-center gap-2">
           <button
