@@ -33,8 +33,20 @@ export default function AdminAccountingTab({ orders, expenses, onExpensesChange 
   const paid = orders.filter((o) => o.payment_confirmed);
   const revenue = paid.reduce((s, o) => s + num(o.total_usd ?? o.price_usd), 0);
 
-  const costed = orders.filter((o) => o.cost_usd != null && o.cost_usd !== "");
-  const cogs = costed.reduce((s, o) => s + num(o.cost_usd), 0);
+  // Per-order COGS: prefer item-level costs if any items have been costed,
+  // otherwise fall back to the order-level cost_usd (entered via P&L panel).
+  let cogs = 0;
+  let costedOrderCount = 0;
+  for (const o of paid) {
+    const itemsWithCost = (o.items ?? []).filter((it) => it.cost_usd != null && it.cost_usd !== "");
+    if (itemsWithCost.length > 0) {
+      cogs += itemsWithCost.reduce((s, it) => s + num(it.cost_usd), 0);
+      costedOrderCount++;
+    } else if (o.cost_usd != null && o.cost_usd !== "") {
+      cogs += num(o.cost_usd);
+      costedOrderCount++;
+    }
+  }
 
   const totalExpenses = expenses.reduce((s, e) => s + num(e.amount_usd), 0);
   const profit = revenue - cogs - totalExpenses;
@@ -94,7 +106,7 @@ export default function AdminAccountingTab({ orders, expenses, onExpensesChange 
       {/* Summary cards */}
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard label="Revenue" value={fmtUsd(revenue)} sub={`${paid.length} paid orders`} />
-        <StatCard label="COGS" value={fmtUsd(cogs)} sub={`${costed.length} orders costed`} color="#E08B45" />
+        <StatCard label="COGS" value={fmtUsd(cogs)} sub={`${costedOrderCount} orders costed`} color="#E08B45" />
         <StatCard label="Expenses" value={fmtUsd(totalExpenses)} sub={`${expenses.length} items`} color="#7A4FB0" />
         <StatCard
           label="Net Profit"
@@ -104,9 +116,9 @@ export default function AdminAccountingTab({ orders, expenses, onExpensesChange 
         />
       </section>
 
-      {costed.length < paid.length ? (
+      {costedOrderCount < paid.length ? (
         <p className="text-xs text-ink/50">
-          Note: {paid.length - costed.length} paid order(s) have no cost entered — COGS may be understated.
+          Note: {paid.length - costedOrderCount} paid order(s) have no cost entered — COGS may be understated.
         </p>
       ) : null}
 
