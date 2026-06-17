@@ -102,6 +102,22 @@ export const SCHEMA_STATEMENTS = [
     created_at timestamp default now()
   )`,
   `create index if not exists order_items_order_id_idx on order_items (order_id)`,
+  // ----- Per-item sourcing: where the admin bought it and what they paid -----
+  `alter table order_items add column if not exists vendor text`,
+  `alter table order_items add column if not exists cost_gbp numeric`,
+  `alter table order_items add column if not exists cost_usd numeric`,
+  `alter table order_items add column if not exists sourced boolean default false`,
+  // ----- General expenses (shipping, packaging, fees, etc.) -----
+  `create table if not exists expenses (
+    id uuid default gen_random_uuid() primary key,
+    description text not null,
+    amount_usd numeric not null,
+    amount_gbp numeric,
+    category text default 'other',
+    expense_date date default current_date,
+    notes text,
+    created_at timestamp default now()
+  )`,
   // ----- Invoice + operational workflow timestamps -----
   `alter table orders add column if not exists invoice_pdf text`,
   `alter table orders add column if not exists invoice_sent_at timestamp`,
@@ -212,12 +228,28 @@ export interface OrderRow {
 }
 
 export interface OrderLineItem {
+  id?: string;
   brand: string;
   name: string;
   quantity: number;
   price_usd: string | number;
   price_gbp: string | number;
   product_url: string | null;
+  vendor?: string | null;
+  cost_gbp?: string | number | null;
+  cost_usd?: string | number | null;
+  sourced?: boolean;
+}
+
+export interface ExpenseRow {
+  id: string;
+  description: string;
+  amount_usd: string | number;
+  amount_gbp: string | number | null;
+  category: string;
+  expense_date: string;
+  notes: string | null;
+  created_at: string;
 }
 
 export interface OrderWithCustomer extends OrderRow {

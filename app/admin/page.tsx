@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { ensureSchema, getSql, type OrderWithCustomer } from "@/lib/db";
+import { ensureSchema, getSql, type OrderWithCustomer, type ExpenseRow } from "@/lib/db";
 import { isAdmin } from "@/lib/auth";
 import AdminDashboard from "./AdminDashboard";
 
@@ -24,8 +24,9 @@ export default async function AdminPage() {
            coalesce(c.address, '') as address,
            coalesce(
              (select json_agg(json_build_object(
-                'brand', oi.product_brand, 'name', oi.product_name, 'quantity', oi.quantity,
-                'price_usd', oi.price_usd, 'price_gbp', oi.price_gbp, 'product_url', oi.product_url
+                'id', oi.id, 'brand', oi.product_brand, 'name', oi.product_name, 'quantity', oi.quantity,
+                'price_usd', oi.price_usd, 'price_gbp', oi.price_gbp, 'product_url', oi.product_url,
+                'vendor', oi.vendor, 'cost_gbp', oi.cost_gbp, 'cost_usd', oi.cost_usd, 'sourced', oi.sourced
               )) from order_items oi where oi.order_id = o.id),
              '[]'
            ) as items
@@ -40,5 +41,11 @@ export default async function AdminPage() {
     order by created_at desc
   `) as import("@/lib/db").BespokeRequestRow[];
 
-  return <AdminDashboard initialOrders={rows} initialBespoke={bespoke} />;
+  const expenses = (await sql`
+    select id, description, amount_usd, amount_gbp, category, expense_date, notes, created_at
+    from expenses
+    order by expense_date desc, created_at desc
+  `) as ExpenseRow[];
+
+  return <AdminDashboard initialOrders={rows} initialBespoke={bespoke} initialExpenses={expenses} />;
 }

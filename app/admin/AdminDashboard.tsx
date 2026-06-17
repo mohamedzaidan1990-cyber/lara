@@ -6,14 +6,16 @@ import { useRouter } from "next/navigation";
 import AdminOrderRow from "@/components/AdminOrderRow";
 import AdminBespokeRow from "@/components/AdminBespokeRow";
 import AdminManualOrderModal from "@/components/AdminManualOrderModal";
-import type { OrderWithCustomer, BespokeRequestRow } from "@/lib/db";
+import AdminAccountingTab from "@/components/AdminAccountingTab";
+import type { OrderWithCustomer, BespokeRequestRow, ExpenseRow } from "@/lib/db";
 
 interface Props {
   initialOrders: OrderWithCustomer[];
   initialBespoke?: BespokeRequestRow[];
+  initialExpenses?: ExpenseRow[];
 }
 
-type Tab = "orders" | "bespoke";
+type Tab = "orders" | "bespoke" | "accounting";
 
 interface Group {
   key: string;
@@ -25,14 +27,15 @@ interface Group {
 const GROUPS: Group[] = [
   { key: "pending", label: "Pending Payment", color: "#C0392B", match: (o) => !o.payment_confirmed && o.status === "pending" },
   { key: "payment_confirmed", label: "Payment Confirmed", color: "#E08B45", match: (o) => o.status === "payment_confirmed" },
-  { key: "ordered_selfridges", label: "Ordered on Selfridges", color: "#3A6EA5", match: (o) => o.status === "ordered_selfridges" },
+  { key: "ordered_selfridges", label: "Ordered", color: "#3A6EA5", match: (o) => o.status === "ordered_selfridges" },
   { key: "shipped", label: "Shipped", color: "#7A4FB0", match: (o) => o.status === "shipped" || o.status === "in_lebanon" },
   { key: "delivered", label: "Delivered", color: "#277C43", match: (o) => o.status === "delivered" }
 ];
 
-export default function AdminDashboard({ initialOrders, initialBespoke = [] }: Props) {
+export default function AdminDashboard({ initialOrders, initialBespoke = [], initialExpenses = [] }: Props) {
   const router = useRouter();
   const [orders, setOrders] = useState(initialOrders);
+  const [expenses, setExpenses] = useState<ExpenseRow[]>(initialExpenses);
   const [tab, setTab] = useState<Tab>("orders");
   const [filter, setFilter] = useState<string | null>(null);
   const [showManual, setShowManual] = useState(false);
@@ -92,9 +95,12 @@ export default function AdminDashboard({ initialOrders, initialBespoke = [] }: P
           onClick={() => setTab("bespoke")}
           label={`Bespoke Requests${newBespoke > 0 ? ` · ${newBespoke} new` : ` (${initialBespoke.length})`}`}
         />
+        <TabButton active={tab === "accounting"} onClick={() => setTab("accounting")} label="Accounting" />
       </div>
 
-      {tab === "orders" ? (
+      {tab === "accounting" ? (
+        <AdminAccountingTab orders={orders} expenses={expenses} onExpensesChange={setExpenses} />
+      ) : tab === "orders" ? (
         <>
           <div className="mt-6 flex justify-end">
             <button

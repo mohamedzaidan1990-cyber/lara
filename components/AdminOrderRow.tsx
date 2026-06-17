@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ORDER_STATUS_LABELS, type OrderStatus, type OrderWithCustomer } from "@/lib/db";
+import { ORDER_STATUS_LABELS, type OrderStatus, type OrderWithCustomer, type OrderLineItem } from "@/lib/db";
 import { BeeSvg } from "@/components/BeeMascot";
 
 function usd(value: number): string {
@@ -59,6 +59,10 @@ export default function AdminOrderRow({ order, onUpdated }: Props) {
   const [platformFee, setPlatformFee] = useState(local.platform_fee_usd != null ? String(local.platform_fee_usd) : "");
   const [savingPnl, setSavingPnl] = useState(false);
 
+  // Per-item sourcing
+  const [itemDrafts, setItemDrafts] = useState<Record<string, { vendor: string; cost_gbp: string; sourced: boolean }>>({});
+  const [savingItem, setSavingItem] = useState<string | null>(null);
+
   useEffect(() => {
     if (!pnlOpen) return;
     fetch("/api/exchange-rate")
@@ -94,6 +98,54 @@ export default function AdminOrderRow({ order, onUpdated }: Props) {
       alert((err as Error).message);
     } finally {
       setSavingPnl(false);
+    }
+  }
+
+  function getItemDraft(item: OrderLineItem) {
+    if (!item.id) return null;
+    return itemDrafts[item.id] ?? {
+      vendor: item.vendor ?? "selfridges",
+      cost_gbp: item.cost_gbp != null ? String(item.cost_gbp) : "",
+      sourced: item.sourced ?? false
+    };
+  }
+
+  function setItemDraft(id: string, patch: Partial<{ vendor: string; cost_gbp: string; sourced: boolean }>) {
+    setItemDrafts((prev) => ({
+      ...prev,
+      [id]: { ...( prev[id] ?? { vendor: "selfridges", cost_gbp: "", sourced: false } ), ...patch }
+    }));
+  }
+
+  async function saveItem(item: OrderLineItem) {
+    if (!item.id) return;
+    const draft = getItemDraft(item);
+    if (!draft) return;
+    setSavingItem(item.id);
+    try {
+      const costGbpVal = draft.cost_gbp !== "" ? Number(draft.cost_gbp) : null;
+      const res = await fetch(`/api/admin/order-items/${item.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          vendor: draft.vendor || null,
+          cost_gbp: costGbpVal,
+          cost_usd: costGbpVal != null ? Math.round(costGbpVal * rate * 100) / 100 : null,
+          sourced: draft.sourced
+        })
+      });
+      if (!res.ok) throw new Error("Failed to save");
+      const updated = (await res.json()) as { vendor: string | null; cost_gbp: string | null; cost_usd: string | null; sourced: boolean };
+      const nextItems = (local.items ?? []).map((it) =>
+        it.id === item.id
+          ? { ...it, vendor: updated.vendor, cost_gbp: updated.cost_gbp, cost_usd: updated.cost_usd, sourced: updated.sourced }
+          : it
+      );
+      apply({ items: nextItems });
+    } catch (err) {
+      alert((err as Error).message);
+    } finally {
+      setSavingItem(null);
     }
   }
 
@@ -143,7 +195,7 @@ export default function AdminOrderRow({ order, onUpdated }: Props) {
   function markOrdered() {
     void patch(
       { status: "ordered_selfridges" },
-      "Mark as ordered on Selfridges? The customer will be notified on WhatsApp.",
+      "Mark as ordered? The customer will be notified on WhatsApp.",
       { status: "ordered_selfridges" }
     );
   }
@@ -216,25 +268,91 @@ export default function AdminOrderRow({ order, onUpdated }: Props) {
                 </a>
               </div>
 
-              {/* Items + Selfridges search */}
+              {/* Items + sourcing */}
               <div>
                 <p className="text-[10px] uppercase tracking-[0.2em] text-ink/60">
                   Items{local.items && local.items.length ? ` (${local.items.length})` : ""}
                 </p>
                 {local.items && local.items.length > 0 ? (
-                  <ul className="mt-2 space-y-2 text-sm text-ink">
-                    {local.items.map((it, i) => (
-                      <li key={i} className="flex items-start justify-between gap-3">
-                        <span>
-                          <span className="text-ink/60">{it.brand}</span> {it.name}
-                          {it.quantity > 1 ? <span className="text-ink/50"> ×{it.quantity}</span> : null}
-                          <a href={selfridgesSearch(it.brand, it.name)} target="_blank" rel="noreferrer" className="ml-2 text-xs text-accent hover:underline">
-                            Find on Selfridges 🔍
-                          </a>
-                        </span>
-                        <span className="whitespace-nowrap">{formatUsd(Number(it.price_usd) * it.quantity)}</span>
-                      </li>
-                    ))}
+                  <ul className="mt-2 space-y-4 text-sm text-ink">
+                    {local.items.map((it, i) => {
+                      const draft = getItemDraft(it);
+                      return (
+                        <li key={it.id ?? i} className="border border-ink/10 p-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <span>
+                              <span className="text-ink/60">{it.brand}</span> {it.name}
+                              {it.quantity > 1 ? <span className="text-ink/50"> ×{it.quantity}</span> : null}
+                              <a href={selfridgesSearch(it.brand, it.name)} target="_blank" rel="noreferrer" className="ml-2 text-xs text-accent hover:underline">
+                                Find on Selfridges 🔍
+                              </a>
+                            </span>
+                            <span className="whitespace-nowrap">{formatUsd(Number(it.price_usd) * it.quantity)}</span>
+                          </div>
+                          {it.id && draft ? (
+                            <div className="mt-3 space-y-2 border-t border-ink/10 pt-3">
+                              <div className="flex items-center gap-3">
+                                <label className="text-[10px] uppercase tracking-[0.14em] text-ink/60">Source</label>
+                                <div className="flex gap-2">
+                                  {["selfridges", "elsewhere"].map((v) => (
+                                    <button
+                                      key={v}
+                                      type="button"
+                                      onClick={() => setItemDraft(it.id!, { vendor: v })}
+                                      className={
+                                        "rounded px-2 py-0.5 text-[11px] font-medium transition-colors " +
+                                        (draft.vendor === v
+                                          ? "bg-accent text-white"
+                                          : "border border-ink/15 text-ink/60 hover:border-accent/50")
+                                      }
+                                    >
+                                      {v === "selfridges" ? "Selfridges" : "Elsewhere"}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <label className="text-[10px] uppercase tracking-[0.14em] text-ink/60 whitespace-nowrap">
+                                  Cost (£)
+                                </label>
+                                <input
+                                  type="number"
+                                  value={draft.cost_gbp}
+                                  onChange={(e) => setItemDraft(it.id!, { cost_gbp: e.target.value })}
+                                  className="w-24 border border-ink/15 bg-white px-2 py-1 text-sm focus:border-accent focus:outline-none"
+                                  placeholder="0.00"
+                                  min="0"
+                                  step="0.01"
+                                />
+                                <label className="flex items-center gap-1.5 text-[11px] text-ink/60 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={draft.sourced}
+                                    onChange={(e) => setItemDraft(it.id!, { sourced: e.target.checked })}
+                                    className="accent-accent"
+                                  />
+                                  Sourced
+                                </label>
+                                <button
+                                  type="button"
+                                  onClick={() => saveItem(it)}
+                                  disabled={savingItem === it.id}
+                                  className="ml-auto rounded bg-ink/5 px-2.5 py-1 text-[11px] font-medium text-ink/70 hover:bg-ink/10 disabled:opacity-40"
+                                >
+                                  {savingItem === it.id ? "Saving…" : "Save"}
+                                </button>
+                              </div>
+                              {it.cost_gbp != null ? (
+                                <p className="text-[11px] text-ink/50">
+                                  Saved: £{Number(it.cost_gbp).toFixed(2)} via {it.vendor ?? "?"}
+                                  {it.sourced ? " ✓ Sourced" : ""}
+                                </p>
+                              ) : null}
+                            </div>
+                          ) : null}
+                        </li>
+                      );
+                    })}
                   </ul>
                 ) : (
                   <a href={selfridgesSearch(local.product_brand ?? "", local.product_name ?? "")} target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs text-accent hover:underline">
@@ -277,7 +395,7 @@ export default function AdminOrderRow({ order, onUpdated }: Props) {
 
                   {local.payment_confirmed && status === "payment_confirmed" ? (
                     <button type="button" onClick={markOrdered} disabled={busy !== null} className="btn-gold text-xs disabled:opacity-50">
-                      Mark as Ordered on Selfridges
+                      Mark as Ordered
                     </button>
                   ) : null}
 
