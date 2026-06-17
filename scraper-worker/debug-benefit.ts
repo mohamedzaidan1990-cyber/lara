@@ -1,6 +1,5 @@
 /**
- * Debug: inspect the raw HTML of the benefit-cosmetics brand page to find
- * where product data lives, and try the Next.js RSC JSON endpoint.
+ * Debug: find API endpoints and price data in benefit-cosmetics RSC payload.
  * Run: railway run --service lara npx tsx scraper-worker/debug-benefit.ts
  */
 import { readFileSync } from "node:fs";
@@ -33,74 +32,91 @@ const FULL_SCROLL = [
   const { fetchWithWebUnblocker } = await import("./scraper");
   const cheerio = await import("cheerio");
 
-  // 1. Fetch a known-working page to extract the Next.js build ID
-  console.log("=== Step 1: get Next.js build ID from working page ===");
-  const makeupHtml = await fetchWithWebUnblocker(
-    "https://www.selfridges.com/GB/en/cat/beauty/makeup/?pge=1&ppp=60&sort=relevance",
-    { browserInstructions: FULL_SCROLL } as never
-  );
-  let buildId = "";
-  if (makeupHtml) {
-    const m = makeupHtml.match(/"buildId"\s*:\s*"([^"]+)"/);
-    if (m) { buildId = m[1]; console.log("Build ID:", buildId); }
-    else console.log("No buildId found in makeup page");
-  }
-
-  // 2. If we have a buildId, try the Next.js JSON data endpoint
-  if (buildId) {
-    console.log("\n=== Step 2: try /_next/data/ endpoint for benefit-cosmetics ===");
-    const dataUrl = `https://www.selfridges.com/_next/data/${buildId}/GB/en/cat/benefit-cosmetics.json?pge=1&ppp=60&sort=relevance`;
-    console.log("URL:", dataUrl);
-    const dataHtml = await fetchWithWebUnblocker(dataUrl, {} as never);
-    if (dataHtml && dataHtml.length > 100) {
-      console.log("Response length:", dataHtml.length);
-      // Look for product-like data
-      const nameMatches = dataHtml.match(/"(?:name|productName)"\s*:\s*"([^"]{5,80})"/g)?.slice(0, 10);
-      if (nameMatches) console.log("Product names found:", nameMatches);
-      else console.log("No product names found. First 500 chars:", dataHtml.slice(0, 500));
-    } else {
-      console.log("Empty/short response");
-    }
-  }
-
-  // 3. Inspect the benefit-cosmetics brand page HTML structure
-  console.log("\n=== Step 3: inspect benefit-cosmetics brand page structure ===");
   const brandHtml = await fetchWithWebUnblocker(
     "https://www.selfridges.com/GB/en/cat/benefit-cosmetics/?pge=1&ppp=60&sort=relevance",
     { browserInstructions: FULL_SCROLL } as never
   );
-  if (brandHtml && brandHtml.length > 1000) {
-    const $ = cheerio.load(brandHtml);
-    console.log("HTML size:", (brandHtml.length / 1024).toFixed(0), "KB");
 
-    // What data-testid values exist?
-    const testIds = new Set<string>();
-    $("[data-testid]").each((_, el) => testIds.add($(el).attr("data-testid") ?? ""));
-    console.log("data-testid values:", [...testIds].slice(0, 20).join(", "));
+  if (!brandHtml || brandHtml.length < 1000) {
+    console.log("Empty response"); process.exit(1);
+  }
 
-    // What script tags contain useful data?
-    let scriptDataFound = false;
-    $("script").each((_, el) => {
-      const content = $(el).html() ?? "";
-      if (content.includes("Benefit") && content.length > 200) {
-        console.log("Script with Benefit data (first 300 chars):", content.slice(0, 300));
-        scriptDataFound = true;
-        return false; // break
+  const $ = cheerio.load(brandHtml);
+  console.log("HTML size:", (brandHtml.length / 1024).toFixed(0), "KB");
+
+  // 1. Find price patterns (£xx)
+  const priceMatches = brandHtml.match(/£\d+[\d.,]*/g) ?? [];
+  console.log("\n--- Price patterns (£) ---");
+  console.log("Count:", priceMatches.length, "Sample:", priceMatches.slice(0, 10).join(", "));
+
+  // 2. Find any /product/ URL patterns
+  const productUrls = [...new Set(brandHtml.match(/\/GB\/en\/(?:cat|product)\/[^"'\s,]+/g) ?? [])];
+  console.log("\n--- Product URL patterns ---");
+  console.log("Count:", productUrls.length, "Sample:", productUrls.slice(0, 10).join("\n  "));
+
+  // 3. Find API/fetch patterns in script content
+  const apiPatterns: string[] = [];
+  $("script").each((_, el) => {
+    const content = $(el).html() ?? "";
+    const matches = content.match(/(?:fetch|xhr|api|endpoint)[^\s"']*["'][^"']{5,80}["']/gi) ?? [];
+    apiPatterns.push(...matches);
+    const urlMatches = content.match(/["'](?:https?:\/\/[^"']{10,100})["']/g) ?? [];
+    for (const u of urlMatches) {
+      if (u.includes("api") || u.includes("catalog") || u.includes("product")) {
+        apiPatterns.push(u);
       }
-    });
-    if (!scriptDataFound) console.log("No script tags contain 'Benefit'");
-
-    // Look for any product-like anchors
-    const productLinks = $("a[href*='/product/']").length;
-    console.log("Product link <a> tags:", productLinks);
-    if (productLinks > 0) {
-      $("a[href*='/product/']").slice(0, 5).each((_, el) => {
-        console.log(" ", $(el).attr("href")?.slice(0, 80));
-      });
     }
+  });
+  console.log("\n--- API/fetch patterns in scripts ---");
+  console.log([...new Set(apiPatterns)].slice(0, 10).join("\n  ") || "None found");
 
-    // First 1000 chars of body to see page type
-    console.log("Page body start:", $("body").text().slice(0, 300).replace(/\s+/g, " "));
+  // 4. Find RSC data chunks (__next_f)
+  let rscChunks = 0;
+  let rscWithBenefit = 0;
+  $("script").each((_, el) => {
+    const content = $(el).html() ?? "";
+    if (content.includes("__next_f")) {
+      rscChunks++;
+      if (content.toLowerCase().includes("benefit")) rscWithBenefit++;
+    }
+  });
+  console.log("\n--- RSC chunks ---");
+  console.log("Total __next_f chunks:", rscChunks, "with 'benefit':", rscWithBenefit);
+
+  // 5. All script src attributes (external scripts)
+  const extScripts: string[] = [];
+  $("script[src]").each((_, el) => extScripts.push($(el).attr("src") ?? ""));
+  console.log("\n--- External script URLs ---");
+  console.log(extScripts.slice(0, 10).join("\n  ") || "None");
+
+  // 6. Sample RSC payload content
+  const rscSamples: string[] = [];
+  $("script").each((_, el) => {
+    const content = $(el).html() ?? "";
+    if (content.includes("__next_f") && rscSamples.length < 3) {
+      rscSamples.push(content.slice(0, 200));
+    }
+  });
+  console.log("\n--- RSC chunk samples (first 200 chars each) ---");
+  rscSamples.forEach((s, i) => console.log(`[${i}]:`, s.replace(/\n/g, " ")));
+
+  // 7. Try fetching Selfridges internal API directly
+  console.log("\n--- Trying Selfridges API endpoints ---");
+  const apiUrls = [
+    "https://www.selfridges.com/api/products?brand=benefit-cosmetics&pge=1&ppp=60",
+    "https://www.selfridges.com/api/catalog/products?brand=benefit-cosmetics",
+    "https://api.selfridges.com/products/v1/search?brand=benefit-cosmetics",
+    "https://www.selfridges.com/GB/en/cat/benefit-cosmetics/?pge=1&ppp=60&format=json",
+  ];
+  for (const url of apiUrls) {
+    const resp = await fetchWithWebUnblocker(url, {} as never);
+    if (resp && resp.length > 50 && !resp.startsWith("<")) {
+      console.log("API HIT:", url);
+      console.log("Response:", resp.slice(0, 300));
+      break;
+    } else {
+      console.log("No hit:", url.slice(40), `(${resp?.length ?? 0} bytes, starts: ${resp?.slice(0,20) ?? "null"})`);
+    }
   }
 
   console.log("\nDone.");
