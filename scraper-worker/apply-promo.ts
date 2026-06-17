@@ -15,33 +15,45 @@ function load(f: string): void {
 load(resolve(__dirname, "..", ".env.local"));
 load(resolve(__dirname, ".env"));
 
+const UPDATES = [
+  { search: { name: "%beauty flash balm%" },                                          newPrice: 66,  label: "Beauty Flash Balm" },
+  { search: { name: "%plus advanced serum%30%" },                                     newPrice: 115, label: "Plus Advanced Serum 30ml" },
+  { search: { name: "%double serum%" },                                               newPrice: 115, label: "Double Serum" },
+  { search: { name: "%extra firming%day cream%refill%dry%" },                         newPrice: 100, label: "Extra Firming Day Cream Refill (dry)" },
+];
+
 (async () => {
   const { neon } = await import("@neondatabase/serverless");
   const sql = neon(process.env.DATABASE_URL!);
 
-  const rows = await sql`
-    select id, brand, name, price_usd, price_gbp
-    from products
-    where lower(brand) like '%bobbi brown%'
-      and lower(name) like '%weightless%'
-      and lower(name) like '%foundation%'
-      and lower(name) like '%30%'
-  ` as any[];
-
-  console.log("Found:", rows.length);
-  rows.forEach(r => console.log(`  [${r.id}] ${r.name} | $${r.price_usd} / £${r.price_gbp}`));
-
-  if (rows.length === 1) {
-    await sql`update products set price_usd = 68, price_locked = true where id = ${rows[0].id}`;
-    console.log(`✓ Updated to $68`);
-  } else if (rows.length > 1) {
-    console.log("Multiple matches — not updating.");
-  } else {
-    const broad = await sql`
-      select id, brand, name, price_usd from products
-      where lower(brand) like '%bobbi%' and lower(name) like '%weightless%'
+  for (const { search, newPrice, label } of UPDATES) {
+    const rows = await sql`
+      select id, brand, name, price_usd, price_gbp
+      from products
+      where lower(brand) like '%clarins%'
+        and lower(name) like ${search.name}
+      order by name
     ` as any[];
-    console.log("Broader search:", broad.length);
-    broad.forEach(r => console.log(`  [${r.id}] ${r.name} | $${r.price_usd}`));
+
+    if (rows.length === 0) {
+      // Broader fallback — split the pattern on % and search each word
+      const words = search.name.replace(/%/g, " ").trim().split(/\s+/).filter(w => w.length > 3);
+      const broad = await sql`
+        select id, brand, name, price_usd from products
+        where lower(brand) like '%clarins%'
+      ` as any[];
+      const filtered = broad.filter(r =>
+        words.every(w => r.name.toLowerCase().includes(w))
+      );
+      console.log(`[${label}] No exact match. Broad hits (${filtered.length}):`);
+      filtered.forEach(r => console.log(`  [${r.id}] ${r.name} | $${r.price_usd}`));
+    } else if (rows.length > 1) {
+      console.log(`[${label}] Multiple matches (${rows.length}) — not updating:`);
+      rows.forEach(r => console.log(`  [${r.id}] ${r.name} | $${r.price_usd}`));
+    } else {
+      await sql`update products set price_usd = ${newPrice}, price_locked = true where id = ${rows[0].id}`;
+      console.log(`✓ [${label}] "${rows[0].name}" $${rows[0].price_usd} → $${newPrice}`);
+    }
   }
+  console.log("Done.");
 })().catch(e => { console.error(e.message); process.exit(1); });
