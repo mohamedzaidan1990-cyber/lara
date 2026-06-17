@@ -23,24 +23,23 @@ load(resolve(__dirname, ".env"));
     select id, brand, name, price_usd, price_gbp
     from products
     where lower(brand) like '%bobbi brown%'
-      and lower(name) like '%vitamin%'
-      and lower(name) like '%face base%'
-      and lower(name) like '%50%'
+      and lower(name) like '%weightless%'
+      and lower(name) like '%foundation%'
+      and lower(name) like '%30%'
   ` as any[];
 
   console.log("Found:", rows.length);
   rows.forEach(r => console.log(`  [${r.id}] ${r.name} | $${r.price_usd} / £${r.price_gbp}`));
 
   if (rows.length === 1) {
-    await sql`update products set price_usd = 60, price_locked = true where id = ${rows[0].id}`;
-    console.log(`✓ Updated to $60`);
+    await sql`update products set price_usd = 68, price_locked = true where id = ${rows[0].id}`;
+    console.log(`✓ Updated to $68`);
   } else if (rows.length > 1) {
     console.log("Multiple matches — not updating.");
   } else {
-    // Try broader search
     const broad = await sql`
       select id, brand, name, price_usd from products
-      where lower(brand) like '%bobbi%' and lower(name) like '%vitamin%'
+      where lower(brand) like '%bobbi%' and lower(name) like '%weightless%'
     ` as any[];
     console.log("Broader search:", broad.length);
     broad.forEach(r => console.log(`  [${r.id}] ${r.name} | $${r.price_usd}`));
