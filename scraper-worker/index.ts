@@ -1,6 +1,6 @@
 import cron from "node-cron";
 import { ensureSchema, logScrape, upsertProducts, type ScrapedProductRow } from "./db";
-import { scrapeSelfridgesCategory, scrapeSelfridgesBrands, scrapeSelfridgesKBeauty, webUnblockerEnabled, SCRAPE_CATEGORIES } from "./scraper";
+import { scrapeSelfridgesCategory, scrapeSelfridgesBrands, scrapeSelfridgesKBeauty, scrapeSelfridgesUrls, SELFRIDGES_BENEFIT_URLS, webUnblockerEnabled, SCRAPE_CATEGORIES } from "./scraper";
 
 // Dedupe by product URL (or brand|name) so Selfridges + Space NK overlap once.
 function dedupeProducts(rows: ScrapedProductRow[]): ScrapedProductRow[] {
@@ -89,6 +89,25 @@ async function runOnce(): Promise<void> {
   } catch (err) {
     failedCategories += 1;
     console.error("[worker] Selfridges K-Beauty scrape failed — continuing", err);
+  }
+
+  // Benefit Cosmetics — brand slug 404s on Selfridges so we use search URLs.
+  try {
+    console.log("[worker] scraping Selfridges Benefit Cosmetics pages…");
+    const benefitRows = dedupeProducts(await scrapeSelfridgesUrls(SELFRIDGES_BENEFIT_URLS, "benefit"));
+    totalProducts += benefitRows.length;
+    totalDeliverable += benefitRows.filter((p) => p.deliverable_lebanon).length;
+    if (benefitRows.length > 0) {
+      const n = await upsertProducts(benefitRows);
+      totalUpserted += n;
+      await logScrape("selfridges_benefit", "ok", benefitRows.length);
+      console.log(`[worker] Selfridges Benefit → ${benefitRows.length} products, upserted ${n}`);
+    } else {
+      await logScrape("selfridges_benefit", "empty", 0).catch(() => {});
+    }
+  } catch (err) {
+    failedCategories += 1;
+    console.error("[worker] Selfridges Benefit scrape failed — continuing", err);
   }
 
   await sleep(3000);

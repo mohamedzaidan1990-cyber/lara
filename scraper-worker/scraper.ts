@@ -1230,6 +1230,63 @@ export async function scrapeSelfridgesKBeauty(): Promise<ScrapedProductRow[]> {
   return collected;
 }
 
+// Benefit Cosmetics — brand slug 404s on Selfridges, so we use search URLs instead.
+// Two pages: one for all Benefit products, one specifically for sets/kits/gift sets.
+export const SELFRIDGES_BENEFIT_URLS: string[] = [
+  "https://www.selfridges.com/GB/en/cat/?pge=1&ppp=60&sort=relevance&term=benefit+cosmetics",
+  "https://www.selfridges.com/GB/en/cat/?pge=1&ppp=60&sort=relevance&term=benefit+sets",
+];
+
+// Generic URL-based scraper — same logic as scrapeSelfridgesKBeauty but accepts
+// any array of full Selfridges URLs. Pass a brandFilter to drop products whose
+// brand doesn't match (useful for search URLs that may return mixed results).
+export async function scrapeSelfridgesUrls(
+  urls: string[],
+  brandFilter?: string
+): Promise<ScrapedProductRow[]> {
+  if (!webUnblockerEnabled()) return [];
+  const collected: ScrapedProductRow[] = [];
+  const seen = new Set<string>();
+  const filterLow = brandFilter?.toLowerCase();
+  for (const url of urls) {
+    const label = url.match(/term=([^&]+)/)?.[1]?.replace(/\+/g, " ") ?? url.match(/cat\/([^/?]+)/)?.[1] ?? url;
+    const html = await fetchWithWebUnblocker(url, { browserInstructions: SELFRIDGES_SCROLL_INSTRUCTIONS });
+    if (!html || html.length < 1000) {
+      console.log(`[scraper] Selfridges URL ${label} → empty response`);
+      await delay(1000, 2500);
+      continue;
+    }
+    const $ = cheerio.load(html);
+    const raws = extractSelfridgesProducts($, html, SELFRIDGES_ORIGIN);
+    let added = 0;
+    for (const r of raws) {
+      const k = r.product_url || `${r.brand}|${r.name}`;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      if (shouldExclude(`${r.brand} ${r.name}`)) continue;
+      if (filterLow && !r.brand.toLowerCase().includes(filterLow)) continue;
+      const category = classifySelfridgesCategory(`${r.brand} ${r.name}`);
+      collected.push({
+        brand: r.brand,
+        name: r.name,
+        category,
+        price_gbp: r.priceGbp,
+        price_usd: await convertGbpToUsd(r.priceGbp, category),
+        deliverable_lebanon: true,
+        product_url: r.product_url,
+        image_url: r.image_url,
+        is_bestseller: r.bestseller ?? false,
+        subcategory: classifySubcategory(category, r.name),
+        k_beauty: isKBeautyBrand(r.brand)
+      });
+      added += 1;
+    }
+    console.log(`[scraper] Selfridges ${label} → ${raws.length} parsed, ${added} kept`);
+    await delay(1500, 3500);
+  }
+  return collected;
+}
+
 // Title-case an UPPERCASE Selfridges brand ("CHARLOTTE TILBURY" → "Charlotte
 // Tilbury") so it matches the catalog's casing for the brand filter. Words that
 // are already mixed-case are left alone.
