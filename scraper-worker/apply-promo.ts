@@ -1,7 +1,3 @@
-/**
- * One-off: find and update Clarins double serum foundation price.
- * Run: railway run --service lara npx tsx scraper-worker/apply-promo.ts
- */
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 function load(f: string): void {
@@ -26,20 +22,27 @@ load(resolve(__dirname, ".env"));
   const rows = await sql`
     select id, brand, name, price_usd, price_gbp
     from products
-    where lower(brand) like '%clarins%'
-      and lower(name) like '%double serum%'
-      and lower(name) like '%foundation%'
+    where lower(brand) like '%bobbi brown%'
+      and lower(name) like '%vitamin%'
+      and lower(name) like '%face base%'
+      and lower(name) like '%50%'
   ` as any[];
 
   console.log("Found:", rows.length);
   rows.forEach(r => console.log(`  [${r.id}] ${r.name} | $${r.price_usd} / £${r.price_gbp}`));
 
   if (rows.length === 1) {
-    await sql`update products set price_usd = 80, price_locked = true where id = ${rows[0].id}`;
-    console.log(`✓ Updated to $80`);
+    await sql`update products set price_usd = 60, price_locked = true where id = ${rows[0].id}`;
+    console.log(`✓ Updated to $60`);
   } else if (rows.length > 1) {
-    console.log("Multiple matches — not updating. Narrow the search.");
+    console.log("Multiple matches — not updating.");
   } else {
-    console.log("No match found.");
+    // Try broader search
+    const broad = await sql`
+      select id, brand, name, price_usd from products
+      where lower(brand) like '%bobbi%' and lower(name) like '%vitamin%'
+    ` as any[];
+    console.log("Broader search:", broad.length);
+    broad.forEach(r => console.log(`  [${r.id}] ${r.name} | $${r.price_usd}`));
   }
 })().catch(e => { console.error(e.message); process.exit(1); });
