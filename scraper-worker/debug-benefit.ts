@@ -1,5 +1,5 @@
 /**
- * Debug: find Attraqt API endpoint in mfe-plp chunks and call it directly.
+ * Debug: find Attraqt endpoint in PLP chunk raw content + try longer page wait.
  * Run: railway run --service lara npx tsx scraper-worker/debug-benefit.ts
  */
 import { readFileSync } from "node:fs";
@@ -19,85 +19,81 @@ function load(f: string): void {
 load(resolve(__dirname, "..", ".env.local"));
 load(resolve(__dirname, ".env"));
 
+const VERY_LONG_WAIT = [
+  { type: "wait", wait_time_s: 15 },
+  { type: "scroll", x: 0, y: 1000 }, { type: "wait", wait_time_s: 5 },
+  { type: "scroll", x: 0, y: 3000 }, { type: "wait", wait_time_s: 5 },
+  { type: "scroll", x: 0, y: 6000 }, { type: "wait", wait_time_s: 5 },
+  { type: "scroll", x: 0, y: 10000 }, { type: "wait", wait_time_s: 8 },
+];
+
 (async () => {
   if (!process.env.OXYLABS_USERNAME) { console.error("No OXYLABS creds"); process.exit(1); }
   const { fetchWithWebUnblocker } = await import("./scraper");
+  const cheerio = await import("cheerio");
 
-  // 1. Fetch the main PLP chunk to find Attraqt config/endpoint
-  console.log("=== Step 1: fetch mfe-plp chunk to find Attraqt API ===");
-  const chunkUrls = [
-    "https://www.selfridges.com/static-mfe-plp/_next/static/chunks/main-app-44ecd935c743f9f8.js",
+  // 1. Look at the raw chunk content for URLs and API patterns
+  console.log("=== Step 1: raw chunk analysis ===");
+  const chunkJs = await fetchWithWebUnblocker(
     "https://www.selfridges.com/static-mfe-plp/_next/static/chunks/87c73c54-dd8d81ac9604067c.js",
-  ];
-  let attraqtApiUrl = "";
-  let siteId = "";
-  for (const url of chunkUrls) {
-    console.log("Fetching:", url.split("/").pop());
-    const js = await fetchWithWebUnblocker(url, {} as never);
-    if (!js || js.length < 1000) { console.log("Empty"); continue; }
-    console.log("Size:", (js.length / 1024).toFixed(0), "KB");
+    {} as never
+  );
+  if (chunkJs && chunkJs.length > 1000) {
+    console.log("Chunk size:", (chunkJs.length / 1024).toFixed(0), "KB");
+    // All https URLs
+    const allUrls = [...new Set(chunkJs.match(/https?:\\?\/\\?\/[^"'`\s\\]{10,100}/g) ?? [])];
+    console.log("All HTTPS URLs in chunk:", allUrls.length);
+    allUrls.forEach(u => console.log(" ", u.slice(0, 100)));
 
-    // Find Attraqt API/zone URLs
-    const attraqtMatches = js.match(/attraqt[^"']{0,100}/gi) ?? [];
-    if (attraqtMatches.length > 0) {
-      console.log("Attraqt references:", [...new Set(attraqtMatches)].slice(0, 5).join("\n  "));
+    // Find patterns around "zone", "search", "api", "lister"
+    const snippets: string[] = [];
+    for (const kw of ["zone", "lister", "attraqt", "fredhopper", "xo", "XO", "catalog", "search", "endpoint"]) {
+      const idx = chunkJs.indexOf(kw);
+      if (idx >= 0) snippets.push(`[${kw}]: ...${chunkJs.slice(Math.max(0, idx-20), idx+100)}...`);
     }
-
-    // Find zone ID or site ID patterns
-    const zoneMatches = js.match(/["'](?:zone[_-]?id|siteId|scene_id|site)['"]\s*[:=]\s*["']([^"']{5,50})["']/gi) ?? [];
-    if (zoneMatches.length > 0) {
-      console.log("Zone/site IDs:", zoneMatches.slice(0, 5).join("\n  "));
-    }
-
-    // Find any https URLs containing attraqt or search API
-    const apiUrls = [...new Set(js.match(/https?:\/\/[^"'\s]{10,100}(?:attraqt|search|catalog|product)[^"'\s]{0,60}/gi) ?? [])];
-    if (apiUrls.length > 0) {
-      console.log("API URLs found:", apiUrls.slice(0, 10).join("\n  "));
-      attraqtApiUrl = apiUrls[0];
-    }
-
-    // Find selfridges-specific attraqt config
-    const m = js.match(/(?:lister|api|search)\.(?:eu\d|us\d)?\.?attraqt\.[a-z]+\/[^"'\s]{0,80}/i);
-    if (m) { console.log("Attraqt endpoint:", m[0]); attraqtApiUrl = "https://" + m[0]; }
-
-    const sm = js.match(/siteId['"]\s*[:=]\s*["']([^"']{5,40})['"]/i);
-    if (sm) siteId = sm[1];
+    console.log("Keyword snippets:", snippets.slice(0, 8).join("\n  "));
+  } else {
+    console.log("Chunk empty or too small");
   }
 
-  // 2. Try Attraqt API endpoints directly
-  console.log("\n=== Step 2: try Attraqt / XO API endpoints ===");
-  // The Attraqt XO search API is typically:
-  // https://lister.eu1.attraqt.io/zones-v2/?zone={zone}&...
-  // or https://search.selfridges.com/...
-  const apiEndpoints = [
-    "https://search.selfridges.com/v2/products?brand=benefit-cosmetics&pge=1&ppp=60",
-    "https://lister.eu1.attraqt.io/zones-v2/",
-    "https://api.attraqt.io/catalog/v1/query?site=selfridges&brand=benefit-cosmetics",
-    attraqtApiUrl,
-  ].filter(Boolean);
-
-  for (const url of apiEndpoints) {
-    if (!url) continue;
-    console.log("Trying:", url.slice(0, 80));
-    const resp = await fetchWithWebUnblocker(url, {} as never);
-    if (resp && resp.length > 50) {
-      const isJson = resp.trim().startsWith("{") || resp.trim().startsWith("[");
-      console.log("Got", resp.length, "bytes,", isJson ? "JSON" : "HTML", "first 200:", resp.slice(0, 200));
-    } else {
-      console.log("Empty/null response");
+  // 2. Try fetching the 18-xx chunk as well
+  console.log("\n=== Step 2: check chunk 18 ===");
+  const chunk18 = await fetchWithWebUnblocker(
+    "https://www.selfridges.com/static-mfe-plp/_next/static/chunks/18-a82232ccf032754b.js",
+    {} as never
+  );
+  if (chunk18 && chunk18.length > 1000) {
+    console.log("Chunk18 size:", (chunk18.length / 1024).toFixed(0), "KB");
+    const allUrls18 = [...new Set(chunk18.match(/https?:\\?\/\\?\/[^"'`\s\\]{10,100}/g) ?? [])];
+    console.log("HTTPS URLs:", allUrls18.map(u => u.slice(0, 100)).join("\n  ") || "None");
+    const snippets18: string[] = [];
+    for (const kw of ["zone", "lister", "attraqt", "catalog", "search", "endpoint", "api"]) {
+      const idx = chunk18.indexOf(kw);
+      if (idx >= 0) snippets18.push(`[${kw}]: ...${chunk18.slice(Math.max(0, idx-20), idx+80)}...`);
     }
+    console.log("Keyword snippets:", snippets18.slice(0, 6).join("\n  "));
   }
 
-  // 3. Fetch the attraqt XO script itself to understand the API
-  console.log("\n=== Step 3: inspect attraqt XO script ===");
-  const xoJs = await fetchWithWebUnblocker("https://cdn.attraqt.io/xo.all-2.min.js", {} as never);
-  if (xoJs && xoJs.length > 100) {
-    console.log("XO script size:", (xoJs.length / 1024).toFixed(0), "KB");
-    // Find selfridges-specific zone or config
-    const selfridgesRef = xoJs.match(/selfridges[^"'\s]{0,60}/gi) ?? [];
-    console.log("Selfridges refs:", [...new Set(selfridgesRef)].slice(0, 5).join(", "));
-    const apiRef = xoJs.match(/https?:\/\/[^"'\s]{10,80}(?:api|lister|search)[^"'\s]{0,40}/gi) ?? [];
-    console.log("API URLs:", [...new Set(apiRef)].slice(0, 5).join("\n  "));
+  // 3. Retry brand page with much longer wait
+  console.log("\n=== Step 3: brand page with 15s initial wait ===");
+  const brandHtml = await fetchWithWebUnblocker(
+    "https://www.selfridges.com/GB/en/cat/benefit-cosmetics/?pge=1&ppp=60&sort=relevance",
+    { browserInstructions: VERY_LONG_WAIT } as never
+  );
+  if (brandHtml && brandHtml.length > 1000) {
+    const $ = cheerio.load(brandHtml);
+    const cards = $("[data-testid='product-card']").length;
+    const testIds = new Set<string>();
+    $("[data-testid]").each((_, el) => testIds.add($(el).attr("data-testid") ?? ""));
+    console.log("HTML size:", (brandHtml.length / 1024).toFixed(0), "KB");
+    console.log("Product cards:", cards);
+    console.log("All data-testid values:", [...testIds].join(", "));
+    // Price patterns
+    const prices = brandHtml.match(/£\d[\d.,]*/g) ?? [];
+    console.log("Prices:", [...new Set(prices)].join(", "));
+    // Product URLs
+    const productLinks = [...new Set(brandHtml.match(/\/en\/product\/[^"'\s]{5,60}/g) ?? [])];
+    console.log("Product URLs:", productLinks.length, productLinks.slice(0, 5).join("\n  "));
   }
 
   console.log("\nDone.");
