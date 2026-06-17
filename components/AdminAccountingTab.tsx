@@ -122,6 +122,69 @@ export default function AdminAccountingTab({ orders, expenses, onExpensesChange 
         </p>
       ) : null}
 
+      {/* Per-item breakdown */}
+      <section>
+        <h2 className="text-[10px] uppercase tracking-[0.24em] text-ink/60">Item Breakdown</h2>
+        <div className="mt-3 overflow-x-auto border border-ink/10">
+          <table className="min-w-full">
+            <thead>
+              <tr className="border-b border-ink/10 bg-ink/[0.02] text-left text-[10px] uppercase tracking-[0.18em] text-ink/60">
+                <th className="px-4 py-3">Item</th>
+                <th className="px-4 py-3">Client</th>
+                <th className="px-4 py-3">Vendor</th>
+                <th className="px-4 py-3 text-right">Sold</th>
+                <th className="px-4 py-3 text-right">Cost</th>
+                <th className="px-4 py-3 text-right">Profit</th>
+                <th className="px-4 py-3 text-right">Margin</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paid.flatMap((o) => {
+                const items = o.items ?? [];
+                if (items.length === 0) return [];
+                return items.map((it, idx) => {
+                  const sold = num(it.price_usd) * it.quantity;
+                  const cost = it.cost_usd != null && it.cost_usd !== "" ? num(it.cost_usd) * it.quantity : null;
+                  const itemProfit = cost != null ? sold - cost : null;
+                  const itemMargin = cost != null && sold > 0 ? ((sold - cost) / sold) * 100 : null;
+                  return (
+                    <tr key={`${o.id}-${it.id ?? idx}`} className="border-b border-ink/10 hover:bg-ink/[0.015]">
+                      <td className="px-4 py-3">
+                        <p className="text-sm text-ink">{it.name}</p>
+                        <p className="text-[11px] text-ink/50">{it.brand}{it.quantity > 1 ? ` ×${it.quantity}` : ""}</p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <p className="text-sm text-ink">{o.full_name}</p>
+                        <p className="text-[11px] text-ink/50">{o.order_number}</p>
+                      </td>
+                      <td className="px-4 py-3 text-xs capitalize text-ink/60">
+                        {it.vendor ?? <span className="text-ink/30">—</span>}
+                      </td>
+                      <td className="px-4 py-3 text-right text-sm text-ink">{fmtUsd(sold)}</td>
+                      <td className="px-4 py-3 text-right text-sm text-ink/70">
+                        {cost != null ? fmtUsd(cost) : <span className="text-ink/30">—</span>}
+                      </td>
+                      <td className="px-4 py-3 text-right text-sm font-medium"
+                        style={{ color: itemProfit == null ? undefined : itemProfit >= 0 ? "#277C43" : "#C0392B" }}>
+                        {itemProfit != null ? fmtUsd(itemProfit) : <span className="text-ink/30">—</span>}
+                      </td>
+                      <td className="px-4 py-3 text-right text-xs text-ink/60">
+                        {itemMargin != null ? `${itemMargin.toFixed(0)}%` : <span className="text-ink/30">—</span>}
+                      </td>
+                    </tr>
+                  );
+                });
+              })}
+              {paid.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-10 text-center text-sm text-ink/40">No paid orders yet.</td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
       {/* Expenses table */}
       <section>
         <div className="flex items-center justify-between">
