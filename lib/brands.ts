@@ -89,8 +89,8 @@ export async function getBrandProducts(
   const params: unknown[] = sort === "featured" ? [brand, dailySeed()] : [brand];
 
   const rows = (await sql(
-    `select id, brand, name, category, price_gbp::float8 as price_gbp, price_usd::float8 as price_usd,
-            deliverable_lebanon, product_url, image_url
+    `select id, brand, name, category, subcategory, price_gbp::float8 as price_gbp, price_usd::float8 as price_usd,
+            deliverable_lebanon, product_url, image_url, light_shade_image_url
      from products
      where brand = $1
      order by ${orderBy}

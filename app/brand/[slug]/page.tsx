@@ -92,7 +92,9 @@ export default async function BrandPage({
               price_usd: p.price_usd,
               deliverable_lebanon: p.deliverable_lebanon,
               product_url: p.product_url,
-              image_url: p.image_url
+              image_url: p.image_url,
+              subcategory: p.subcategory,
+              light_shade_image_url: p.light_shade_image_url
             }}
           />
         ))}

@@ -132,11 +132,13 @@ export interface ProductListRow {
   brand: string;
   name: string;
   category: ProductCategory;
+  subcategory: string | null;
   price_gbp: number;
   price_usd: number;
   deliverable_lebanon: boolean;
   product_url: string;
   image_url: string;
+  light_shade_image_url: string | null;
 }
 
 export interface BrandCount {
@@ -269,8 +271,8 @@ export async function getCategoryProducts(
   let rows: ProductListRow[] = [];
   if (sort === "price-asc") {
     rows = (await sql`
-      select id, brand, name, category, price_gbp::float8 as price_gbp, price_usd::float8 as price_usd,
-             deliverable_lebanon, product_url, image_url
+      select id, brand, name, category, subcategory, price_gbp::float8 as price_gbp, price_usd::float8 as price_usd,
+             deliverable_lebanon, product_url, image_url, light_shade_image_url
       from products
       where category = ${categoryName} and (${brand}::text is null or brand = ${brand})
         and (${sub}::text is null or subcategory = ${sub})
@@ -279,8 +281,8 @@ export async function getCategoryProducts(
     `) as ProductListRow[];
   } else if (sort === "price-desc") {
     rows = (await sql`
-      select id, brand, name, category, price_gbp::float8 as price_gbp, price_usd::float8 as price_usd,
-             deliverable_lebanon, product_url, image_url
+      select id, brand, name, category, subcategory, price_gbp::float8 as price_gbp, price_usd::float8 as price_usd,
+             deliverable_lebanon, product_url, image_url, light_shade_image_url
       from products
       where category = ${categoryName} and (${brand}::text is null or brand = ${brand})
         and (${sub}::text is null or subcategory = ${sub})
@@ -289,8 +291,8 @@ export async function getCategoryProducts(
     `) as ProductListRow[];
   } else if (sort === "newest") {
     rows = (await sql`
-      select id, brand, name, category, price_gbp::float8 as price_gbp, price_usd::float8 as price_usd,
-             deliverable_lebanon, product_url, image_url
+      select id, brand, name, category, subcategory, price_gbp::float8 as price_gbp, price_usd::float8 as price_usd,
+             deliverable_lebanon, product_url, image_url, light_shade_image_url
       from products
       where category = ${categoryName} and (${brand}::text is null or brand = ${brand})
         and (${sub}::text is null or subcategory = ${sub})
@@ -302,8 +304,8 @@ export async function getCategoryProducts(
     // relevance rank captured by the scraper, then a deterministic daily
     // shuffle for everything unranked (stable across pagination).
     rows = (await sql`
-      select id, brand, name, category, price_gbp::float8 as price_gbp, price_usd::float8 as price_usd,
-             deliverable_lebanon, product_url, image_url
+      select id, brand, name, category, subcategory, price_gbp::float8 as price_gbp, price_usd::float8 as price_usd,
+             deliverable_lebanon, product_url, image_url, light_shade_image_url
       from products
       where category = ${categoryName} and (${brand}::text is null or brand = ${brand})
         and (${sub}::text is null or subcategory = ${sub})

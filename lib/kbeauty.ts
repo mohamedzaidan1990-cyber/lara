@@ -62,8 +62,8 @@ export async function getFeaturedKBeauty(limit = 12): Promise<ProductListRow[]> 
   try {
     const sql = getSql();
     return (await sql`
-      select id, brand, name, category, price_gbp::float8 as price_gbp, price_usd::float8 as price_usd,
-             deliverable_lebanon, product_url, image_url
+      select id, brand, name, category, subcategory, price_gbp::float8 as price_gbp, price_usd::float8 as price_usd,
+             deliverable_lebanon, product_url, image_url, light_shade_image_url
       from products
       where k_beauty = true and coalesce(image_url, '') <> ''
       order by random()
@@ -131,8 +131,8 @@ export async function getKBeautyProducts(
           : "coalesce(is_bestseller, false) desc, popularity asc nulls last, md5(id::text || to_char(now(), 'YYYY-MM-DD')) asc";
 
   const rows = (await sql(
-    `select id, brand, name, category, price_gbp::float8 as price_gbp, price_usd::float8 as price_usd,
-            deliverable_lebanon, product_url, image_url
+    `select id, brand, name, category, subcategory, price_gbp::float8 as price_gbp, price_usd::float8 as price_usd,
+            deliverable_lebanon, product_url, image_url, light_shade_image_url
      from products
      where k_beauty = true and category = any($1::text[])
        and ($2::text is null or brand = $2)

@@ -7,6 +7,7 @@ import { productImageSrc } from "@/lib/images";
 import { BeeSvg } from "./BeeMascot";
 import { useCart } from "@/lib/cart";
 import { getPromo } from "@/lib/promotions";
+import { isShadeRelevant } from "@/lib/shade-options";
 
 export interface ProductCardData {
   // Present for catalogue products (links to the detail page). Live search
@@ -20,6 +21,8 @@ export interface ProductCardData {
   product_url: string;
   image_url: string;
   category?: string;
+  subcategory?: string | null;
+  light_shade_image_url?: string | null;
 }
 
 interface Props {
@@ -380,7 +383,7 @@ export default function ProductCard({ product, index = 0 }: Props) {
         usd: String(product.price_usd)
       }).toString();
 
-  const imgSrc = productImageSrc(product.image_url);
+  const imgSrc = productImageSrc(product.light_shade_image_url ?? product.image_url);
   const showImage = Boolean(imgSrc) && !imgFailed;
   const promo = getPromo(product.id);
 
@@ -465,16 +468,25 @@ export default function ProductCard({ product, index = 0 }: Props) {
         )}
 
         <div className="mt-4 flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              addToCart();
-              openCart();
-            }}
-            className="btn-primary flex-1 justify-center transition-transform hover:scale-[1.02]"
-          >
-            Add to Cart
-          </button>
+          {product.id && isShadeRelevant(product.subcategory ?? null, product.name) ? (
+            <Link
+              href={`/product/${product.id}#shade-picker-section`}
+              className="btn-primary flex-1 justify-center transition-transform hover:scale-[1.02]"
+            >
+              Select Shade
+            </Link>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                addToCart();
+                openCart();
+              }}
+              className="btn-primary flex-1 justify-center transition-transform hover:scale-[1.02]"
+            >
+              Add to Cart
+            </button>
+          )}
           <ShareButton product={product} detailHref={detailHref} imgSrc={imgSrc} />
         </div>
       </div>
