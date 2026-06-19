@@ -54,6 +54,12 @@ export async function POST(req: Request) {
   }
   const costGbp = body.cost_gbp != null && body.cost_gbp !== "" ? Number(body.cost_gbp) : null;
   const costUsd = body.cost_usd != null && body.cost_usd !== "" ? Number(body.cost_usd) : null;
+  if (costGbp !== null && !Number.isFinite(costGbp)) {
+    return NextResponse.json({ error: "Invalid cost_gbp" }, { status: 400 });
+  }
+  if (costUsd !== null && !Number.isFinite(costUsd)) {
+    return NextResponse.json({ error: "Invalid cost_usd" }, { status: 400 });
+  }
   const qty = Math.max(1, Math.floor(Number(body.quantity) || 1));
   await ensureSchema();
   const sql = getSql();
