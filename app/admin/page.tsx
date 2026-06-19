@@ -19,6 +19,7 @@ export default async function AdminPage() {
            o.payment_screenshot, o.notes, o.created_at, o.updated_at,
            o.invoice_sent_at, o.tracking_number,
            o.cost_gbp, o.cost_usd, o.platform_fee_usd, o.profit_usd, o.profit_notes, o.source,
+           o.amount_paid_usd,
            coalesce(c.full_name, '') as full_name,
            coalesce(c.phone, '') as phone,
            coalesce(c.address, '') as address,

@@ -216,8 +216,35 @@ export default function AdminOrderRow({ order, onUpdated }: Props) {
     });
   }
 
+  const totalUsd = Number(local.total_usd ?? local.price_usd) || 0;
+  const [amountPaid, setAmountPaid] = useState(
+    local.amount_paid_usd != null && local.amount_paid_usd !== "" ? String(local.amount_paid_usd) : ""
+  );
+  const [savingPayment, setSavingPayment] = useState(false);
+
+  const paidNum = Number(amountPaid) || 0;
+  const balanceDue = Math.max(0, totalUsd - paidNum);
+  const isPartialPay = paidNum > 0 && paidNum < totalUsd;
+
+  async function savePayment() {
+    setSavingPayment(true);
+    try {
+      const res = await fetch(`/api/admin/orders/${local.id}/payment`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount_paid_usd: Number(amountPaid) || 0 })
+      });
+      const data = (await res.json()) as { amount_paid_usd: number; balance_due: number; error?: string };
+      if (!res.ok) throw new Error(data.error ?? "Save failed");
+      apply({ amount_paid_usd: data.amount_paid_usd });
+    } catch (err) {
+      alert((err as Error).message);
+    } finally {
+      setSavingPayment(false);
+    }
+  }
+
   const status = local.status;
-  const usdValue = Number(local.total_usd ?? local.price_usd);
 
   return (
     <>
@@ -237,10 +264,19 @@ export default function AdminOrderRow({ order, onUpdated }: Props) {
           <span className="mx-1 text-ink/30">·</span>
           <span>{local.product_name}</span>
         </td>
-        <td className="px-4 py-3 text-sm font-medium text-ink">{formatUsd(usdValue)}</td>
+        <td className="px-4 py-3 text-sm font-medium text-ink">{formatUsd(totalUsd)}</td>
         <td className="px-4 py-3 text-xs uppercase tracking-[0.12em] text-ink/70">{ORDER_STATUS_LABELS[status]}</td>
         <td className="px-4 py-3">
-          <span className={"inline-block h-2.5 w-2.5 rounded-full " + (local.payment_confirmed ? "bg-gold" : "bg-ink/20")} aria-label={local.payment_confirmed ? "Paid" : "Unpaid"} />
+          {isPartialPay ? (
+            <span className="inline-flex items-center rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em] text-amber-700">
+              Partial
+            </span>
+          ) : (
+            <span
+              className={"inline-block h-2.5 w-2.5 rounded-full " + (local.payment_confirmed ? "bg-gold" : "bg-ink/20")}
+              aria-label={local.payment_confirmed ? "Paid" : "Unpaid"}
+            />
+          )}
         </td>
         <td className="px-4 py-3 text-xs text-ink/60">{formatDate(local.created_at)}</td>
       </tr>
@@ -360,7 +396,7 @@ export default function AdminOrderRow({ order, onUpdated }: Props) {
                   </a>
                 )}
                 <p className="mt-4 text-[10px] uppercase tracking-[0.2em] text-ink/60">Total</p>
-                <p className="mt-1 text-sm">{formatUsd(usdValue)}</p>
+                <p className="mt-1 text-sm">{formatUsd(totalUsd)}</p>
                 {local.tracking_number ? (
                   <>
                     <p className="mt-4 text-[10px] uppercase tracking-[0.2em] text-ink/60">Tracking</p>
@@ -424,6 +460,46 @@ export default function AdminOrderRow({ order, onUpdated }: Props) {
                   </>
                 ) : null}
               </div>
+            </div>
+
+            {/* Payment tracking */}
+            <div className="mt-6 border-t border-ink/10 pt-4">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-ink/60">Payment</p>
+              <div className="mt-3 flex flex-wrap items-end gap-4">
+                <div>
+                  <label className="block text-[10px] uppercase tracking-[0.18em] text-ink/60">Amount Paid (USD)</label>
+                  <input
+                    type="number"
+                    value={amountPaid}
+                    onChange={(e) => setAmountPaid(e.target.value)}
+                    className="mt-1 w-36 border border-ink/15 bg-white px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                    placeholder="0.00"
+                    min="0"
+                    step="0.01"
+                  />
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.18em] text-ink/60">Balance Due</p>
+                  <p className="mt-1 text-sm font-medium" style={{ color: balanceDue > 0 ? "#C0392B" : "#277C43" }}>
+                    {usd(balanceDue)}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={savePayment}
+                  disabled={savingPayment}
+                  className="rounded bg-ink/5 px-3 py-2 text-xs font-medium text-ink/70 hover:bg-ink/10 disabled:opacity-40"
+                >
+                  {savingPayment ? "Saving…" : "Save payment"}
+                </button>
+              </div>
+              {isPartialPay ? (
+                <p className="mt-2 text-[11px] text-amber-700">
+                  Partial — {usd(paidNum)} received, {usd(balanceDue)} due.
+                </p>
+              ) : paidNum >= totalUsd && totalUsd > 0 ? (
+                <p className="mt-2 text-[11px] text-green-700">Fully paid ✓</p>
+              ) : null}
             </div>
 
             {/* Profit & Loss */}
