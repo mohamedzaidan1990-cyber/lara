@@ -306,9 +306,21 @@ export default function AdminOrderRow({ order, onUpdated }: Props) {
 
               {/* Items + sourcing */}
               <div>
-                <p className="text-[10px] uppercase tracking-[0.2em] text-ink/60">
-                  Items{local.items && local.items.length ? ` (${local.items.length})` : ""}
-                </p>
+                <div className="flex items-center gap-3">
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-ink/60">
+                    Items{local.items && local.items.length ? ` (${local.items.length})` : ""}
+                  </p>
+                  {(() => {
+                    const total = local.items?.length ?? 0;
+                    const sourced = local.items?.filter((it) => it.sourced).length ?? 0;
+                    if (total === 0) return null;
+                    return (
+                      <span className={"text-[10px] font-medium " + (sourced === total ? "text-green-600" : "text-amber-600")}>
+                        {sourced}/{total} ordered
+                      </span>
+                    );
+                  })()}
+                </div>
                 {local.items && local.items.length > 0 ? (
                   <ul className="mt-2 space-y-4 text-sm text-ink">
                     {local.items.map((it, i) => {

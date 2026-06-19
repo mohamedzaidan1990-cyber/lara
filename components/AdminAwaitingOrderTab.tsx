@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { OrderWithCustomer, OrderLineItem } from "@/lib/db";
+import type { OrderWithCustomer, OrderLineItem, OrderStatus } from "@/lib/db";
 
 interface FlatItem {
   item: OrderLineItem;
@@ -89,13 +89,16 @@ export default function AdminAwaitingOrderTab({ orders, onOrderUpdated }: Props)
         })
       });
       if (!res.ok) throw new Error("Save failed");
-      const updated = await res.json() as { vendor: string | null; cost_gbp: string | null; cost_usd: string | null; sourced: boolean };
+      const updated = await res.json() as { vendor: string | null; cost_gbp: string | null; cost_usd: string | null; sourced: boolean; order_status?: string | null };
       const nextItems = (order.items ?? []).map((it) =>
         it.id === item.id
           ? { ...it, vendor: updated.vendor, cost_gbp: updated.cost_gbp, cost_usd: updated.cost_usd, sourced: updated.sourced }
           : it
       );
-      onOrderUpdated({ ...order, items: nextItems });
+      const statusPatch = updated.order_status
+        ? { status: updated.order_status as OrderStatus, ordered_selfridges_at: new Date().toISOString() }
+        : {};
+      onOrderUpdated({ ...order, items: nextItems, ...statusPatch });
     } catch (err) {
       alert((err as Error).message);
     } finally {
@@ -125,13 +128,16 @@ export default function AdminAwaitingOrderTab({ orders, onOrderUpdated }: Props)
         })
       });
       if (!res.ok) throw new Error("Save failed");
-      const updated = await res.json() as { vendor: string | null; cost_gbp: string | null; cost_usd: string | null; sourced: boolean };
+      const updated = await res.json() as { vendor: string | null; cost_gbp: string | null; cost_usd: string | null; sourced: boolean; order_status?: string | null };
       const nextItems = (fi.order.items ?? []).map((it) =>
         it.id === item.id
           ? { ...it, vendor: updated.vendor, cost_gbp: updated.cost_gbp, cost_usd: updated.cost_usd, sourced: updated.sourced }
           : it
       );
-      onOrderUpdated({ ...fi.order, items: nextItems });
+      const statusPatch = updated.order_status
+        ? { status: updated.order_status as OrderStatus, ordered_selfridges_at: new Date().toISOString() }
+        : {};
+      onOrderUpdated({ ...fi.order, items: nextItems, ...statusPatch });
     } catch (err) {
       alert((err as Error).message);
       setDraft(item.id, { sourced: !next }); // revert
