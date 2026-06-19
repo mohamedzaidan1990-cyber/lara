@@ -8,6 +8,7 @@ import AdminBespokeRow from "@/components/AdminBespokeRow";
 import AdminManualOrderModal from "@/components/AdminManualOrderModal";
 import AdminAccountingTab from "@/components/AdminAccountingTab";
 import AdminAwaitingOrderTab from "@/components/AdminAwaitingOrderTab";
+import AdminStockTab from "@/components/AdminStockTab";
 import type { OrderWithCustomer, BespokeRequestRow, ExpenseRow } from "@/lib/db";
 
 interface Props {
@@ -16,7 +17,7 @@ interface Props {
   initialExpenses?: ExpenseRow[];
 }
 
-type Tab = "orders" | "awaiting" | "bespoke" | "accounting";
+type Tab = "orders" | "awaiting" | "bespoke" | "accounting" | "stock";
 
 interface Group {
   key: string;
@@ -109,10 +110,13 @@ export default function AdminDashboard({ initialOrders, initialBespoke = [], ini
           label={`Awaiting Order${awaitingCount > 0 ? ` · ${awaitingCount}` : ""}`}
         />
         <TabButton active={tab === "accounting"} onClick={() => setTab("accounting")} label="Accounting" />
+        <TabButton active={tab === "stock"} onClick={() => setTab("stock")} label="Stock" />
       </div>
 
       {tab === "accounting" ? (
         <AdminAccountingTab orders={orders} expenses={expenses} onExpensesChange={setExpenses} />
+      ) : tab === "stock" ? (
+        <AdminStockTab />
       ) : tab === "awaiting" ? (
         <AdminAwaitingOrderTab orders={orders} onOrderUpdated={handleUpdated} />
       ) : tab === "orders" ? (
