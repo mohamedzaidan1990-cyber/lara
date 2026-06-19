@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSql } from "@/lib/db";
-import { extractShadeOptions, isShadeRelevant, type ShadeOption } from "@/lib/shade-options";
+import { extractShadeOptions, isShadeRelevant, shadeScore, type ShadeOption } from "@/lib/shade-options";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -90,6 +90,33 @@ export async function GET(req: Request) {
       set shades = ${JSON.stringify(shades)}::jsonb, shades_checked_at = now()
       where id = ${id}
     `;
+
+    // Populate product_variants from the freshly-extracted shades.
+    if (shades.length > 0) {
+      for (const shade of shades) {
+        const score = shadeScore(shade.name);
+        await sql`
+          insert into product_variants (product_id, shade_name, shade_image_url, swatch_url, sort_order)
+          values (${id}, ${shade.name}, ${shade.image_url || null}, ${shade.swatch_url || null}, ${score})
+          on conflict (product_id, shade_name) do update set
+            shade_image_url = excluded.shade_image_url,
+            swatch_url = excluded.swatch_url,
+            sort_order = excluded.sort_order
+        `;
+      }
+      // Update light_shade_image_url with the lightest shade that has an image.
+      await sql`
+        update products
+        set light_shade_image_url = (
+          select shade_image_url from product_variants
+          where product_id = ${id} and shade_image_url is not null and shade_image_url <> ''
+          order by sort_order asc
+          limit 1
+        )
+        where id = ${id}
+      `;
+    }
+
     return NextResponse.json({ shades });
   } catch {
     return NextResponse.json({ shades: [] });
