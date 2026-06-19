@@ -7,6 +7,7 @@ export interface InvoiceOrder {
   payment_confirmed: boolean;
   payment_method?: string | null;
   total_usd: number;
+  amount_paid_usd?: number;
 }
 
 export interface InvoiceCustomer {
@@ -141,6 +142,10 @@ export function generateInvoice(order: InvoiceOrder, customer: InvoiceCustomer, 
   // @ts-expect-error lastAutoTable is attached by the plugin at runtime
   const afterTable: number = doc.lastAutoTable?.finalY ?? startY + 40;
   let py = afterTable + 12;
+  const amountPaid = order.amount_paid_usd ?? 0;
+  const isPartial = amountPaid > 0 && amountPaid < order.total_usd;
+  const balanceDue = Math.max(0, order.total_usd - amountPaid);
+
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
   doc.setTextColor(...INK);
@@ -150,9 +155,21 @@ export function generateInvoice(order: InvoiceOrder, customer: InvoiceCustomer, 
   py += 6;
   doc.text(`Payment method: ${paymentLabel(order.payment_method)}`, left, py);
   py += 5;
-  doc.text(`Payment status: ${order.payment_confirmed ? "Confirmed" : "Pending"}`, left, py);
-  py += 5;
-  doc.text("Confirmed by: Seasons by B team", left, py);
+  if (isPartial) {
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(180, 100, 0);
+    doc.text(`Amount received: ${usd(amountPaid)}`, left, py);
+    py += 5;
+    doc.text(`Balance due on delivery: ${usd(balanceDue)}`, left, py);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...MUTED);
+    py += 5;
+    doc.text("Confirmed by: Seasons by B team", left, py);
+  } else {
+    doc.text(`Payment status: ${order.payment_confirmed ? "Paid in Full" : "Pending"}`, left, py);
+    py += 5;
+    doc.text("Confirmed by: Seasons by B team", left, py);
+  }
 
   // ---- Footer ----
   const footY = pageHeight - 26;

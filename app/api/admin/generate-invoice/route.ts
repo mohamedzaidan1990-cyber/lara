@@ -16,6 +16,7 @@ interface OrderJoin {
   total_usd: string | number | null;
   price_usd: string | number | null;
   created_at: string;
+  amount_paid_usd: string | number | null;
   full_name: string;
   phone: string;
   address: string;
@@ -35,6 +36,7 @@ export async function POST(req: Request) {
 
   const rows = (await sql`
     select o.id, o.order_number, o.customer_email, o.payment_method, o.total_usd, o.price_usd, o.created_at,
+           o.amount_paid_usd,
            coalesce(c.full_name, '') as full_name,
            coalesce(c.phone, '') as phone,
            coalesce(c.address, '') as address
@@ -66,7 +68,8 @@ export async function POST(req: Request) {
       created_at: order.created_at,
       payment_confirmed: true,
       payment_method: order.payment_method,
-      total_usd: totalUsd
+      total_usd: totalUsd,
+      amount_paid_usd: Number(order.amount_paid_usd) || undefined
     },
     { full_name: order.full_name, email: order.customer_email ?? "", phone: order.phone, address: order.address },
     items
