@@ -15,6 +15,7 @@ interface ShadeRow {
   product_url: string | null;
   shades: ShadeOption[] | string | null;
   shades_checked_at: string | null;
+  light_shade_image_url: string | null;
 }
 
 async function fetchPdpHtml(url: string): Promise<string> {
@@ -38,16 +39,23 @@ async function fetchPdpHtml(url: string): Promise<string> {
 }
 
 function parseStoredShades(raw: ShadeRow["shades"]): ShadeOption[] {
-  if (Array.isArray(raw)) return raw;
-  if (typeof raw === "string") {
+  let arr: unknown[] = [];
+  if (Array.isArray(raw)) {
+    arr = raw;
+  } else if (typeof raw === "string") {
     try {
       const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
+      if (Array.isArray(parsed)) arr = parsed;
+    } catch { /* ignore */ }
   }
-  return [];
+  return arr
+    .filter((s): s is Record<string, unknown> => typeof s === "object" && s !== null)
+    .map((s) => ({
+      name: typeof s.name === "string" ? s.name : "",
+      swatch_url: typeof s.swatch_url === "string" ? s.swatch_url : "",
+      image_url: typeof s.image_url === "string" ? s.image_url : ""
+    }))
+    .filter((s) => s.name.length > 0);
 }
 
 export async function GET(req: Request) {
@@ -60,7 +68,7 @@ export async function GET(req: Request) {
   try {
     const sql = getSql();
     const rows = (await sql`
-      select id, name, subcategory, product_url, shades, shades_checked_at
+      select id, name, subcategory, product_url, shades, shades_checked_at, light_shade_image_url
       from products where id = ${id} limit 1
     `) as ShadeRow[];
     const p = rows[0];
@@ -68,7 +76,35 @@ export async function GET(req: Request) {
 
     // Already looked up — serve the cached answer (including "no shades").
     if (p.shades_checked_at) {
-      return NextResponse.json({ shades: parseStoredShades(p.shades) });
+      const cachedShades = parseStoredShades(p.shades);
+      // If variants haven't been populated yet, back-fill without blocking.
+      if (!p.light_shade_image_url && cachedShades.length > 0) {
+        void (async () => {
+          try {
+            for (const shade of cachedShades) {
+              const score = shadeScore(shade.name);
+              await sql`
+                insert into product_variants (product_id, shade_name, shade_image_url, swatch_url, sort_order)
+                values (${id}, ${shade.name}, ${shade.image_url || null}, ${shade.swatch_url || null}, ${score})
+                on conflict (product_id, shade_name) do update set
+                  shade_image_url = excluded.shade_image_url,
+                  swatch_url = excluded.swatch_url,
+                  sort_order = excluded.sort_order
+              `;
+            }
+            await sql`
+              update products
+              set light_shade_image_url = (
+                select shade_image_url from product_variants
+                where product_id = ${id} and shade_image_url is not null and shade_image_url <> ''
+                order by sort_order asc limit 1
+              )
+              where id = ${id}
+            `;
+          } catch { /* best-effort */ }
+        })();
+      }
+      return NextResponse.json({ shades: cachedShades });
     }
 
     const url = p.product_url ?? "";

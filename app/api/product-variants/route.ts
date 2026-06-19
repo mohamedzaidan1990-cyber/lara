@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { ensureSchema, getSql } from "@/lib/db";
+import { getSql } from "@/lib/db";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,7 +11,6 @@ export async function GET(req: Request) {
     return NextResponse.json({ variants: [] });
   }
   try {
-    await ensureSchema();
     const sql = getSql();
     const rows = (await sql`
       select shade_name, shade_image_url, swatch_url, sort_order

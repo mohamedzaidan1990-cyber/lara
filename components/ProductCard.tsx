@@ -468,7 +468,7 @@ export default function ProductCard({ product, index = 0 }: Props) {
         )}
 
         <div className="mt-4 flex items-center gap-2">
-          {product.id && isShadeRelevant(product.subcategory ?? null, product.name) ? (
+          {product.id && product.light_shade_image_url && isShadeRelevant(product.subcategory ?? null, product.name) ? (
             <Link
               href={`/product/${product.id}#shade-picker-section`}
               className="btn-primary flex-1 justify-center transition-transform hover:scale-[1.02]"

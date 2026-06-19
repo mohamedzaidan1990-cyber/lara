@@ -155,9 +155,12 @@ export default function ProductDetailClient({ product }: Props) {
   const [zoom, setZoom] = useState<{ x: number; y: number } | null>(null);
 
   const [variantImage, setVariantImage] = useState<string | null>(product.light_shade_image_url ?? null);
+  const [variantImgFailed, setVariantImgFailed] = useState(false);
 
   const activeSrc = variantImage ? productImageSrc(variantImage) : productImageSrc(gallery[activeImage]);
-  const showActive = Boolean(activeSrc) && !imgFailed[activeImage];
+  const showActive = variantImage
+    ? Boolean(activeSrc) && !variantImgFailed
+    : Boolean(activeSrc) && !imgFailed[activeImage];
 
   // Complexion products get the optional Shade Finder prompt; anything
   // shade/colour-relevant gets the shade picker.
@@ -173,6 +176,7 @@ export default function ProductDetailClient({ product }: Props) {
     setSelectedShade(name);
     if (name) {
       setShadeError(false);
+      setVariantImgFailed(false);
       setVariantImage(imageUrl ?? null);
     } else {
       setVariantImage(product.light_shade_image_url ?? null);
@@ -230,7 +234,10 @@ export default function ProductDetailClient({ product }: Props) {
               alt={`${product.brand} ${product.name}`}
               className="h-full w-full object-cover transition-transform duration-300"
               style={zoom ? { transform: "scale(1.6)", transformOrigin: `${zoom.x}% ${zoom.y}%` } : undefined}
-              onError={() => setImgFailed((p) => ({ ...p, [activeImage]: true }))}
+              onError={() => {
+                if (variantImage) setVariantImgFailed(true);
+                else setImgFailed((p) => ({ ...p, [activeImage]: true }));
+              }}
             />
           ) : (
             <div
@@ -273,7 +280,7 @@ export default function ProductDetailClient({ product }: Props) {
                 <button
                   key={`${src}-${i}`}
                   type="button"
-                  onClick={() => setActiveImage(i)}
+                  onClick={() => { setVariantImage(null); setActiveImage(i); }}
                   className={
                     "relative h-20 w-16 overflow-hidden border transition-colors " +
                     (active ? "border-accent" : "border-ink/15 hover:border-ink/40")
