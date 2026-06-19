@@ -138,7 +138,11 @@ export default function AdminStockTab() {
     if (!window.confirm("Remove this stock item?")) return;
     setDeletingId(id);
     try {
-      await fetch(`/api/admin/stock/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/admin/stock/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        alert("Failed to delete item");
+        return;
+      }
       setItems((prev) => prev.filter((it) => it.id !== id));
     } catch {
       alert("Delete failed");
