@@ -11,6 +11,7 @@ import type { ProductDetail } from "@/lib/products";
 import {
   COMPLEXION_SUBCATEGORIES,
   isShadeRelevant,
+  sortShadesLightFirst,
   type ShadeOption
 } from "@/lib/shade-options";
 
@@ -26,38 +27,68 @@ interface Props {
   product: ProductDetail;
 }
 
-// Available shades/colours for the product, fetched lazily (the first visitor
-// triggers a one-time PDP lookup server-side; afterwards it's cached in the
-// DB). Selection is OPTIONAL — customers can still add to cart without one.
+interface ProductVariant {
+  shade_name: string;
+  shade_image_url: string | null;
+  swatch_url: string | null;
+  sort_order: number;
+}
+
+// Shade/colour picker. Selection is REQUIRED for shade-relevant products —
+// the add-to-cart button is blocked until a shade is chosen.
 function ShadePicker({
   productId,
   label,
   selected,
-  onSelect
+  onSelect,
+  error
 }: {
   productId: string;
   label: string;
   selected: string | null;
-  onSelect: (name: string | null) => void;
+  onSelect: (name: string | null, imageUrl?: string | null) => void;
+  error: boolean;
 }) {
-  const [shades, setShades] = useState<ShadeOption[] | null>(null);
+  const [variants, setVariants] = useState<ProductVariant[] | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`/api/product-shades?id=${productId}`)
-      .then((r) => (r.ok ? r.json() : { shades: [] }))
-      .then((data: { shades?: ShadeOption[] }) => {
-        if (!cancelled) setShades(Array.isArray(data.shades) ? data.shades : []);
+    fetch(`/api/product-variants?id=${productId}`)
+      .then((r) => (r.ok ? r.json() : { variants: [] }))
+      .then((data: { variants?: ProductVariant[] }) => {
+        if (cancelled) return;
+        const variantList = Array.isArray(data.variants) ? data.variants : [];
+        if (variantList.length > 0) {
+          setVariants(variantList);
+        } else {
+          // Fall back to /api/product-shades and convert to variant shape
+          fetch(`/api/product-shades?id=${productId}`)
+            .then((r) => (r.ok ? r.json() : { shades: [] }))
+            .then((shadeData: { shades?: ShadeOption[] }) => {
+              if (cancelled) return;
+              const sorted = sortShadesLightFirst(Array.isArray(shadeData.shades) ? shadeData.shades : []);
+              const converted: ProductVariant[] = sorted.map((s) => ({
+                shade_name: s.name,
+                shade_image_url: s.image_url || null,
+                swatch_url: s.swatch_url || null,
+                sort_order: 0
+              }));
+              setVariants(converted);
+            })
+            .catch(() => {
+              if (!cancelled) setVariants([]);
+            });
+        }
       })
       .catch(() => {
-        if (!cancelled) setShades([]);
+        if (!cancelled) setVariants([]);
       });
     return () => {
       cancelled = true;
     };
   }, [productId]);
 
-  if (shades === null) {
+  if (variants === null) {
     return (
       <div className="mt-6">
         <span className="text-[10px] uppercase tracking-[0.2em] text-ink/60">{label}</span>
@@ -69,29 +100,31 @@ function ShadePicker({
       </div>
     );
   }
-  if (shades.length === 0) return null;
+  if (variants.length === 0) return null;
 
   return (
     <div className="mt-6">
       <div className="flex items-baseline gap-3">
         <span className="text-[10px] uppercase tracking-[0.2em] text-ink/60">{label}</span>
-        <span className="text-xs text-ink/70">{selected ?? `${shades.length} available`}</span>
+        <span className={`text-xs ${error ? "font-semibold text-red-500" : "text-ink/70"}`}>
+          {selected ?? (error ? `Please select a ${label.toLowerCase()} to continue` : `${variants.length} available`)}
+        </span>
         {selected ? (
           <button type="button" onClick={() => onSelect(null)} className="text-[10px] uppercase tracking-[0.14em] text-accent underline">
             Clear
           </button>
         ) : null}
       </div>
-      <div className="mt-2 flex max-h-44 flex-wrap gap-2 overflow-y-auto pr-1">
-        {shades.map((s) => {
-          const active = selected === s.name;
-          const swatch = productImageSrc(s.swatch_url);
+      <div className={`mt-2 flex max-h-44 flex-wrap gap-2 overflow-y-auto pr-1 ${error ? "rounded-lg border border-red-300 p-2" : ""}`}>
+        {variants.map((variant) => {
+          const active = selected === variant.shade_name;
+          const swatch = productImageSrc(variant.swatch_url);
           return (
             <button
-              key={s.name}
+              key={variant.shade_name}
               type="button"
-              onClick={() => onSelect(active ? null : s.name)}
-              title={s.name}
+              onClick={() => onSelect(active ? null : variant.shade_name, active ? null : (variant.shade_image_url ?? null))}
+              title={variant.shade_name}
               className={
                 "flex items-center gap-2 rounded-full border px-2 py-1 text-xs transition-colors " +
                 (active ? "border-accent bg-accent/10 text-ink" : "border-ink/15 bg-white text-ink/80 hover:border-ink/40")
@@ -101,7 +134,7 @@ function ShadePicker({
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={swatch} alt="" className="h-6 w-6 rounded-full object-cover" loading="lazy" />
               ) : null}
-              <span className="max-w-[120px] truncate">{s.name}</span>
+              <span className="max-w-[120px] truncate">{variant.shade_name}</span>
             </button>
           );
         })}
@@ -121,7 +154,9 @@ export default function ProductDetailClient({ product }: Props) {
   const [added, setAdded] = useState(false);
   const [zoom, setZoom] = useState<{ x: number; y: number } | null>(null);
 
-  const activeSrc = productImageSrc(gallery[activeImage]);
+  const [variantImage, setVariantImage] = useState<string | null>(product.light_shade_image_url ?? null);
+
+  const activeSrc = variantImage ? productImageSrc(variantImage) : productImageSrc(gallery[activeImage]);
   const showActive = Boolean(activeSrc) && !imgFailed[activeImage];
 
   // Complexion products get the optional Shade Finder prompt; anything
@@ -132,8 +167,24 @@ export default function ProductDetailClient({ product }: Props) {
   const shadeRelevant = isShadeRelevant(product.subcategory, product.name);
   const shadeLabel = isComplexion ? "Shade" : "Colour";
   const [selectedShade, setSelectedShade] = useState<string | null>(null);
+  const [shadeError, setShadeError] = useState(false);
+
+  function handleShadeSelect(name: string | null, imageUrl?: string | null) {
+    setSelectedShade(name);
+    if (name) {
+      setShadeError(false);
+      setVariantImage(imageUrl ?? null);
+    } else {
+      setVariantImage(product.light_shade_image_url ?? null);
+    }
+  }
 
   function addToCart(open: boolean) {
+    if (shadeRelevant && !selectedShade) {
+      setShadeError(true);
+      document.getElementById("shade-picker-section")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
     const baseId = product.product_url || product.id || `${product.brand}|${product.name}`;
     addItem({
       // Distinct cart lines per shade, so two shades of one product don't merge.
@@ -147,6 +198,7 @@ export default function ProductDetailClient({ product }: Props) {
       category: product.category ?? "",
       quantity: qty
     });
+    setShadeError(false);
     setAdded(true);
     setTimeout(() => setAdded(false), 1600);
     if (open) openCart();
@@ -252,7 +304,9 @@ export default function ProductDetailClient({ product }: Props) {
         <p className="mt-5 max-w-prose text-sm leading-relaxed text-ink/70">{description}</p>
 
         {shadeRelevant ? (
-          <ShadePicker productId={product.id} label={shadeLabel} selected={selectedShade} onSelect={setSelectedShade} />
+          <div id="shade-picker-section">
+            <ShadePicker productId={product.id} label={shadeLabel} selected={selectedShade} onSelect={handleShadeSelect} error={shadeError} />
+          </div>
         ) : null}
 
         {isComplexion ? (

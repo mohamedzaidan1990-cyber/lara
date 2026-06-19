@@ -13,6 +13,7 @@ export interface ProductDetail {
   product_url: string | null;
   image_url: string | null;
   images: string[];
+  light_shade_image_url: string | null;
 }
 
 interface ProductDetailRow extends Omit<ProductDetail, "images"> {
@@ -45,7 +46,8 @@ export async function getProductById(id: string): Promise<ProductDetail | null> 
     const rows = (await sql`
       select id, brand, name, category, subcategory,
              price_gbp::float8 as price_gbp, price_usd::float8 as price_usd,
-             deliverable_lebanon, product_url, image_url, images
+             deliverable_lebanon, product_url, image_url, images,
+             light_shade_image_url
       from products
       where id = ${id}
       limit 1
