@@ -144,6 +144,25 @@ export const SCHEMA_STATEMENTS = [
     full_conversation jsonb,
     status text default 'new',
     created_at timestamp default now()
+  )`,
+  // ----- Partial payment tracking -----
+  `alter table orders add column if not exists amount_paid_usd numeric default 0`,
+  // Seed confirmed orders as fully paid. WHERE clause is idempotent — only matches rows still at 0.
+  `update orders set amount_paid_usd = coalesce(total_usd, price_usd, 0) where payment_confirmed = true and (amount_paid_usd = 0 or amount_paid_usd is null)`,
+  // ----- Speculative stock (no customer order) -----
+  `create table if not exists stock_items (
+    id uuid default gen_random_uuid() primary key,
+    product_id uuid references products(id) on delete set null,
+    product_name text not null,
+    product_brand text not null,
+    product_url text,
+    image_url text,
+    cost_gbp numeric,
+    cost_usd numeric,
+    quantity int not null default 1,
+    notes text,
+    purchased_at date,
+    created_at timestamp default now()
   )`
 ];
 
@@ -225,6 +244,7 @@ export interface OrderRow {
   profit_usd?: string | number | null;
   profit_notes?: string | null;
   source?: string | null;
+  amount_paid_usd?: string | number | null;
 }
 
 export interface OrderLineItem {
@@ -300,5 +320,20 @@ export interface BespokeRequestRow {
   conversation_summary: string;
   full_conversation: Array<{ role: string; content: string }> | null;
   status: BespokeStatus;
+  created_at: string;
+}
+
+export interface StockItemRow {
+  id: string;
+  product_id: string | null;
+  product_name: string;
+  product_brand: string;
+  product_url: string | null;
+  image_url: string | null;
+  cost_gbp: string | number | null;
+  cost_usd: string | number | null;
+  quantity: number;
+  notes: string | null;
+  purchased_at: string | null;
   created_at: string;
 }
