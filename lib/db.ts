@@ -163,7 +163,23 @@ export const SCHEMA_STATEMENTS = [
     notes text,
     purchased_at date,
     created_at timestamp default now()
-  )`
+  )`,
+  // ----- Per-shade product variants (from Selfridges PDP extraction) -----
+  `create table if not exists product_variants (
+    id uuid default gen_random_uuid() primary key,
+    product_id uuid not null references products(id) on delete cascade,
+    shade_name text not null,
+    shade_image_url text,
+    swatch_url text,
+    sort_order int not null default 0,
+    created_at timestamp default now(),
+    unique (product_id, shade_name)
+  )`,
+  `create index if not exists product_variants_product_id_idx on product_variants (product_id)`,
+  // Lightest shade image for fast card rendering (no JOIN needed per card).
+  `alter table products add column if not exists light_shade_image_url text`,
+  // Tracks when variant enrichment last ran for a product.
+  `alter table products add column if not exists variants_checked_at timestamp`
 ];
 
 export async function ensureSchema(): Promise<void> {

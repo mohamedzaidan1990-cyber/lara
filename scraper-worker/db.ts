@@ -73,6 +73,20 @@ export async function ensureSchema(): Promise<void> {
       results_count int,
       created_at timestamp DEFAULT now()
     );
+
+    CREATE TABLE IF NOT EXISTS product_variants (
+      id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+      product_id uuid NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+      shade_name text NOT NULL,
+      shade_image_url text,
+      swatch_url text,
+      sort_order int NOT NULL DEFAULT 0,
+      created_at timestamp DEFAULT now(),
+      UNIQUE (product_id, shade_name)
+    );
+    CREATE INDEX IF NOT EXISTS product_variants_product_id_idx ON product_variants (product_id);
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS light_shade_image_url text;
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS variants_checked_at timestamp;
   `);
 }
 
