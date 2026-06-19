@@ -1,6 +1,7 @@
 import cron from "node-cron";
 import { ensureSchema, logScrape, upsertProducts, type ScrapedProductRow } from "./db";
 import { scrapeSelfridgesCategory, scrapeSelfridgesBrands, scrapeSelfridgesKBeauty, scrapeSelfridgesUrls, SELFRIDGES_BENEFIT_URLS, webUnblockerEnabled, SCRAPE_CATEGORIES } from "./scraper";
+import { runVariantEnrichment } from "./shade-enricher";
 
 // Dedupe by product URL (or brand|name) so Selfridges + Space NK overlap once.
 function dedupeProducts(rows: ScrapedProductRow[]): ScrapedProductRow[] {
@@ -150,6 +151,14 @@ async function runOnce(): Promise<void> {
 
     // Polite pause between categories.
     await sleep(5000);
+  }
+
+  // Variant enrichment pass: fetch Selfridges PDPs for shade-relevant products
+  // and populate product_variants + light_shade_image_url.
+  try {
+    await runVariantEnrichment();
+  } catch (err) {
+    console.error("[worker] variant enrichment failed — continuing", err);
   }
 
   const finishedAt = new Date();
