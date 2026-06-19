@@ -197,6 +197,11 @@ export function shouldExclude(name: string): boolean {
   return isNonBeauty(name);
 }
 
+// Selfridges filter: keep only bundles/kits/sets/collections.
+function isBundle(name: string): boolean {
+  return /\b(bundle|kit|set|collection)\b/i.test(name);
+}
+
 // Pick a clean product-shot image. For image-sensitive brands (Kylie Cosmetics
 // ships lifestyle/model photos as the first image), skip lifestyle/model URLs
 // and prefer product shots; if none look clean, return "" so the branded
@@ -1208,23 +1213,25 @@ export async function scrapeSelfridgesKBeauty(): Promise<ScrapedProductRow[]> {
       if (seen.has(k)) continue;
       seen.add(k);
       if (shouldExclude(`${r.brand} ${r.name}`)) continue;
+      if (!isBundle(r.name)) continue;
       const category = classifySelfridgesCategory(`${r.brand} ${r.name}`);
+      const sku = selfridgesSku(r.product_url);
       collected.push({
-        brand: r.brand,
+        brand: "Bundle",
         name: r.name,
         category,
         price_gbp: r.priceGbp,
-        price_usd: await convertGbpToUsd(r.priceGbp, category),
+        price_usd: await convertGbpToUsd(r.priceGbp, category, r.brand),
         deliverable_lebanon: true,
         product_url: r.product_url,
-        image_url: r.image_url,
+        image_url: selfridgesAlbumImage(sku, 2),
         is_bestseller: r.bestseller ?? false,
         subcategory: classifySubcategory(category, r.name),
         k_beauty: isKBeautyBrand(r.brand)
       });
       added += 1;
     }
-    console.log(`[scraper] K-Beauty Selfridges ${label} → ${added} products`);
+    console.log(`[scraper] K-Beauty Selfridges ${label} → ${added} bundles`);
     await delay(1500, 3500);
   }
   return collected;
@@ -1277,23 +1284,25 @@ export async function scrapeSelfridgesUrls(
       seen.add(k);
       if (shouldExclude(`${r.brand} ${r.name}`)) continue;
       if (filterLow && !r.brand.toLowerCase().includes(filterLow)) continue;
+      if (!isBundle(r.name)) continue;
       const category = classifySelfridgesCategory(`${r.brand} ${r.name}`);
+      const sku = selfridgesSku(r.product_url);
       collected.push({
-        brand: r.brand,
+        brand: "Bundle",
         name: r.name,
         category,
         price_gbp: r.priceGbp,
-        price_usd: await convertGbpToUsd(r.priceGbp, category),
+        price_usd: await convertGbpToUsd(r.priceGbp, category, r.brand),
         deliverable_lebanon: true,
         product_url: r.product_url,
-        image_url: r.image_url,
+        image_url: selfridgesAlbumImage(sku, 2),
         is_bestseller: r.bestseller ?? false,
         subcategory: classifySubcategory(category, r.name),
         k_beauty: isKBeautyBrand(r.brand)
       });
       added += 1;
     }
-    console.log(`[scraper] Selfridges ${label} → ${raws.length} parsed, ${added} kept`);
+    console.log(`[scraper] Selfridges ${label} → ${raws.length} parsed, ${added} bundles`);
     await delay(1500, 3500);
   }
   return collected;
@@ -1328,6 +1337,13 @@ function selfridgesSku(href: string): string {
 function selfridgesImage(sku: string): string {
   if (!sku) return "";
   return `https://images.selfridges.com/is/image/selfridges/${sku}_M?wid=363&hei=485&fmt=webp&qlt=80`;
+}
+
+// Scene7 album image at a given index: 0 → _M, 1 → _M2, 2 → _M3, etc.
+function selfridgesAlbumImage(sku: string, index: number): string {
+  if (!sku) return "";
+  const suffix = index === 0 ? "_M" : `_M${index + 1}`;
+  return `https://images.selfridges.com/is/image/selfridges/${sku}${suffix}?wid=363&hei=485&fmt=webp&qlt=80`;
 }
 
 // Parse the hydrated PLP grid. Each card exposes stable data-testid hooks:
@@ -1417,8 +1433,31 @@ export async function scrapeSelfridgesCategory(category: string): Promise<Scrape
   // TODO: once on a paid Oxylabs plan, fetch each product page via
   // fetchWithWebUnblocker + checkSelfridgesDelivery() to set deliverable_lebanon
   // accurately. For now everything defaults to deliverable to preserve credits.
-  if (collected.length > 0) console.log(`[scraper] Selfridges ${category} → ${collected.length} unique products`);
-  return toRows(collected, category, "Selfridges");
+  const bundles = collected.filter((r) => isBundle(r.name));
+  if (collected.length > 0) console.log(`[scraper] Selfridges ${category} → ${collected.length} unique, ${bundles.length} bundles`);
+  return Promise.all(
+    bundles
+      .filter((r) => !shouldExclude(`${r.brand} ${r.name}`))
+      .map(async (r) => {
+        const text = `${r.brand} ${r.name}`;
+        const cat = isHomeFragrance(text) ? "Home Fragrance" : isFragrance(text) ? "Fragrance" : category;
+        const sku = selfridgesSku(r.product_url);
+        return {
+          brand: "Bundle",
+          name: r.name,
+          category: cat,
+          price_gbp: r.priceGbp,
+          price_usd: await convertGbpToUsd(r.priceGbp, cat, r.brand),
+          deliverable_lebanon: true,
+          product_url: r.product_url,
+          image_url: selfridgesAlbumImage(sku, 2),
+          popularity: r.popularity ?? null,
+          is_bestseller: r.bestseller ?? false,
+          subcategory: classifySubcategory(cat, r.name),
+          k_beauty: isKBeautyBrand(r.brand)
+        };
+      })
+  );
 }
 
 // Popular beauty brands whose full range is under-represented by the category
@@ -1571,23 +1610,25 @@ export async function scrapeSelfridgesBrands(slugs: string[] = SELFRIDGES_BRAND_
       if (seen.has(k)) continue;
       seen.add(k);
       if (shouldExclude(`${r.brand} ${r.name}`)) continue;
+      if (!isBundle(r.name)) continue;
       const category = classifySelfridgesCategory(`${r.brand} ${r.name}`);
+      const sku = selfridgesSku(r.product_url);
       collected.push({
-        brand: r.brand,
+        brand: "Bundle",
         name: r.name,
         category,
         price_gbp: r.priceGbp,
-        price_usd: await convertGbpToUsd(r.priceGbp, category),
+        price_usd: await convertGbpToUsd(r.priceGbp, category, r.brand),
         deliverable_lebanon: true,
         product_url: r.product_url,
-        image_url: r.image_url,
+        image_url: selfridgesAlbumImage(sku, 2),
         is_bestseller: r.bestseller ?? false,
         subcategory: classifySubcategory(category, r.name),
         k_beauty: isKBeautyBrand(r.brand)
       });
       added += 1;
     }
-    console.log(`[scraper] Selfridges brand ${slug} → ${raws.length} parsed (${added} new)`);
+    console.log(`[scraper] Selfridges brand ${slug} → ${raws.length} parsed (${added} bundles)`);
     await delay(1500, 3500);
   }
   return collected;
