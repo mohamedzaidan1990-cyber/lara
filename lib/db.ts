@@ -147,8 +147,8 @@ export const SCHEMA_STATEMENTS = [
   )`,
   // ----- Partial payment tracking -----
   `alter table orders add column if not exists amount_paid_usd numeric default 0`,
-  // Seed confirmed orders as fully paid. WHERE clause is idempotent — only matches rows still at 0.
-  `update orders set amount_paid_usd = coalesce(total_usd, price_usd, 0) where payment_confirmed = true and (amount_paid_usd = 0 or amount_paid_usd is null)`,
+  // Seed confirmed orders as fully paid. WHERE clause is idempotent — only matches rows still uninitialized.
+  `update orders set amount_paid_usd = coalesce(total_usd, price_usd, 0) where payment_confirmed = true and amount_paid_usd is null`,
   // ----- Speculative stock (no customer order) -----
   `create table if not exists stock_items (
     id uuid default gen_random_uuid() primary key,

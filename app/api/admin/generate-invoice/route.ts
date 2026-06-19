@@ -66,7 +66,7 @@ export async function POST(req: Request) {
     {
       order_number: order.order_number,
       created_at: order.created_at,
-      payment_confirmed: true,
+      payment_confirmed: !!order.payment_confirmed,
       payment_method: order.payment_method,
       total_usd: totalUsd,
       amount_paid_usd: Number(order.amount_paid_usd) || undefined
