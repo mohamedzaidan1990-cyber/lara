@@ -169,7 +169,7 @@ export async function runVariantEnrichment(): Promise<void> {
            shade_image_url = EXCLUDED.shade_image_url,
            swatch_url = EXCLUDED.swatch_url,
            sort_order = EXCLUDED.sort_order`,
-        [product.id, shade.name, shade.image_url || null, shade.swatch_url || null, shade.sort_order]
+        [product.id, shade.name, shade.image_url || null, shade.swatch_url || null, Math.round(shade.sort_order)]
       );
     }
 
