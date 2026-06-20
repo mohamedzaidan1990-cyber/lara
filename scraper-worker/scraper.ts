@@ -1217,7 +1217,7 @@ export async function scrapeSelfridgesKBeauty(): Promise<ScrapedProductRow[]> {
       const category = classifySelfridgesCategory(`${r.brand} ${r.name}`);
       const sku = selfridgesSku(r.product_url);
       collected.push({
-        brand: "Bundle",
+        brand: r.brand,
         name: r.name,
         category,
         price_gbp: r.priceGbp,
@@ -1288,7 +1288,7 @@ export async function scrapeSelfridgesUrls(
       const category = classifySelfridgesCategory(`${r.brand} ${r.name}`);
       const sku = selfridgesSku(r.product_url);
       collected.push({
-        brand: "Bundle",
+        brand: r.brand,
         name: r.name,
         category,
         price_gbp: r.priceGbp,
@@ -1443,7 +1443,7 @@ export async function scrapeSelfridgesCategory(category: string): Promise<Scrape
         const cat = isHomeFragrance(text) ? "Home Fragrance" : isFragrance(text) ? "Fragrance" : category;
         const sku = selfridgesSku(r.product_url);
         return {
-          brand: "Bundle",
+          brand: r.brand || "Selfridges",
           name: r.name,
           category: cat,
           price_gbp: r.priceGbp,
@@ -1614,7 +1614,7 @@ export async function scrapeSelfridgesBrands(slugs: string[] = SELFRIDGES_BRAND_
       const category = classifySelfridgesCategory(`${r.brand} ${r.name}`);
       const sku = selfridgesSku(r.product_url);
       collected.push({
-        brand: "Bundle",
+        brand: r.brand,
         name: r.name,
         category,
         price_gbp: r.priceGbp,
