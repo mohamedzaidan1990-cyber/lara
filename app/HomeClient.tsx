@@ -16,6 +16,10 @@ interface SearchProduct extends ProductCardData {
   category?: string;
 }
 
+type SearchSort = "relevant" | "price-asc" | "price-desc";
+
+const SEARCH_CATEGORIES = ["All", "Makeup", "Skincare", "Fragrance", "Home Fragrance", "Haircare", "Beauty tools"];
+
 interface Props {
   categories: CategoryStat[];
 }
@@ -25,6 +29,8 @@ export default function HomeClient({ categories }: Props) {
   const [results, setResults] = useState<SearchProduct[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activeCategory, setActiveCategory] = useState("All");
+  const [sort, setSort] = useState<SearchSort>("relevant");
 
   useEffect(() => {
     setError(null);
@@ -38,6 +44,8 @@ export default function HomeClient({ categories }: Props) {
     }
     setLoading(true);
     setError(null);
+    setActiveCategory("All");
+    setSort("relevant");
     try {
       const res = await fetch("/api/search", {
         method: "POST",
@@ -55,6 +63,17 @@ export default function HomeClient({ categories }: Props) {
     }
   }
 
+  // Client-side filter + sort applied on top of the API results.
+  const displayedResults = results
+    ? [...results]
+        .filter((p) => activeCategory === "All" || p.category === activeCategory)
+        .sort((a, b) => {
+          if (sort === "price-asc") return (a.price_usd ?? 0) - (b.price_usd ?? 0);
+          if (sort === "price-desc") return (b.price_usd ?? 0) - (a.price_usd ?? 0);
+          return 0; // "relevant" — keep API order
+        })
+    : null;
+
   return (
     <div>
       <HeroSection />
@@ -67,7 +86,7 @@ export default function HomeClient({ categories }: Props) {
 
       {results !== null ? (
         <section className="mx-auto max-w-7xl px-4 pb-16 pt-10 sm:px-6 lg:px-8">
-          <div className="mb-6 flex items-end justify-between">
+          <div className="mb-5 flex items-end justify-between">
             <h2 className="font-serif text-2xl text-ink">
               {loading ? "Searching…" : `Results for "${query}"`}
             </h2>
@@ -83,21 +102,60 @@ export default function HomeClient({ categories }: Props) {
             </button>
           </div>
 
+          {/* Filter + sort controls */}
+          {!loading && results.length > 0 ? (
+            <div className="mb-6 flex flex-wrap items-center gap-3">
+              {/* Category chips */}
+              <div className="flex flex-wrap gap-2">
+                {SEARCH_CATEGORIES.map((cat) => (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setActiveCategory(cat)}
+                    className={
+                      "rounded-full border px-4 py-1.5 text-xs font-medium uppercase tracking-[0.14em] transition-colors " +
+                      (activeCategory === cat
+                        ? "border-accent bg-accent text-white"
+                        : "border-ink/15 bg-white text-ink hover:border-accent hover:text-accent")
+                    }
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+
+              {/* Sort */}
+              <div className="ml-auto">
+                <select
+                  value={sort}
+                  onChange={(e) => setSort(e.target.value as SearchSort)}
+                  className="rounded-full border border-ink/15 bg-white px-4 py-1.5 text-xs uppercase tracking-[0.14em] text-ink focus:border-accent focus:outline-none"
+                >
+                  <option value="relevant">Most Relevant</option>
+                  <option value="price-asc">Price: Low → High</option>
+                  <option value="price-desc">Price: High → Low</option>
+                </select>
+              </div>
+            </div>
+          ) : null}
+
           {loading ? <BeeLoader fullScreen={false} /> : null}
           {error ? (
             <p className="rounded border border-accent/40 bg-accent/5 p-4 text-sm text-accent-700">{error}</p>
           ) : null}
-          {!loading && results.length === 0 ? (
+          {!loading && displayedResults !== null && displayedResults.length === 0 ? (
             <div className="flex flex-col items-center gap-4 rounded border border-ink/10 bg-ink/[0.02] p-12 text-center">
               <BeeMascot variant="floating" />
               <p className="text-sm text-ink/60">
-                No products matched. Try a different search — or send our bee a bespoke request below.
+                {activeCategory !== "All"
+                  ? `No ${activeCategory} results for "${query}". Try a different category.`
+                  : "No products matched. Try a different search — or send our bee a bespoke request below."}
               </p>
             </div>
           ) : null}
-          {!loading && results.length > 0 ? (
+          {!loading && displayedResults !== null && displayedResults.length > 0 ? (
             <div className="grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
-              {results.map((p, i) => (
+              {displayedResults.map((p, i) => (
                 <ProductCard key={(p.product_url || p.name) + i} product={p} index={i} />
               ))}
             </div>

@@ -10,11 +10,13 @@ interface SearchRow {
   brand: string;
   name: string;
   category: string;
+  subcategory: string | null;
   price_gbp: number;
   price_usd: number;
   deliverable_lebanon: boolean;
   product_url: string;
   image_url: string;
+  light_shade_image_url: string | null;
 }
 
 // Catalogue search over the products table. Returns real product rows (with id)
@@ -44,9 +46,9 @@ export async function POST(req: Request) {
     // Rank products whose BRAND matches more of the query first, so a search
     // for "dior" leads with Dior's own products before name-only matches.
     const rows = (await sql(
-      `select id, brand, name, category,
+      `select id, brand, name, category, subcategory,
               price_gbp::float8 as price_gbp, price_usd::float8 as price_usd,
-              deliverable_lebanon, product_url, image_url
+              deliverable_lebanon, product_url, image_url, light_shade_image_url
        from products
        where ($1::text is null or category = $1)
          and (select bool_and(${hay} like '%' || t || '%')
