@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import type { OrderWithCustomer, ExpenseRow } from "@/lib/db";
+import type { OrderWithCustomer, ExpenseRow, StockItemRow } from "@/lib/db";
 
 interface Props {
   orders: OrderWithCustomer[];
   expenses: ExpenseRow[];
   onExpensesChange: (expenses: ExpenseRow[]) => void;
+  stockItems?: StockItemRow[];
 }
 
 function fmtUsd(v: number) {
@@ -19,7 +20,7 @@ function num(v: unknown) {
 
 const CATEGORIES = ["shipping", "packaging", "fees", "customs", "other"];
 
-export default function AdminAccountingTab({ orders, expenses, onExpensesChange }: Props) {
+export default function AdminAccountingTab({ orders, expenses, onExpensesChange, stockItems = [] }: Props) {
   const [addOpen, setAddOpen] = useState(false);
   const [desc, setDesc] = useState("");
   const [amountUsd, setAmountUsd] = useState("");
@@ -49,7 +50,9 @@ export default function AdminAccountingTab({ orders, expenses, onExpensesChange 
   }
 
   const totalExpenses = expenses.reduce((s, e) => s + num(e.amount_usd), 0);
-  const profit = revenue - cogs - totalExpenses;
+  const stockCost = stockItems.reduce((s, it) => s + num(it.cost_usd) * (it.quantity || 1), 0);
+  const stockCount = stockItems.reduce((s, it) => s + (it.quantity || 1), 0);
+  const profit = revenue - cogs - totalExpenses - stockCost;
   const margin = revenue > 0 ? (profit / revenue) * 100 : 0;
 
   async function addExpense() {
@@ -104,14 +107,20 @@ export default function AdminAccountingTab({ orders, expenses, onExpensesChange 
   return (
     <div className="mt-8 space-y-8">
       {/* Summary cards */}
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <StatCard label="Revenue" value={fmtUsd(revenue)} sub={`${paid.length} paid orders`} />
         <StatCard label="COGS" value={fmtUsd(cogs)} sub={`${costedOrderCount} orders costed`} color="#E08B45" />
         <StatCard label="Expenses" value={fmtUsd(totalExpenses)} sub={`${expenses.length} items`} color="#7A4FB0" />
         <StatCard
+          label="Stock Invested"
+          value={fmtUsd(stockCost)}
+          sub={`${stockCount} item${stockCount !== 1 ? "s" : ""} in stock`}
+          color="#3A6EA5"
+        />
+        <StatCard
           label="Net Profit"
           value={fmtUsd(profit)}
-          sub={`${margin.toFixed(0)}% margin`}
+          sub={`${margin.toFixed(0)}% margin${stockCount > 0 ? ` · +${stockCount} in stock` : ""}`}
           color={profit >= 0 ? "#277C43" : "#C0392B"}
         />
       </section>

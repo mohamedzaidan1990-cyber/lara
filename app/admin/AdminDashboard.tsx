@@ -9,12 +9,13 @@ import AdminManualOrderModal from "@/components/AdminManualOrderModal";
 import AdminAccountingTab from "@/components/AdminAccountingTab";
 import AdminAwaitingOrderTab from "@/components/AdminAwaitingOrderTab";
 import AdminStockTab from "@/components/AdminStockTab";
-import type { OrderWithCustomer, BespokeRequestRow, ExpenseRow } from "@/lib/db";
+import type { OrderWithCustomer, BespokeRequestRow, ExpenseRow, StockItemRow } from "@/lib/db";
 
 interface Props {
   initialOrders: OrderWithCustomer[];
   initialBespoke?: BespokeRequestRow[];
   initialExpenses?: ExpenseRow[];
+  initialStock?: StockItemRow[];
 }
 
 type Tab = "orders" | "awaiting" | "bespoke" | "accounting" | "stock";
@@ -34,10 +35,11 @@ const GROUPS: Group[] = [
   { key: "delivered", label: "Delivered", color: "#277C43", match: (o) => o.status === "delivered" }
 ];
 
-export default function AdminDashboard({ initialOrders, initialBespoke = [], initialExpenses = [] }: Props) {
+export default function AdminDashboard({ initialOrders, initialBespoke = [], initialExpenses = [], initialStock = [] }: Props) {
   const router = useRouter();
   const [orders, setOrders] = useState(initialOrders);
   const [expenses, setExpenses] = useState<ExpenseRow[]>(initialExpenses);
+  const [stockItems, setStockItems] = useState<StockItemRow[]>(initialStock);
   const [tab, setTab] = useState<Tab>("orders");
   const [filter, setFilter] = useState<string | null>(null);
   const [showManual, setShowManual] = useState(false);
@@ -114,9 +116,9 @@ export default function AdminDashboard({ initialOrders, initialBespoke = [], ini
       </div>
 
       {tab === "accounting" ? (
-        <AdminAccountingTab orders={orders} expenses={expenses} onExpensesChange={setExpenses} />
+        <AdminAccountingTab orders={orders} expenses={expenses} onExpensesChange={setExpenses} stockItems={stockItems} />
       ) : tab === "stock" ? (
-        <AdminStockTab />
+        <AdminStockTab items={stockItems} onItemsChange={setStockItems} />
       ) : tab === "awaiting" ? (
         <AdminAwaitingOrderTab orders={orders} onOrderUpdated={handleUpdated} />
       ) : tab === "orders" ? (

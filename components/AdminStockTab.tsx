@@ -3,6 +3,11 @@
 import { useEffect, useState } from "react";
 import type { StockItemRow } from "@/lib/db";
 
+interface Props {
+  items: StockItemRow[];
+  onItemsChange: (items: StockItemRow[]) => void;
+}
+
 interface ProductSearchResult {
   id: string;
   brand: string;
@@ -43,9 +48,7 @@ function fmtDate(d: string | null) {
   return new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 }
 
-export default function AdminStockTab() {
-  const [items, setItems] = useState<StockItemRow[]>([]);
-  const [loading, setLoading] = useState(true);
+export default function AdminStockTab({ items, onItemsChange }: Props) {
   const [mode, setMode] = useState<Mode>("list");
   const [draft, setDraft] = useState<StockDraft>(emptyDraft);
   const [query, setQuery] = useState("");
@@ -54,13 +57,6 @@ export default function AdminStockTab() {
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [rate, setRate] = useState(1.34);
-
-  useEffect(() => {
-    fetch("/api/admin/stock")
-      .then((r) => r.json())
-      .then((d) => { setItems(d.items ?? []); setLoading(false); })
-      .catch(() => setLoading(false));
-  }, []);
 
   useEffect(() => {
     fetch("/api/exchange-rate")
@@ -124,7 +120,7 @@ export default function AdminStockTab() {
       });
       if (!res.ok) throw new Error("Save failed");
       const newItem = (await res.json()) as StockItemRow;
-      setItems((prev) => [newItem, ...prev]);
+      onItemsChange([newItem, ...items]);
       setDraft(emptyDraft);
       setMode("list");
     } catch (err) {
@@ -143,16 +139,12 @@ export default function AdminStockTab() {
         alert("Failed to delete item");
         return;
       }
-      setItems((prev) => prev.filter((it) => it.id !== id));
+      onItemsChange(items.filter((it) => it.id !== id));
     } catch {
       alert("Delete failed");
     } finally {
       setDeletingId(null);
     }
-  }
-
-  if (loading) {
-    return <div className="mt-16 text-center text-sm text-ink/50">Loading stock…</div>;
   }
 
   return (

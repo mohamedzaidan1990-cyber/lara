@@ -216,6 +216,42 @@ export default function AdminOrderRow({ order, onUpdated }: Props) {
     });
   }
 
+  async function cancelOrder() {
+    if (!window.confirm("Cancel this order? This will mark it as cancelled and remove payment confirmation.")) return;
+    setBusy("cancel");
+    try {
+      const res = await fetch(`/api/orders/${local.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "cancelled", payment_confirmed: false })
+      });
+      if (!res.ok) throw new Error("Cancel failed");
+      apply({ status: "cancelled", payment_confirmed: false });
+    } catch (err) {
+      alert((err as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function unconfirmPayment() {
+    if (!window.confirm("Remove payment confirmation? This will mark the order as unpaid.")) return;
+    setBusy("unconfirm");
+    try {
+      const res = await fetch(`/api/orders/${local.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ payment_confirmed: false })
+      });
+      if (!res.ok) throw new Error("Failed to unconfirm payment");
+      apply({ payment_confirmed: false });
+    } catch (err) {
+      alert((err as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
   const totalUsd = Number(local.total_usd ?? local.price_usd) || 0;
   const [amountPaid, setAmountPaid] = useState(
     local.amount_paid_usd != null && local.amount_paid_usd !== "" ? String(local.amount_paid_usd) : ""
@@ -462,6 +498,21 @@ export default function AdminOrderRow({ order, onUpdated }: Props) {
                   {status === "delivered" ? (
                     <span className="text-sm font-medium" style={{ color: "#277C43" }}>Delivered ✓</span>
                   ) : null}
+
+                  {status !== "cancelled" && status !== "refunded" && status !== "delivered" ? (
+                    <button
+                      type="button"
+                      onClick={cancelOrder}
+                      disabled={busy !== null}
+                      className="mt-2 text-xs text-ink/40 hover:text-red-600 disabled:opacity-40"
+                    >
+                      {busy === "cancel" ? "Cancelling…" : "Cancel order"}
+                    </button>
+                  ) : null}
+
+                  {status === "cancelled" ? (
+                    <span className="text-sm font-medium text-red-600">Cancelled</span>
+                  ) : null}
                 </div>
 
                 {local.payment_screenshot ? (
@@ -504,6 +555,16 @@ export default function AdminOrderRow({ order, onUpdated }: Props) {
                 >
                   {savingPayment ? "Saving…" : "Save payment"}
                 </button>
+                {local.payment_confirmed ? (
+                  <button
+                    type="button"
+                    onClick={unconfirmPayment}
+                    disabled={busy === "unconfirm"}
+                    className="rounded border border-ink/15 px-3 py-2 text-xs font-medium text-ink/50 hover:border-red-400 hover:text-red-500 disabled:opacity-40"
+                  >
+                    {busy === "unconfirm" ? "…" : "Unconfirm payment"}
+                  </button>
+                ) : null}
               </div>
               {isPartialPay ? (
                 <p className="mt-2 text-[11px] text-amber-700">

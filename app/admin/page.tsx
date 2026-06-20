@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { ensureSchema, getSql, type OrderWithCustomer, type ExpenseRow } from "@/lib/db";
+import { ensureSchema, getSql, type OrderWithCustomer, type ExpenseRow, type StockItemRow } from "@/lib/db";
 import { isAdmin } from "@/lib/auth";
 import AdminDashboard from "./AdminDashboard";
 
@@ -48,5 +48,12 @@ export default async function AdminPage() {
     order by expense_date desc, created_at desc
   `) as ExpenseRow[];
 
-  return <AdminDashboard initialOrders={rows} initialBespoke={bespoke} initialExpenses={expenses} />;
+  const stockItems = (await sql`
+    select id, product_id, product_name, product_brand, product_url, image_url,
+           cost_gbp, cost_usd, quantity, notes, purchased_at::text, created_at
+    from stock_items
+    order by created_at desc
+  `) as StockItemRow[];
+
+  return <AdminDashboard initialOrders={rows} initialBespoke={bespoke} initialExpenses={expenses} initialStock={stockItems} />;
 }
