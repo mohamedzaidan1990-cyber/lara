@@ -1213,9 +1213,8 @@ export async function scrapeSelfridgesKBeauty(): Promise<ScrapedProductRow[]> {
       if (seen.has(k)) continue;
       seen.add(k);
       if (shouldExclude(`${r.brand} ${r.name}`)) continue;
-      if (!isBundle(r.name)) continue;
+      if (r.brand.toLowerCase() === "selfridges") continue;
       const category = classifySelfridgesCategory(`${r.brand} ${r.name}`);
-      const sku = selfridgesSku(r.product_url);
       collected.push({
         brand: r.brand,
         name: r.name,
@@ -1224,14 +1223,14 @@ export async function scrapeSelfridgesKBeauty(): Promise<ScrapedProductRow[]> {
         price_usd: await convertGbpToUsd(r.priceGbp, category, r.brand),
         deliverable_lebanon: true,
         product_url: r.product_url,
-        image_url: selfridgesAlbumImage(sku, 2),
+        image_url: r.image_url,
         is_bestseller: r.bestseller ?? false,
         subcategory: classifySubcategory(category, r.name),
         k_beauty: isKBeautyBrand(r.brand)
       });
       added += 1;
     }
-    console.log(`[scraper] K-Beauty Selfridges ${label} → ${added} bundles`);
+    console.log(`[scraper] K-Beauty Selfridges ${label} → ${added} products`);
     await delay(1500, 3500);
   }
   return collected;
@@ -1284,9 +1283,8 @@ export async function scrapeSelfridgesUrls(
       seen.add(k);
       if (shouldExclude(`${r.brand} ${r.name}`)) continue;
       if (filterLow && !r.brand.toLowerCase().includes(filterLow)) continue;
-      if (!isBundle(r.name)) continue;
+      if (r.brand.toLowerCase() === "selfridges") continue;
       const category = classifySelfridgesCategory(`${r.brand} ${r.name}`);
-      const sku = selfridgesSku(r.product_url);
       collected.push({
         brand: r.brand,
         name: r.name,
@@ -1295,14 +1293,14 @@ export async function scrapeSelfridgesUrls(
         price_usd: await convertGbpToUsd(r.priceGbp, category, r.brand),
         deliverable_lebanon: true,
         product_url: r.product_url,
-        image_url: selfridgesAlbumImage(sku, 2),
+        image_url: r.image_url,
         is_bestseller: r.bestseller ?? false,
         subcategory: classifySubcategory(category, r.name),
         k_beauty: isKBeautyBrand(r.brand)
       });
       added += 1;
     }
-    console.log(`[scraper] Selfridges ${label} → ${raws.length} parsed, ${added} bundles`);
+    console.log(`[scraper] Selfridges ${label} → ${raws.length} parsed, ${added} products`);
     await delay(1500, 3500);
   }
   return collected;
@@ -1433,24 +1431,23 @@ export async function scrapeSelfridgesCategory(category: string): Promise<Scrape
   // TODO: once on a paid Oxylabs plan, fetch each product page via
   // fetchWithWebUnblocker + checkSelfridgesDelivery() to set deliverable_lebanon
   // accurately. For now everything defaults to deliverable to preserve credits.
-  const bundles = collected.filter((r) => isBundle(r.name));
-  if (collected.length > 0) console.log(`[scraper] Selfridges ${category} → ${collected.length} unique, ${bundles.length} bundles`);
+  if (collected.length > 0) console.log(`[scraper] Selfridges ${category} → ${collected.length} unique products`);
   return Promise.all(
-    bundles
+    collected
       .filter((r) => !shouldExclude(`${r.brand} ${r.name}`))
+      .filter((r) => r.brand.toLowerCase() !== "selfridges")
       .map(async (r) => {
         const text = `${r.brand} ${r.name}`;
         const cat = isHomeFragrance(text) ? "Home Fragrance" : isFragrance(text) ? "Fragrance" : category;
-        const sku = selfridgesSku(r.product_url);
         return {
-          brand: r.brand || "Selfridges",
+          brand: r.brand,
           name: r.name,
           category: cat,
           price_gbp: r.priceGbp,
           price_usd: await convertGbpToUsd(r.priceGbp, cat, r.brand),
           deliverable_lebanon: true,
           product_url: r.product_url,
-          image_url: selfridgesAlbumImage(sku, 2),
+          image_url: r.image_url,
           popularity: r.popularity ?? null,
           is_bestseller: r.bestseller ?? false,
           subcategory: classifySubcategory(cat, r.name),
@@ -1610,9 +1607,8 @@ export async function scrapeSelfridgesBrands(slugs: string[] = SELFRIDGES_BRAND_
       if (seen.has(k)) continue;
       seen.add(k);
       if (shouldExclude(`${r.brand} ${r.name}`)) continue;
-      if (!isBundle(r.name)) continue;
+      if (r.brand.toLowerCase() === "selfridges") continue;
       const category = classifySelfridgesCategory(`${r.brand} ${r.name}`);
-      const sku = selfridgesSku(r.product_url);
       collected.push({
         brand: r.brand,
         name: r.name,
@@ -1621,14 +1617,14 @@ export async function scrapeSelfridgesBrands(slugs: string[] = SELFRIDGES_BRAND_
         price_usd: await convertGbpToUsd(r.priceGbp, category, r.brand),
         deliverable_lebanon: true,
         product_url: r.product_url,
-        image_url: selfridgesAlbumImage(sku, 2),
+        image_url: r.image_url,
         is_bestseller: r.bestseller ?? false,
         subcategory: classifySubcategory(category, r.name),
         k_beauty: isKBeautyBrand(r.brand)
       });
       added += 1;
     }
-    console.log(`[scraper] Selfridges brand ${slug} → ${raws.length} parsed (${added} bundles)`);
+    console.log(`[scraper] Selfridges brand ${slug} → ${raws.length} parsed (${added} products)`);
     await delay(1500, 3500);
   }
   return collected;
