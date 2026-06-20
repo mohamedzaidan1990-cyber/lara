@@ -308,7 +308,7 @@ export default function AdminAccountingTab({ orders, expenses, onExpensesChange 
               ) : (
                 expenses.map((e) => (
                   <tr key={e.id} className="border-b border-ink/10 hover:bg-ink/[0.02]">
-                    <td className="px-4 py-3 text-xs text-ink/70">{e.expense_date?.slice(0, 10)}</td>
+                    <td className="px-4 py-3 text-xs text-ink/70">{e.expense_date ? String(e.expense_date).slice(0, 10) : '—'}</td>
                     <td className="px-4 py-3 text-sm text-ink">{e.description}</td>
                     <td className="px-4 py-3 text-xs text-ink/60 capitalize">{e.category}</td>
                     <td className="px-4 py-3 text-sm font-medium text-ink">{fmtUsd(num(e.amount_usd))}</td>

@@ -43,7 +43,7 @@ export default async function AdminPage() {
   `) as import("@/lib/db").BespokeRequestRow[];
 
   const expenses = (await sql`
-    select id, description, amount_usd, amount_gbp, category, expense_date, notes, created_at
+    select id, description, amount_usd, amount_gbp, category, expense_date::text, notes, created_at
     from expenses
     order by expense_date desc, created_at desc
   `) as ExpenseRow[];
