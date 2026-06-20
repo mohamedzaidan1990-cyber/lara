@@ -1,6 +1,7 @@
 import { fetch as undiciFetch, ProxyAgent } from "undici";
 import * as cheerio from "cheerio";
 import type { ScrapedProductRow } from "./db";
+import { EXCLUDED_BRANDS } from "./db";
 import { convertGbpToUsd, getGBPtoUSD } from "./currency";
 
 // =============================================================================

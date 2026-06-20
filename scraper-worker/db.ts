@@ -1,5 +1,11 @@
 import { Pool } from "pg";
 
+// Brands that Selfridges cannot deliver to Lebanon — never stored in the catalog.
+export const EXCLUDED_BRANDS = new Set([
+  "real techniques",
+  "anastasia beverly hills",
+]);
+
 let pool: Pool | null = null;
 
 export function getPool(): Pool {
@@ -88,6 +94,11 @@ export async function ensureSchema(): Promise<void> {
     ALTER TABLE products ADD COLUMN IF NOT EXISTS light_shade_image_url text;
     ALTER TABLE products ADD COLUMN IF NOT EXISTS variants_checked_at timestamp;
   `);
+
+  // Remove brands that Selfridges cannot deliver to Lebanon.
+  await client.query(`
+    DELETE FROM products WHERE lower(brand) = ANY($1::text[])
+  `, [Array.from(EXCLUDED_BRANDS)]);
 }
 
 export async function upsertProducts(products: ScrapedProductRow[]): Promise<number> {
@@ -100,6 +111,8 @@ export async function upsertProducts(products: ScrapedProductRow[]): Promise<num
     if (!p.brand || !p.name || p.brand.length > 180 || p.name.length > 200 || /[<>{}]/.test(p.brand + p.name)) {
       continue;
     }
+    // Skip brands that Selfridges cannot deliver to Lebanon.
+    if (EXCLUDED_BRANDS.has(p.brand.toLowerCase())) continue;
     const images = p.image_url ? JSON.stringify([p.image_url]) : null;
     try {
       await client.query(
