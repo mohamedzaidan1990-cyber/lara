@@ -47,7 +47,7 @@ async function runOnce(): Promise<void> {
     await logScrape("__summary__", "no_credentials", 0).catch(() => {});
     return;
   }
-  console.log("[worker] Oxylabs Web Scraper (residential proxy) ENABLED — Selfridges is the SOLE source");
+  console.log("[worker] Oxylabs Web Scraper API ENABLED — Selfridges is the SOLE source");
 
   // Brand pages first (deepen per-brand coverage, e.g. Huda Beauty). The
   // category loop runs afterwards and overwrites any shared product with its

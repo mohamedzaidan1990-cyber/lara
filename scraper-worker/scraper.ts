@@ -1030,7 +1030,7 @@ const SELFRIDGES_SCROLL_INSTRUCTIONS = [
 ];
 
 export function webUnblockerEnabled(): boolean {
-  return Boolean(process.env.PROXY_URL || (process.env.OXYLABS_USERNAME && process.env.OXYLABS_PASSWORD));
+  return Boolean(process.env.OXYLABS_USERNAME && process.env.OXYLABS_PASSWORD);
 }
 
 interface WebUnblockerOpts {
@@ -1074,35 +1074,34 @@ export async function fetchWithWebUnblocker(url: string, opts: WebUnblockerOpts 
   }
 }
 
-// Fetch a Selfridges page through the residential proxy (PROXY_URL).
-// Faster and less detectable than the browser-render API; returns raw HTML which
-// is then parsed via parseNextDataProducts / parseJsonLdProducts fallbacks.
+// Fetch a Selfridges page via Oxylabs Web Scraper API (JS-rendered HTML).
+// No scroll instructions — we parse __NEXT_DATA__ directly from the SSR payload,
+// which avoids the 15-20s browser scroll wait and keeps timeouts tight.
 async function fetchSelfridgesPage(url: string): Promise<string> {
-  const dispatcher = getDispatcher();
-  if (!dispatcher) return "";
+  const user = process.env.OXYLABS_USERNAME;
+  const pass = process.env.OXYLABS_PASSWORD;
+  if (!user || !pass) return "";
+  const auth = Buffer.from(`${user}:${pass}`).toString("base64");
   try {
-    const res = await undiciFetch(url, {
-      dispatcher,
-      headers: {
-        "User-Agent": USER_AGENT,
-        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-GB,en;q=0.9",
-        "Accept-Encoding": "gzip, deflate, br",
-        Referer: "https://www.selfridges.com/",
-        "sec-fetch-dest": "document",
-        "sec-fetch-mode": "navigate",
-        "sec-fetch-site": "same-origin",
-        "Cache-Control": "no-cache"
-      },
-      signal: AbortSignal.timeout(60_000)
+    const res = await undiciFetch(OXYLABS_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Basic ${auth}` },
+      body: JSON.stringify({
+        source: "universal",
+        url,
+        render: "html",
+        geo_location: "United Kingdom"
+      }),
+      signal: AbortSignal.timeout(90_000)
     });
     if (!res.ok) {
-      console.error(`[scraper] Selfridges ${res.status} for ${url}`);
+      console.error(`[scraper] Oxylabs ${res.status} for ${url}`);
       return "";
     }
-    return await res.text();
+    const data = (await res.json()) as { results?: Array<{ content?: string }> };
+    return data.results?.[0]?.content ?? "";
   } catch (err) {
-    console.error(`[scraper] Selfridges fetch error for ${url}: ${(err as Error).message}`);
+    console.error(`[scraper] Oxylabs error for ${url}: ${(err as Error).message}`);
     return "";
   }
 }
