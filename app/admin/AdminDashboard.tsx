@@ -190,7 +190,14 @@ export default function AdminDashboard({ initialOrders, initialBespoke = [], ini
                     <td colSpan={8} className="px-4 py-12 text-center text-sm text-ink/50">No orders here.</td>
                   </tr>
                 ) : (
-                  visibleOrders.map((o) => <AdminOrderRow key={o.id} order={o} onUpdated={handleUpdated} />)
+                  visibleOrders.map((o) => (
+                    <AdminOrderRow
+                      key={o.id}
+                      order={o}
+                      onUpdated={handleUpdated}
+                      onStockAdded={(newItems) => setStockItems((prev) => [...newItems, ...prev])}
+                    />
+                  ))
                 )}
               </tbody>
             </table>

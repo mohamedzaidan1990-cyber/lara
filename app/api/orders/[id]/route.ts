@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { ensureSchema, getSql, ORDER_STATUSES, type OrderRow, type OrderStatus } from "@/lib/db";
+import { ensureSchema, getSql, ORDER_STATUSES, type OrderRow, type OrderStatus, type StockItemRow } from "@/lib/db";
 import { isAdmin } from "@/lib/auth";
 import { sendPaymentConfirmation } from "@/lib/email";
 import { sendWhatsAppConfirmation, sendWhatsAppText } from "@/lib/whatsapp";
@@ -125,5 +125,45 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     console.error("workflow notification dispatch failed", err);
   }
 
-  return NextResponse.json({ order });
+  // When cancelling, move any already-sourced items into stock automatically.
+  let movedToStock: StockItemRow[] = [];
+  if (nextStatus === "cancelled") {
+    try {
+      const sourcedItems = (await sql`
+        select product_name, product_brand, product_url, cost_gbp, cost_usd, quantity
+        from order_items
+        where order_id = ${id} and sourced = true
+      `) as Array<{
+        product_name: string;
+        product_brand: string;
+        product_url: string | null;
+        cost_gbp: string | null;
+        cost_usd: string | null;
+        quantity: number;
+      }>;
+
+      const orderNum = order.order_number ?? id;
+      for (const item of sourcedItems) {
+        const rows = (await sql`
+          insert into stock_items (product_name, product_brand, product_url, cost_gbp, cost_usd, quantity, notes)
+          values (
+            ${item.product_name},
+            ${item.product_brand},
+            ${item.product_url ?? null},
+            ${item.cost_gbp ?? null},
+            ${item.cost_usd ?? null},
+            ${item.quantity},
+            ${`Moved from cancelled order ${orderNum}`}
+          )
+          returning id, product_id, product_name, product_brand, product_url, image_url,
+                    cost_gbp, cost_usd, quantity, notes, purchased_at::text, created_at
+        `) as StockItemRow[];
+        if (rows[0]) movedToStock.push(rows[0]);
+      }
+    } catch (err) {
+      console.error("failed to move sourced items to stock on cancel", err);
+    }
+  }
+
+  return NextResponse.json({ order, movedToStock });
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ORDER_STATUS_LABELS, type OrderStatus, type OrderWithCustomer, type OrderLineItem } from "@/lib/db";
+import { ORDER_STATUS_LABELS, type OrderStatus, type OrderWithCustomer, type OrderLineItem, type StockItemRow } from "@/lib/db";
 import { BeeSvg } from "@/components/BeeMascot";
 
 function usd(value: number): string {
@@ -11,6 +11,7 @@ function usd(value: number): string {
 interface Props {
   order: OrderWithCustomer;
   onUpdated?: (next: OrderWithCustomer) => void;
+  onStockAdded?: (items: StockItemRow[]) => void;
 }
 
 function formatUsd(value: number): string {
@@ -47,7 +48,7 @@ function selfridgesSearch(brand: string, name: string): string {
   return `https://www.selfridges.com/GB/en/cat/?term=${encodeURIComponent(`${brand} ${name}`.trim())}`;
 }
 
-export default function AdminOrderRow({ order, onUpdated }: Props) {
+export default function AdminOrderRow({ order, onUpdated, onStockAdded }: Props) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [local, setLocal] = useState(order);
@@ -226,7 +227,12 @@ export default function AdminOrderRow({ order, onUpdated }: Props) {
         body: JSON.stringify({ status: "cancelled", payment_confirmed: false })
       });
       if (!res.ok) throw new Error("Cancel failed");
+      const data = (await res.json()) as { order: unknown; movedToStock?: StockItemRow[] };
       apply({ status: "cancelled", payment_confirmed: false });
+      if (data.movedToStock && data.movedToStock.length > 0) {
+        onStockAdded?.(data.movedToStock);
+        alert(`Order cancelled. ${data.movedToStock.length} sourced item(s) moved to your stock automatically.`);
+      }
     } catch (err) {
       alert((err as Error).message);
     } finally {
