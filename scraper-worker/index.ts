@@ -41,13 +41,13 @@ async function runOnce(): Promise<void> {
   let failedCategories = 0;
 
   // Selfridges is now the SOLE source: the catalog is Selfridges-only. If the
-  // Web Unblocker creds are missing the run scrapes nothing (existing rows stay).
+  // proxy / Oxylabs creds are missing the run scrapes nothing (existing rows stay).
   if (!webUnblockerEnabled()) {
-    console.error("[worker] OXYLABS_USERNAME/PASSWORD not set — Selfridges is the only source, so nothing to scrape. Aborting run.");
+    console.error("[worker] PROXY_URL not set — Selfridges is the only source, so nothing to scrape. Aborting run.");
     await logScrape("__summary__", "no_credentials", 0).catch(() => {});
     return;
   }
-  console.log("[worker] Oxylabs Web Unblocker ENABLED — Selfridges is the SOLE source");
+  console.log("[worker] Oxylabs Web Scraper (residential proxy) ENABLED — Selfridges is the SOLE source");
 
   // Brand pages first (deepen per-brand coverage, e.g. Huda Beauty). The
   // category loop runs afterwards and overwrites any shared product with its

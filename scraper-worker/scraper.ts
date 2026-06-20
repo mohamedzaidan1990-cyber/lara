@@ -1030,7 +1030,7 @@ const SELFRIDGES_SCROLL_INSTRUCTIONS = [
 ];
 
 export function webUnblockerEnabled(): boolean {
-  return Boolean(process.env.OXYLABS_USERNAME && process.env.OXYLABS_PASSWORD);
+  return Boolean(process.env.PROXY_URL || (process.env.OXYLABS_USERNAME && process.env.OXYLABS_PASSWORD));
 }
 
 interface WebUnblockerOpts {
@@ -1070,6 +1070,39 @@ export async function fetchWithWebUnblocker(url: string, opts: WebUnblockerOpts 
     return data.results?.[0]?.content ?? "";
   } catch (err) {
     console.error(`[scraper] Oxylabs error for ${url}: ${(err as Error).message}`);
+    return "";
+  }
+}
+
+// Fetch a Selfridges page through the residential proxy (PROXY_URL).
+// Faster and less detectable than the browser-render API; returns raw HTML which
+// is then parsed via parseNextDataProducts / parseJsonLdProducts fallbacks.
+async function fetchSelfridgesPage(url: string): Promise<string> {
+  const dispatcher = getDispatcher();
+  if (!dispatcher) return "";
+  try {
+    const res = await undiciFetch(url, {
+      dispatcher,
+      headers: {
+        "User-Agent": USER_AGENT,
+        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-GB,en;q=0.9",
+        "Accept-Encoding": "gzip, deflate, br",
+        Referer: "https://www.selfridges.com/",
+        "sec-fetch-dest": "document",
+        "sec-fetch-mode": "navigate",
+        "sec-fetch-site": "same-origin",
+        "Cache-Control": "no-cache"
+      },
+      signal: AbortSignal.timeout(60_000)
+    });
+    if (!res.ok) {
+      console.error(`[scraper] Selfridges ${res.status} for ${url}`);
+      return "";
+    }
+    return await res.text();
+  } catch (err) {
+    console.error(`[scraper] Selfridges fetch error for ${url}: ${(err as Error).message}`);
     return "";
   }
 }
@@ -1199,7 +1232,7 @@ export async function scrapeSelfridgesKBeauty(): Promise<ScrapedProductRow[]> {
   const seen = new Set<string>();
   for (const url of SELFRIDGES_KBEAUTY_URLS) {
     const label = url.match(/term=([^&]+)/)?.[1]?.replace(/\+/g, " ") ?? url.match(/cat\/([^/?]+)/)?.[1] ?? url;
-    const html = await fetchWithWebUnblocker(url, { browserInstructions: SELFRIDGES_SCROLL_INSTRUCTIONS });
+    const html = await fetchSelfridgesPage(url);
     if (!html || html.length < 1000) {
       console.log(`[scraper] K-Beauty Selfridges ${label} → empty response`);
       await delay(1000, 2500);
@@ -1268,7 +1301,7 @@ export async function scrapeSelfridgesUrls(
   const filterLow = brandFilter?.toLowerCase();
   for (const url of urls) {
     const label = url.match(/term=([^&]+)/)?.[1]?.replace(/\+/g, " ") ?? url.match(/cat\/([^/?]+)/)?.[1] ?? url;
-    const html = await fetchWithWebUnblocker(url, { browserInstructions: SELFRIDGES_SCROLL_INSTRUCTIONS });
+    const html = await fetchSelfridgesPage(url);
     if (!html || html.length < 1000) {
       console.log(`[scraper] Selfridges URL ${label} → empty response`);
       await delay(1000, 2500);
@@ -1405,7 +1438,7 @@ export async function scrapeSelfridgesCategory(category: string): Promise<Scrape
   let rank = 0;
   for (const slug of slugs) {
     const url = `${SELFRIDGES_ORIGIN}/GB/en/cat/${slug}/?pge=1&ppp=60&sort=relevance`;
-    const html = await fetchWithWebUnblocker(url, { browserInstructions: SELFRIDGES_SCROLL_INSTRUCTIONS });
+    const html = await fetchSelfridgesPage(url);
     if (!html || html.length < 1000) {
       console.log(`[scraper] Selfridges ${slug} → empty response`);
       await delay(1000, 2500);
@@ -1593,7 +1626,7 @@ export async function scrapeSelfridgesBrands(slugs: string[] = SELFRIDGES_BRAND_
   const seen = new Set<string>();
   for (const slug of slugs) {
     const url = `${SELFRIDGES_ORIGIN}/GB/en/cat/${slug}/?pge=1&ppp=60&sort=relevance`;
-    const html = await fetchWithWebUnblocker(url, { browserInstructions: SELFRIDGES_SCROLL_INSTRUCTIONS });
+    const html = await fetchSelfridgesPage(url);
     if (!html || html.length < 1000) {
       console.log(`[scraper] Selfridges brand ${slug} → empty/unknown`);
       await delay(1000, 2500);
