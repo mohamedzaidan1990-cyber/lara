@@ -1610,6 +1610,7 @@ export const SELFRIDGES_BRAND_SLUGS: string[] = [
   "illamasqua",
   "pixi",
   "ciate",
+  "morphe",
   // Skincare
   "la-mer",
   "drunk-elephant",

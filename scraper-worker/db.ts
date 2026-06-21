@@ -108,6 +108,17 @@ export async function ensureSchema(): Promise<void> {
   await client.query(`
     DELETE FROM products WHERE lower(brand) = ANY($1::text[])
   `, [Array.from(EXCLUDED_BRANDS)]);
+
+  // Apply Morphe individual-brush pricing: GBP × 1.45 + $5.
+  // Runs on every startup so prices stay correct after GBP updates.
+  await client.query(`
+    UPDATE products
+    SET price_usd = price_gbp::numeric * 1.45 + 5
+    WHERE lower(brand) = 'morphe'
+      AND lower(name) LIKE '%brush%'
+      AND lower(name) !~ '(set|kit|bundle|collection|duo|trio|pack|vault|bag|case)'
+      AND price_locked IS NOT TRUE
+  `);
 }
 
 export async function upsertProducts(products: ScrapedProductRow[]): Promise<number> {
