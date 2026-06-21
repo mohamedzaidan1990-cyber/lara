@@ -489,7 +489,11 @@ export default function AdminOrderRow({ order, onUpdated, onStockAdded }: Props)
                     </button>
                   ) : null}
 
-                  {status === "ordered_selfridges" ? (
+                  {status === "fulfilled_from_stock" ? (
+                    <span className="text-sm font-medium" style={{ color: "#3A6EA5" }}>Fulfilled from Stock ✓</span>
+                  ) : null}
+
+                  {(status === "ordered_selfridges" || status === "fulfilled_from_stock") ? (
                     <button type="button" onClick={markShipped} disabled={busy !== null} className="btn-gold text-xs disabled:opacity-50">
                       Mark as Shipped
                     </button>

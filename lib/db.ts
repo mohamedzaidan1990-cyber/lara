@@ -193,6 +193,7 @@ export type OrderStatus =
   | "pending"
   | "payment_confirmed"
   | "ordered_selfridges"
+  | "fulfilled_from_stock"
   | "shipped"
   | "in_lebanon"
   | "delivered"
@@ -203,6 +204,7 @@ export const ORDER_STATUSES: OrderStatus[] = [
   "pending",
   "payment_confirmed",
   "ordered_selfridges",
+  "fulfilled_from_stock",
   "shipped",
   "in_lebanon",
   "delivered",
@@ -214,6 +216,7 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   pending: "Pending",
   payment_confirmed: "Payment confirmed",
   ordered_selfridges: "Ordered from Selfridges",
+  fulfilled_from_stock: "Fulfilled from stock",
   shipped: "Shipped",
   in_lebanon: "In transit",
   delivered: "Delivered",

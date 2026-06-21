@@ -30,7 +30,7 @@ interface Group {
 const GROUPS: Group[] = [
   { key: "pending", label: "Pending Payment", color: "#C0392B", match: (o) => !o.payment_confirmed && o.status === "pending" },
   { key: "payment_confirmed", label: "Payment Confirmed", color: "#E08B45", match: (o) => o.status === "payment_confirmed" },
-  { key: "ordered_selfridges", label: "Ordered", color: "#3A6EA5", match: (o) => o.status === "ordered_selfridges" },
+  { key: "ordered_selfridges", label: "Ordered", color: "#3A6EA5", match: (o) => o.status === "ordered_selfridges" || o.status === "fulfilled_from_stock" },
   { key: "shipped", label: "Shipped", color: "#7A4FB0", match: (o) => o.status === "shipped" || o.status === "in_lebanon" },
   { key: "delivered", label: "Delivered", color: "#277C43", match: (o) => o.status === "delivered" }
 ];
@@ -118,7 +118,7 @@ export default function AdminDashboard({ initialOrders, initialBespoke = [], ini
       {tab === "accounting" ? (
         <AdminAccountingTab orders={orders} expenses={expenses} onExpensesChange={setExpenses} stockItems={stockItems} />
       ) : tab === "stock" ? (
-        <AdminStockTab items={stockItems} onItemsChange={setStockItems} />
+        <AdminStockTab items={stockItems} onItemsChange={setStockItems} orders={orders} onOrderUpdated={handleUpdated} />
       ) : tab === "awaiting" ? (
         <AdminAwaitingOrderTab orders={orders} onOrderUpdated={handleUpdated} />
       ) : tab === "orders" ? (

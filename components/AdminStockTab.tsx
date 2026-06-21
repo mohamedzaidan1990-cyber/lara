@@ -1,11 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { StockItemRow } from "@/lib/db";
+import type { StockItemRow, OrderWithCustomer } from "@/lib/db";
+import { ORDER_STATUS_LABELS } from "@/lib/db";
 
 interface Props {
   items: StockItemRow[];
   onItemsChange: (items: StockItemRow[]) => void;
+  orders?: OrderWithCustomer[];
+  onOrderUpdated?: (o: OrderWithCustomer) => void;
 }
 
 interface ProductSearchResult {
@@ -48,7 +51,7 @@ function fmtDate(d: string | null) {
   return new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 }
 
-export default function AdminStockTab({ items, onItemsChange }: Props) {
+export default function AdminStockTab({ items, onItemsChange, orders = [], onOrderUpdated }: Props) {
   const [mode, setMode] = useState<Mode>("list");
   const [draft, setDraft] = useState<StockDraft>(emptyDraft);
   const [query, setQuery] = useState("");
@@ -57,6 +60,8 @@ export default function AdminStockTab({ items, onItemsChange }: Props) {
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [rate, setRate] = useState(1.34);
+  const [fulfillItemId, setFulfillItemId] = useState<string | null>(null);
+  const [fulfillingId, setFulfillingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/exchange-rate")
@@ -146,6 +151,35 @@ export default function AdminStockTab({ items, onItemsChange }: Props) {
       setDeletingId(null);
     }
   }
+
+  async function fulfillOrder(stockItemId: string, orderId: string) {
+    setFulfillingId(orderId);
+    try {
+      const res = await fetch("/api/admin/stock/fulfill", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stock_item_id: stockItemId, order_id: orderId })
+      });
+      const data = await res.json().catch(() => ({})) as { order?: OrderWithCustomer; stockItem?: StockItemRow | null; error?: string };
+      if (!res.ok) {
+        alert(data.error ?? "Failed to fulfill order");
+        return;
+      }
+      if (data.stockItem == null) {
+        onItemsChange(items.filter((it) => it.id !== stockItemId));
+      } else {
+        onItemsChange(items.map((it) => it.id === stockItemId ? data.stockItem! : it));
+      }
+      if (data.order) onOrderUpdated?.(data.order);
+      setFulfillItemId(null);
+    } catch (err) {
+      alert((err as Error).message);
+    } finally {
+      setFulfillingId(null);
+    }
+  }
+
+  const activeOrders = orders.filter((o) => !["cancelled", "refunded", "delivered"].includes(o.status));
 
   return (
     <div className="mt-8 space-y-6">
@@ -330,14 +364,23 @@ export default function AdminStockTab({ items, onItemsChange }: Props) {
                   <td className="px-4 py-4 text-sm text-ink/70">{fmtDate(it.purchased_at)}</td>
                   <td className="px-4 py-4 text-sm text-ink/60">{it.notes ?? "—"}</td>
                   <td className="px-4 py-4">
-                    <button
-                      type="button"
-                      onClick={() => deleteItem(it.id)}
-                      disabled={deletingId === it.id}
-                      className="text-xs text-ink/40 transition-colors hover:text-red-600 disabled:opacity-40"
-                    >
-                      {deletingId === it.id ? "…" : "Remove"}
-                    </button>
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setFulfillItemId(it.id)}
+                        className="text-xs font-medium text-accent hover:underline"
+                      >
+                        Fulfill order
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => deleteItem(it.id)}
+                        disabled={deletingId === it.id}
+                        className="text-xs text-ink/40 transition-colors hover:text-red-600 disabled:opacity-40"
+                      >
+                        {deletingId === it.id ? "…" : "Remove"}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -345,6 +388,85 @@ export default function AdminStockTab({ items, onItemsChange }: Props) {
           </table>
         </div>
       )}
+
+      {/* Fulfill order modal */}
+      {fulfillItemId !== null ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          onClick={() => { if (fulfillingId === null) setFulfillItemId(null); }}
+        >
+          <div
+            className="max-h-[80vh] w-full max-w-lg overflow-y-auto bg-white shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="border-b border-ink/10 px-6 py-4">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-ink/60">Fulfill from stock — select an order</p>
+              {(() => {
+                const si = items.find((it) => it.id === fulfillItemId);
+                return (
+                  <div className="mt-1 flex items-baseline gap-3">
+                    <strong className="text-sm text-ink">{si?.product_name}</strong>
+                    {si?.cost_gbp != null ? (
+                      <span className="text-xs text-ink/50">
+                        Cost: {fmtGbp(Number(si.cost_gbp))}
+                        {si.cost_usd != null ? ` / ${fmt(Number(si.cost_usd))}` : ""}
+                      </span>
+                    ) : null}
+                  </div>
+                );
+              })()}
+            </div>
+
+            {activeOrders.length === 0 ? (
+              <div className="px-6 py-8 text-center text-sm text-ink/50">No active orders to fulfill.</div>
+            ) : (
+              <ul className="divide-y divide-ink/10">
+                {activeOrders.map((o) => {
+                  const busy = fulfillingId === o.id;
+                  const itemsSummary = o.items && o.items.length > 0
+                    ? o.items.map((it) => `${it.brand} ${it.name}`).join(", ")
+                    : o.product_name ? `${o.product_brand ?? ""} ${o.product_name}`.trim() : null;
+                  return (
+                    <li key={o.id}>
+                      <button
+                        type="button"
+                        disabled={fulfillingId !== null}
+                        onClick={() => fulfillOrder(fulfillItemId, o.id)}
+                        className="flex w-full flex-col gap-1 px-6 py-4 text-left transition-colors hover:bg-ink/[0.03] disabled:opacity-50"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="font-mono text-sm font-medium text-ink">{o.order_number}</span>
+                          <span className="text-[10px] uppercase tracking-[0.12em] text-ink/50">
+                            {ORDER_STATUS_LABELS[o.status]}
+                          </span>
+                        </div>
+                        <span className="text-sm text-ink/80">{o.full_name}</span>
+                        {itemsSummary ? (
+                          <span className="line-clamp-1 text-xs text-ink/50">{itemsSummary}</span>
+                        ) : null}
+                        {busy ? (
+                          <span className="text-xs text-accent">Fulfilling…</span>
+                        ) : null}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+
+            <div className="border-t border-ink/10 px-6 py-3">
+              <button
+                type="button"
+                onClick={() => setFulfillItemId(null)}
+                disabled={fulfillingId !== null}
+                className="text-xs text-ink/50 transition-colors hover:text-ink disabled:opacity-40"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
