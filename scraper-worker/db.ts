@@ -1,5 +1,14 @@
 import { Pool } from "pg";
 
+// Returns true for Morphe individual brushes (not brush sets, kits, bundles, etc.).
+// These get a special price formula: GBP × 1.45 + $5.
+function isMorpheIndividualBrush(brand: string, name: string): boolean {
+  if ((brand || "").toLowerCase() !== "morphe") return false;
+  const n = (name || "").toLowerCase();
+  if (!n.includes("brush")) return false;
+  return !/(set|kit|bundle|collection|duo|trio|pack|vault|bag|case)\b/.test(n);
+}
+
 // Brands that Selfridges cannot deliver to Lebanon — never stored in the catalog.
 export const EXCLUDED_BRANDS = new Set([
   "real techniques",
@@ -113,6 +122,13 @@ export async function upsertProducts(products: ScrapedProductRow[]): Promise<num
     }
     // Skip brands that Selfridges cannot deliver to Lebanon.
     if (EXCLUDED_BRANDS.has(p.brand.toLowerCase())) continue;
+
+    // Morphe individual brushes: GBP × 1.45 + $5 (no exchange-rate conversion).
+    // Brush sets, kits, bundles, collections keep the standard pricing.
+    const priceUsd = isMorpheIndividualBrush(p.brand, p.name)
+      ? Number(p.price_gbp) * 1.45 + 5
+      : p.price_usd;
+
     const images = p.image_url ? JSON.stringify([p.image_url]) : null;
     try {
       await client.query(
@@ -145,7 +161,7 @@ export async function upsertProducts(products: ScrapedProductRow[]): Promise<num
           p.name,
           p.category,
           p.price_gbp,
-          p.price_usd,
+          priceUsd,
           p.deliverable_lebanon,
           p.product_url,
           p.image_url,
