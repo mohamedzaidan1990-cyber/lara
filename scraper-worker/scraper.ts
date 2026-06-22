@@ -1222,18 +1222,21 @@ function parseNextDataProducts(html: string, origin: string): RawProduct[] {
           ? ((brandRaw as Record<string, unknown>).name as string)
           : "";
     // Selfridges price objects look like {currency, current, was, wasWas} —
-    // `was` is only set during a sale and holds the pre-sale price, which is
-    // the one we list (promotions must not lower the catalogue price).
+    // `was` is the pre-sale price (only set during a sale); always prefer it
+    // over current/sale price so promotions never lower our catalogue price.
     const pricing = obj.pricing as Record<string, unknown> | undefined;
-    const priceRaw =
-      obj.price ?? obj.currentPrice ?? obj.amount ?? obj.value ?? (pricing && (pricing.was ?? pricing.current));
     const priceGbp = parsePrice(
-      typeof priceRaw === "object" && priceRaw !== null
-        ? ((priceRaw as Record<string, unknown>).was ??
-            (priceRaw as Record<string, unknown>).value ??
-            (priceRaw as Record<string, unknown>).amount ??
-            (priceRaw as Record<string, unknown>).current)
-        : (priceRaw as string | number | undefined)
+      (pricing?.was ??
+        pricing?.current ??
+        (typeof obj.price === "object" && obj.price !== null
+          ? ((obj.price as Record<string, unknown>).was ??
+              (obj.price as Record<string, unknown>).value ??
+              (obj.price as Record<string, unknown>).amount ??
+              (obj.price as Record<string, unknown>).current)
+          : obj.price) ??
+        obj.currentPrice ??
+        obj.amount ??
+        obj.value) as string | number | undefined
     );
     if (!name || !brand || priceGbp === null) continue;
 
@@ -1473,7 +1476,7 @@ function parseSelfridgesCards($: cheerio.CheerioAPI, origin: string): RawProduct
     let priceText = priceEls.first().text();
     priceEls.each((_, p) => {
       const t = $(p).text();
-      if (/previous\s*price/i.test(t)) priceText = t;
+      if (/previous\s*price|\bwas\b|\boriginal\s*price\b|\brrp\b/i.test(t)) priceText = t;
     });
     const price = parsePrice(priceText.replace(/^.*price:/i, "").trim());
     if (!brandRaw || !name || price === null || !href) return;
@@ -1887,8 +1890,11 @@ function parseJsonLdProducts(html: string, origin: string, brandFallback: string
       if (!isProduct) continue;
       const name = typeof obj.name === "string" ? obj.name.trim() : "";
       const offers = Array.isArray(obj.offers) ? obj.offers[0] : obj.offers;
-      const priceGbp =
-        offers && typeof offers === "object" ? parsePrice((offers as Record<string, unknown>).price) : null;
+      const offersObj = offers && typeof offers === "object" ? (offers as Record<string, unknown>) : null;
+      // Prefer highPrice (pre-sale) over price (current/sale) when both are present.
+      const priceGbp = offersObj
+        ? parsePrice(offersObj.highPrice ?? offersObj.price)
+        : null;
       if (!name || priceGbp === null) continue;
       let brand = brandFallback;
       const b = obj.brand;

@@ -2,6 +2,8 @@ import { getPool } from "./db";
 
 const OXYLABS_ENDPOINT = "https://realtime.oxylabs.io/v1/queries";
 
+let _debugLogged = false;
+
 const SHADE_RELEVANT_SUBCATEGORIES = [
   "Foundation", "Concealer", "Primer", "Powder", "Blush", "Bronzer & Contour",
   "Highlighter", "Setting Spray", "Lipstick", "Lip Gloss & Oil", "Lip Liner",
@@ -60,12 +62,18 @@ function extractShades(html: string): ExtractedShade[] {
         if (depth === 0) {
           const rawJson = html.slice(start, i + 1).replace(/\\"/g, '"');
           try {
-            const arr = JSON.parse(rawJson) as Array<{ name?: string; swatch?: string }>;
+            const arr = JSON.parse(rawJson) as Array<Record<string, unknown>>;
+            if (!_debugLogged) {
+              _debugLogged = true;
+              console.log("[enricher:DEBUG] Raw colours sample (first 3):");
+              console.log(JSON.stringify(arr.slice(0, 3), null, 2));
+              console.log("[enricher:DEBUG] Keys present:", arr[0] ? Object.keys(arr[0]).join(", ") : "none");
+            }
             return arr
-              .filter((c) => typeof c?.name === "string" && c.name.trim().length > 0)
+              .filter((c) => typeof c?.name === "string" && (c.name as string).trim().length > 0)
               .map((c) => {
                 const name = formatShadeName(c.name as string);
-                const swatchSlug = typeof c.swatch === "string" && c.swatch ? c.swatch : "";
+                const swatchSlug = typeof c.swatch === "string" && c.swatch ? c.swatch as string : "";
                 const imageSlug = swatchSlug ? swatchSlug.replace(/_SW$/i, "_M") : "";
                 return {
                   name,

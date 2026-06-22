@@ -181,6 +181,11 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
+  if (args.includes("--enrich-only") || process.env.ENRICH_ONLY === "1") {
+    await runVariantEnrichment();
+    return;
+  }
+
   if (once) {
     await runOnce();
     return;
