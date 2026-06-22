@@ -4,6 +4,25 @@ import { useEffect, useState } from "react";
 import { ORDER_STATUS_LABELS, type OrderStatus, type OrderWithCustomer, type OrderLineItem, type StockItemRow } from "@/lib/db";
 import { BeeSvg } from "@/components/BeeMascot";
 
+interface ProductSearchResult {
+  id: string;
+  brand: string;
+  name: string;
+  product_url: string | null;
+  image_url: string | null;
+  price_gbp: string;
+  price_usd: string;
+}
+
+interface EditDraft {
+  brand: string;
+  name: string;
+  price_gbp: string;
+  price_usd: string;
+  product_url: string;
+  image_url: string;
+}
+
 function usd(value: number): string {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 }).format(value);
 }
@@ -64,15 +83,37 @@ export default function AdminOrderRow({ order, onUpdated, onStockAdded }: Props)
   const [itemDrafts, setItemDrafts] = useState<Record<string, { vendor: string; cost_gbp: string; sourced: boolean }>>({});
   const [savingItem, setSavingItem] = useState<string | null>(null);
 
+  // Per-item edit
+  const [editItemId, setEditItemId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState<EditDraft>({ brand: "", name: "", price_gbp: "", price_usd: "", product_url: "", image_url: "" });
+  const [editQuery, setEditQuery] = useState("");
+  const [editResults, setEditResults] = useState<ProductSearchResult[]>([]);
+  const [editSearching, setEditSearching] = useState(false);
+  const [editShowSearch, setEditShowSearch] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [removingItemId, setRemovingItemId] = useState<string | null>(null);
+
   useEffect(() => {
-    if (!pnlOpen) return;
+    if (!pnlOpen && !editItemId) return;
     fetch("/api/exchange-rate")
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (d && Number.isFinite(d.rate) && d.rate > 0) setRate(d.rate);
       })
       .catch(() => {});
-  }, [pnlOpen]);
+  }, [pnlOpen, editItemId]);
+
+  useEffect(() => {
+    if (!editShowSearch || editQuery.trim().length < 2) { setEditResults([]); return; }
+    const timer = setTimeout(() => {
+      setEditSearching(true);
+      fetch(`/api/admin/stock?search=${encodeURIComponent(editQuery.trim())}`)
+        .then((r) => r.json())
+        .then((d) => { setEditResults(d.products ?? []); setEditSearching(false); })
+        .catch(() => setEditSearching(false));
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [editQuery, editShowSearch]);
 
   async function savePnl() {
     const cg = Number(costGbp);
@@ -147,6 +188,118 @@ export default function AdminOrderRow({ order, onUpdated, onStockAdded }: Props)
       alert((err as Error).message);
     } finally {
       setSavingItem(null);
+    }
+  }
+
+  function startEdit(it: OrderLineItem) {
+    setEditItemId(it.id ?? null);
+    setEditDraft({
+      brand: it.brand,
+      name: it.name,
+      price_gbp: Number(it.price_gbp).toFixed(2),
+      price_usd: Number(it.price_usd).toFixed(2),
+      product_url: it.product_url ?? "",
+      image_url: ""
+    });
+    setEditQuery("");
+    setEditResults([]);
+    setEditShowSearch(false);
+  }
+
+  function cancelEdit() {
+    setEditItemId(null);
+    setEditQuery("");
+    setEditResults([]);
+  }
+
+  function patchEdit(key: keyof EditDraft, value: string) {
+    setEditDraft((prev) => {
+      const next = { ...prev, [key]: value };
+      if (key === "price_gbp") {
+        const gbp = Number(value);
+        next.price_usd = Number.isFinite(gbp) && gbp > 0 ? (Math.round(gbp * rate * 100) / 100).toFixed(2) : "";
+      }
+      return next;
+    });
+  }
+
+  function fillEditFromProduct(p: ProductSearchResult) {
+    setEditDraft({
+      brand: p.brand,
+      name: p.name,
+      price_gbp: Number(p.price_gbp).toFixed(2),
+      price_usd: Number(p.price_usd).toFixed(2),
+      product_url: p.product_url ?? "",
+      image_url: p.image_url ?? ""
+    });
+    setEditShowSearch(false);
+    setEditQuery("");
+    setEditResults([]);
+  }
+
+  async function saveEdit() {
+    if (!editItemId || !editDraft.brand.trim() || !editDraft.name.trim()) return;
+    setSavingEdit(true);
+    try {
+      const res = await fetch(`/api/admin/order-items/${editItemId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          product_brand: editDraft.brand.trim(),
+          product_name: editDraft.name.trim(),
+          price_gbp: Number(editDraft.price_gbp) || 0,
+          price_usd: Number(editDraft.price_usd) || 0,
+          product_url: editDraft.product_url.trim() || null,
+          image_url: editDraft.image_url.trim() || null
+        })
+      });
+      if (!res.ok) throw new Error("Save failed");
+      const data = await res.json() as {
+        product_brand: string; product_name: string;
+        price_gbp: string; price_usd: string; product_url: string | null;
+        order_total_usd: string | null; order_total_gbp: string | null; order_items_count: number | null;
+      };
+      const nextItems = (local.items ?? []).map((it) =>
+        it.id === editItemId
+          ? { ...it, brand: data.product_brand, name: data.product_name, price_gbp: data.price_gbp, price_usd: data.price_usd, product_url: data.product_url }
+          : it
+      );
+      apply({
+        items: nextItems,
+        ...(data.order_total_usd != null ? { total_usd: data.order_total_usd } : {}),
+        ...(data.order_total_gbp != null ? { total_gbp: data.order_total_gbp } : {}),
+        ...(data.order_items_count != null ? { items_count: data.order_items_count } : {})
+      });
+      cancelEdit();
+    } catch (err) {
+      alert((err as Error).message);
+    } finally {
+      setSavingEdit(false);
+    }
+  }
+
+  async function removeItem(itemId: string) {
+    if (!window.confirm("Remove this item from the order? If it was already sourced it will move to stock.")) return;
+    setRemovingItemId(itemId);
+    try {
+      const res = await fetch(`/api/admin/order-items/${itemId}`, { method: "DELETE" });
+      if (!res.ok) { alert("Failed to remove item"); return; }
+      const data = await res.json() as {
+        stockItem: StockItemRow | null;
+        order_total_usd: string | null; order_total_gbp: string | null; order_items_count: number;
+      };
+      const nextItems = (local.items ?? []).filter((it) => it.id !== itemId);
+      apply({
+        items: nextItems,
+        ...(data.order_total_usd != null ? { total_usd: data.order_total_usd } : {}),
+        ...(data.order_total_gbp != null ? { total_gbp: data.order_total_gbp } : {}),
+        items_count: data.order_items_count
+      });
+      if (data.stockItem) onStockAdded?.([data.stockItem]);
+    } catch (err) {
+      alert((err as Error).message);
+    } finally {
+      setRemovingItemId(null);
     }
   }
 
@@ -377,7 +530,28 @@ export default function AdminOrderRow({ order, onUpdated, onStockAdded }: Props)
                                 Find on Selfridges 🔍
                               </a>
                             </span>
-                            <span className="whitespace-nowrap">{formatUsd(Number(it.price_usd) * it.quantity)}</span>
+                            <div className="flex items-center gap-2 whitespace-nowrap">
+                              <span>{formatUsd(Number(it.price_usd) * it.quantity)}</span>
+                              {it.id ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => editItemId === it.id ? cancelEdit() : startEdit(it)}
+                                    className="text-xs text-ink/40 hover:text-accent"
+                                  >
+                                    {editItemId === it.id ? "Cancel" : "Edit"}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => removeItem(it.id!)}
+                                    disabled={removingItemId === it.id}
+                                    className="text-xs text-ink/40 hover:text-red-600 disabled:opacity-40"
+                                  >
+                                    {removingItemId === it.id ? "…" : "Remove"}
+                                  </button>
+                                </>
+                              ) : null}
+                            </div>
                           </div>
                           {it.id && draft ? (
                             <div className="mt-3 space-y-2 border-t border-ink/10 pt-3">
@@ -438,6 +612,99 @@ export default function AdminOrderRow({ order, onUpdated, onStockAdded }: Props)
                                   {it.sourced ? " ✓ Sourced" : ""}
                                 </p>
                               ) : null}
+                            </div>
+                          ) : null}
+
+                          {/* Inline edit panel */}
+                          {editItemId === it.id ? (
+                            <div className="mt-3 space-y-3 border-t border-ink/10 pt-3">
+                              <div className="flex items-center justify-between">
+                                <p className="text-[10px] uppercase tracking-[0.14em] text-ink/60">Edit item</p>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditShowSearch((v) => !v)}
+                                  className="text-xs text-accent hover:underline"
+                                >
+                                  {editShowSearch ? "Hide search" : "Search catalogue"}
+                                </button>
+                              </div>
+
+                              {editShowSearch ? (
+                                <div className="space-y-2">
+                                  <input
+                                    autoFocus
+                                    type="text"
+                                    value={editQuery}
+                                    onChange={(e) => setEditQuery(e.target.value)}
+                                    placeholder="Search by name or brand…"
+                                    className="w-full border border-ink/15 bg-white px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                                  />
+                                  {editSearching ? (
+                                    <p className="text-xs text-ink/50">Searching…</p>
+                                  ) : editResults.length > 0 ? (
+                                    <ul className="max-h-48 overflow-y-auto divide-y divide-ink/10 border border-ink/10">
+                                      {editResults.map((p) => (
+                                        <li key={p.id}>
+                                          <button
+                                            type="button"
+                                            onClick={() => fillEditFromProduct(p)}
+                                            className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-ink/[0.03]"
+                                          >
+                                            {p.image_url ? (
+                                              // eslint-disable-next-line @next/next/no-img-element
+                                              <img src={p.image_url} alt={p.name} className="h-8 w-8 flex-shrink-0 border border-ink/10 object-contain" />
+                                            ) : (
+                                              <div className="h-8 w-8 flex-shrink-0 border border-ink/10 bg-ink/5" />
+                                            )}
+                                            <div className="min-w-0">
+                                              <p className="truncate text-sm font-medium text-ink">{p.name}</p>
+                                              <p className="text-xs text-ink/50">{p.brand} · £{Number(p.price_gbp).toFixed(2)}</p>
+                                            </div>
+                                            <span className="ml-auto text-xs text-accent">Select →</span>
+                                          </button>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  ) : editQuery.trim().length >= 2 ? (
+                                    <p className="text-xs text-ink/50">No products found.</p>
+                                  ) : null}
+                                </div>
+                              ) : null}
+
+                              <div className="grid gap-2 sm:grid-cols-2">
+                                <div>
+                                  <label className="block text-[10px] uppercase tracking-[0.14em] text-ink/60">Brand</label>
+                                  <input type="text" value={editDraft.brand} onChange={(e) => patchEdit("brand", e.target.value)}
+                                    className="mt-1 w-full border border-ink/15 bg-white px-2 py-1.5 text-sm focus:border-accent focus:outline-none" />
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] uppercase tracking-[0.14em] text-ink/60">Product name</label>
+                                  <input type="text" value={editDraft.name} onChange={(e) => patchEdit("name", e.target.value)}
+                                    className="mt-1 w-full border border-ink/15 bg-white px-2 py-1.5 text-sm focus:border-accent focus:outline-none" />
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] uppercase tracking-[0.14em] text-ink/60">Price GBP</label>
+                                  <input type="number" value={editDraft.price_gbp} onChange={(e) => patchEdit("price_gbp", e.target.value)}
+                                    min="0" step="0.01"
+                                    className="mt-1 w-full border border-ink/15 bg-white px-2 py-1.5 text-sm focus:border-accent focus:outline-none" />
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] uppercase tracking-[0.14em] text-ink/60">Price USD</label>
+                                  <input type="number" value={editDraft.price_usd} onChange={(e) => patchEdit("price_usd", e.target.value)}
+                                    min="0" step="0.01"
+                                    className="mt-1 w-full border border-ink/15 bg-white px-2 py-1.5 text-sm focus:border-accent focus:outline-none" />
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-3">
+                                <button type="button" onClick={saveEdit} disabled={savingEdit}
+                                  className="rounded-full bg-accent px-4 py-1.5 text-xs font-bold uppercase tracking-[0.14em] text-white shadow-md transition-opacity hover:opacity-90 disabled:opacity-50">
+                                  {savingEdit ? "Saving…" : "Save changes"}
+                                </button>
+                                <button type="button" onClick={cancelEdit} className="text-xs text-ink/50 hover:text-ink">
+                                  Cancel
+                                </button>
+                              </div>
                             </div>
                           ) : null}
                         </li>

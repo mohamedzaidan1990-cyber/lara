@@ -1,71 +1,37 @@
-const FRANKFURTER_URL = "https://api.frankfurter.app/latest?from=GBP&to=USD";
-const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
-const FALLBACK_RATE = 1.33;
+// Fixed exchange rate. The live-rate approach was replaced with a fixed 1.35
+// because the actual cost to source and deliver to Lebanon is consistently
+// priceGbp × 1.45 (GBP→USD at 1.35 plus ~7% for shipping/import fees).
+const FIXED_GBP_TO_USD = 1.35;
 
-// Service markup. Applied in order: The Ordinary fixed 50%, ≤£20 fixed 35%,
-// then Fragrance flat 20%, then tiered on USD price.
-export function getMarkupMultiplier(priceGbp: number, gbpToUsd: number, category?: string, brand?: string): number {
+// Selling-price markup on top of the Lebanon-landed cost (priceGbp × 1.45).
+// Applied in order — first match wins.
+export function getMarkupMultiplier(priceGbp: number, category?: string, brand?: string): number {
   if (brand && /^the ordinary$/i.test(brand.trim())) return 1.5; // 50% on The Ordinary
   if (priceGbp <= 20) return 1.35; // 35% on anything £20 or under
   if (category === "Fragrance") return 1.2; // flat 20% on perfumes
-  const priceUsd = priceGbp * gbpToUsd;
-  if (priceUsd < 30) return 1.2; // 20% markup under $30
-  if (priceUsd < 50) return 1.15; // 15% markup $30–$50
-  return 1.1; // 10% markup $50+
+  const priceUsd = priceGbp * FIXED_GBP_TO_USD;
+  if (priceUsd < 30) return 1.25; // 25% on £20–~£22 range (< $30 at fixed rate)
+  if (priceUsd < 50) return 1.15; // 15% on $30–$49
+  return 1.1;  // 10% on $50+
 }
 
-interface RateCache {
-  rate: number;
-  fetchedAt: number;
-}
-
-interface FrankfurterResponse {
-  rates?: { USD?: number };
-}
-
-let cached: RateCache | null = null;
-let inflight: Promise<number> | null = null;
-
-async function fetchRate(): Promise<number> {
-  try {
-    const res = await fetch(FRANKFURTER_URL, {
-      headers: { accept: "application/json" }
-    });
-    if (!res.ok) {
-      throw new Error(`Frankfurter responded ${res.status}`);
-    }
-    const data = (await res.json()) as FrankfurterResponse;
-    const usd = data.rates?.USD;
-    if (typeof usd !== "number" || !Number.isFinite(usd) || usd <= 0) {
-      throw new Error("Frankfurter returned no USD rate");
-    }
-    return usd;
-  } catch (err) {
-    console.warn("[currency] Frankfurter fetch failed, falling back to", FALLBACK_RATE, err);
-    return FALLBACK_RATE;
-  }
-}
-
+// Returns the fixed GBP→USD rate. Kept as an async function so call-sites that
+// use it for back-conversion (e.g. Space NK USD→GBP) don't need changing.
 export async function getGBPtoUSD(): Promise<number> {
-  const now = Date.now();
-  if (cached && now - cached.fetchedAt < CACHE_TTL_MS) {
-    return cached.rate;
-  }
-  if (inflight) return inflight;
-  inflight = (async () => {
-    try {
-      const rate = await fetchRate();
-      cached = { rate, fetchedAt: Date.now() };
-      return rate;
-    } finally {
-      inflight = null;
-    }
-  })();
-  return inflight;
+  return FIXED_GBP_TO_USD;
 }
 
+// Per-brand price surcharge applied on top of the standard markup.
+// Add brands here (lowercase) when their pricing needs a permanent adjustment.
+const BRAND_SURCHARGE: Record<string, number> = {
+  "morphe": 1.10,
+};
+
+// Lebanon-landed cost: priceGbp × 1.45 (rate 1.35 + 7% delivery/import fees).
+// Markup applied on top; result ceiled to the nearest whole dollar.
 export async function convertGbpToUsd(priceGbp: number, category?: string, brand?: string): Promise<number> {
-  const rate = await getGBPtoUSD();
-  const multiplier = getMarkupMultiplier(priceGbp, rate, category, brand);
-  return Math.ceil(priceGbp * rate * multiplier);
+  const costUsd = priceGbp * 1.45;
+  const multiplier = getMarkupMultiplier(priceGbp, category, brand);
+  const surcharge = brand ? (BRAND_SURCHARGE[brand.toLowerCase().trim()] ?? 1) : 1;
+  return Math.ceil(costUsd * multiplier * surcharge);
 }
