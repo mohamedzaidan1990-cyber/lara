@@ -7,6 +7,7 @@ const FIXED_GBP_TO_USD = 1.35;
 // Applied in order — first match wins.
 export function getMarkupMultiplier(priceGbp: number, category?: string, brand?: string): number {
   if (brand && /^the ordinary$/i.test(brand.trim())) return 1.5; // 50% on The Ordinary
+  if (brand && /^huda beauty$/i.test(brand.trim())) return 1.1; // flat 10% on all Huda Beauty (incl. fragrance)
   if (priceGbp <= 20) return 1.35; // 35% on anything £20 or under
   if (category === "Fragrance") return 1.2; // flat 20% on perfumes
   const priceUsd = priceGbp * FIXED_GBP_TO_USD;
