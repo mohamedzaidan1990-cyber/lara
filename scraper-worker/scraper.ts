@@ -1049,25 +1049,11 @@ const SELFRIDGES_LISTINGS: Record<string, string[]> = {
   // Selfridges ships fragrance to Lebanon, so perfumes are now crawled and
   // routed into the Fragrance category (flat 20% markup). Empty/unknown slugs
   // are skipped gracefully.
-  // Selfridges food → health & nutrition section. Slugs follow the same
-  // /GB/en/cat/{slug}/ pattern as beauty. Failed/renamed slugs return 0
-  // products and are skipped gracefully by the crawler.
+  // Selfridges foodhall → health & nutrition section (verified live slugs).
   "Health & Nutrition": [
-    "food/health-and-nutrition",
-    "food/health-and-nutrition/vitamins-and-supplements",
-    "food/health-and-nutrition/protein-and-sports-nutrition",
-    "food/health-and-nutrition/superfoods-and-supplements",
-    "food/health-and-nutrition/gut-health",
-    "food/health-and-nutrition/gut-health-and-probiotics",
-    "food/health-and-nutrition/natural-remedies",
-    "food/health-and-nutrition/healthy-snacks",
-    "food/health-and-nutrition/nutrition-drinks",
-    "food/health-and-nutrition/weight-management",
-    "food/health-and-nutrition/collagen",
-    "food/health-and-nutrition/plant-based",
-    "food/health-and-nutrition/immunity",
-    "food/health-and-nutrition/sleep-and-stress",
-    "food/health-and-nutrition/beauty-from-within"
+    "foodhall/health-nutrition",
+    "foodhall/health-nutrition/vitamins-supplements",
+    "foodhall/health-nutrition/sports-nutrition-protein"
   ],
   Fragrance: [
     "beauty/fragrance",
