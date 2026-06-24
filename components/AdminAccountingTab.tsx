@@ -55,6 +55,16 @@ export default function AdminAccountingTab({ orders, expenses, onExpensesChange,
   const profit = revenue - cogs - totalExpenses - stockCost;
   const margin = revenue > 0 ? (profit / revenue) * 100 : 0;
 
+  const EXCLUDED_STATUSES = new Set(["pending", "cancelled", "refunded"]);
+  const outstanding = orders.filter((o) => {
+    if (EXCLUDED_STATUSES.has(o.status)) return false;
+    return num(o.amount_paid_usd) < num(o.total_usd ?? o.price_usd);
+  });
+  const totalOutstanding = outstanding.reduce(
+    (s, o) => s + num(o.total_usd ?? o.price_usd) - num(o.amount_paid_usd),
+    0
+  );
+
   async function addExpense() {
     const usd = Number(amountUsd);
     if (!desc.trim() || !Number.isFinite(usd) || usd < 0) {
@@ -130,6 +140,65 @@ export default function AdminAccountingTab({ orders, expenses, onExpensesChange,
           Note: {paid.length - costedOrderCount} paid order(s) have no cost entered — COGS may be understated.
         </p>
       ) : null}
+
+      {/* Outstanding payments */}
+      <section>
+        <div className="flex items-center justify-between">
+          <h2 className="text-[10px] uppercase tracking-[0.24em] text-ink/60">Outstanding Payments</h2>
+          {outstanding.length > 0 ? (
+            <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-600">
+              {fmtUsd(totalOutstanding)} owed by {outstanding.length} order{outstanding.length !== 1 ? "s" : ""}
+            </span>
+          ) : (
+            <span className="text-xs text-ink/40">All active orders fully paid</span>
+          )}
+        </div>
+        {outstanding.length > 0 ? (
+          <div className="mt-3 overflow-x-auto border border-ink/10">
+            <table className="min-w-full">
+              <thead>
+                <tr className="border-b border-ink/10 bg-ink/[0.02] text-left text-[10px] uppercase tracking-[0.18em] text-ink/60">
+                  <th className="px-4 py-3">Client</th>
+                  <th className="px-4 py-3">Order</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3 text-right">Total</th>
+                  <th className="px-4 py-3 text-right">Paid</th>
+                  <th className="px-4 py-3 text-right">Outstanding</th>
+                </tr>
+              </thead>
+              <tbody>
+                {outstanding.map((o) => {
+                  const total = num(o.total_usd ?? o.price_usd);
+                  const paidAmt = num(o.amount_paid_usd);
+                  const owed = total - paidAmt;
+                  return (
+                    <tr key={o.id} className="border-b border-ink/10 hover:bg-ink/[0.015]">
+                      <td className="px-4 py-3">
+                        <p className="text-sm text-ink">{o.full_name}</p>
+                        <p className="text-[11px] text-ink/50">{o.phone}</p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <p className="font-mono text-xs text-ink/70">{o.order_number}</p>
+                        <p className="max-w-[160px] truncate text-[11px] text-ink/50">{o.product_name}</p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <OutstandingStatusBadge status={o.status} />
+                      </td>
+                      <td className="px-4 py-3 text-right text-sm text-ink">{fmtUsd(total)}</td>
+                      <td className="px-4 py-3 text-right text-sm text-ink/60">
+                        {paidAmt > 0 ? fmtUsd(paidAmt) : "—"}
+                      </td>
+                      <td className="px-4 py-3 text-right text-sm font-semibold" style={{ color: "#C0392B" }}>
+                        {fmtUsd(owed)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+      </section>
 
       {/* Per-item breakdown */}
       <section>
@@ -343,6 +412,27 @@ export default function AdminAccountingTab({ orders, expenses, onExpensesChange,
         </div>
       </section>
     </div>
+  );
+}
+
+const OUTSTANDING_STATUS_META: Record<string, { label: string; color: string }> = {
+  payment_confirmed: { label: "Confirmed", color: "#E08B45" },
+  ordered_selfridges: { label: "Ordered", color: "#3A6EA5" },
+  fulfilled_from_stock: { label: "From Stock", color: "#3A6EA5" },
+  shipped: { label: "Shipped", color: "#7A4FB0" },
+  in_lebanon: { label: "In Lebanon", color: "#7A4FB0" },
+  delivered: { label: "Delivered", color: "#277C43" },
+};
+
+function OutstandingStatusBadge({ status }: { status: string }) {
+  const sm = OUTSTANDING_STATUS_META[status] ?? { label: status, color: "#888" };
+  return (
+    <span
+      className="inline-block rounded-full px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-white"
+      style={{ backgroundColor: sm.color }}
+    >
+      {sm.label}
+    </span>
   );
 }
 

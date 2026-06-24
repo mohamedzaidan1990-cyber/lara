@@ -9,6 +9,7 @@ import AdminManualOrderModal from "@/components/AdminManualOrderModal";
 import AdminAccountingTab from "@/components/AdminAccountingTab";
 import AdminAwaitingOrderTab from "@/components/AdminAwaitingOrderTab";
 import AdminStockTab from "@/components/AdminStockTab";
+import AdminClientsTab from "@/components/AdminClientsTab";
 import type { OrderWithCustomer, BespokeRequestRow, ExpenseRow, StockItemRow } from "@/lib/db";
 
 interface Props {
@@ -18,7 +19,7 @@ interface Props {
   initialStock?: StockItemRow[];
 }
 
-type Tab = "orders" | "awaiting" | "bespoke" | "accounting" | "stock";
+type Tab = "orders" | "awaiting" | "bespoke" | "accounting" | "stock" | "clients";
 
 interface Group {
   key: string;
@@ -67,6 +68,11 @@ export default function AdminDashboard({ initialOrders, initialBespoke = [], ini
     return { revenue, cost, profit, margin, hasCost: costed.length > 0 };
   }, [orders]);
 
+  const clientCount = useMemo(() => {
+    const keys = new Set(orders.map((o) => o.customer_id ?? `${o.full_name}||${o.phone}`));
+    return keys.size;
+  }, [orders]);
+
   const awaitingCount = useMemo(() => {
     return orders
       .filter((o) => o.payment_confirmed && !["shipped", "in_lebanon", "delivered", "cancelled", "refunded"].includes(o.status))
@@ -113,9 +119,12 @@ export default function AdminDashboard({ initialOrders, initialBespoke = [], ini
         />
         <TabButton active={tab === "accounting"} onClick={() => setTab("accounting")} label="Accounting" />
         <TabButton active={tab === "stock"} onClick={() => setTab("stock")} label="Stock" />
+        <TabButton active={tab === "clients"} onClick={() => setTab("clients")} label={`Clients (${clientCount})`} />
       </div>
 
-      {tab === "accounting" ? (
+      {tab === "clients" ? (
+        <AdminClientsTab orders={orders} />
+      ) : tab === "accounting" ? (
         <AdminAccountingTab orders={orders} expenses={expenses} onExpensesChange={setExpenses} stockItems={stockItems} />
       ) : tab === "stock" ? (
         <AdminStockTab items={stockItems} onItemsChange={setStockItems} orders={orders} onOrderUpdated={handleUpdated} />
