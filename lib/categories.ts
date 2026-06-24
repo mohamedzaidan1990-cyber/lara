@@ -51,6 +51,13 @@ export const CATEGORY_DEFS: readonly CategoryDef[] = [
     label: "Beauty tools",
     blurb: "Dyson Airwrap, GHD, Foreo, NuFace — the devices everyone wants.",
     defaultImage: "https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=800&q=80"
+  },
+  {
+    slug: "health-nutrition",
+    name: "Health & Nutrition",
+    label: "Health & Nutrition",
+    blurb: "Vitamins, supplements, superfoods and wellness essentials from the world's finest nutrition brands.",
+    defaultImage: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&q=80"
   }
 ] as const;
 

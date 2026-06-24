@@ -18,7 +18,7 @@ interface SearchProduct extends ProductCardData {
 
 type SearchSort = "relevant" | "price-asc" | "price-desc";
 
-const SEARCH_CATEGORIES = ["All", "Makeup", "Skincare", "Fragrance", "Home Fragrance", "Haircare", "Beauty tools"];
+const SEARCH_CATEGORIES = ["All", "Makeup", "Skincare", "Fragrance", "Home Fragrance", "Haircare", "Beauty tools", "Health & Nutrition"];
 
 interface Props {
   categories: CategoryStat[];

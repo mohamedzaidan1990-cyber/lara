@@ -15,6 +15,9 @@ export async function getGBPtoUSD(): Promise<number> {
 }
 
 export async function convertGbpToUsd(priceGbp: number, category?: string): Promise<number> {
+  if (category === "Health & Nutrition") {
+    return Math.round(priceGbp * 1.595 * 100) / 100;
+  }
   const rate = await getGBPtoUSD();
   const multiplier = getMarkupMultiplier(priceGbp, rate, category);
   return Math.round(priceGbp * rate * multiplier * 100) / 100;
