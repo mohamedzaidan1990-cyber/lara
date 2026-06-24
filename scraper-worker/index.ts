@@ -186,6 +186,14 @@ async function main(): Promise<void> {
     return;
   }
 
+  const runScript = process.env.RUN_SCRIPT;
+  if (runScript) {
+    console.log(`[worker] RUN_SCRIPT=${runScript} — running one-off script then exiting`);
+    const mod = await import(`./${runScript}`);
+    if (typeof mod.run === "function") await mod.run();
+    return;
+  }
+
   if (once) {
     await runOnce();
     return;
