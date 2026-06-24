@@ -14,6 +14,6 @@
     "declaration": false,
     "sourceMap": false
   },
-  "include": ["index.ts", "scraper.ts", "db.ts", "currency.ts", "shade-enricher.ts"],
+  "include": ["index.ts", "scraper.ts", "db.ts", "currency.ts", "shade-enricher.ts", "scrape-kylie.ts"],
   "exclude": ["node_modules", "dist"]
 }
