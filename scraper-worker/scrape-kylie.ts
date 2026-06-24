@@ -37,14 +37,17 @@ export async function run(): Promise<void> {
   const { upsertProducts } = await import("./db");
 
   const KYLIE_URLS = [
-    "https://www.selfridges.com/GB/en/cat/kylie-jenner/beauty/makeup/?ppp=60&sort=relevance",
-    "https://www.selfridges.com/GB/en/cat/?pge=1&ppp=60&sort=relevance&term=kylie+jenner",
-    "https://www.selfridges.com/GB/en/cat/?pge=2&ppp=60&sort=relevance&term=kylie+jenner",
+    "https://www.selfridges.com/GB/en/brands/kylie-by-kylie-jenner/?ppp=60&sort=relevance",
+    "https://www.selfridges.com/GB/en/cat/?pge=1&ppp=60&sort=relevance&term=kylie+by+kylie+jenner",
+    "https://www.selfridges.com/GB/en/cat/?pge=2&ppp=60&sort=relevance&term=kylie+by+kylie+jenner",
   ];
 
   console.log(`Scraping Kylie By Kylie Jenner from ${KYLIE_URLS.length} Selfridges pages…`);
 
-  const rows = await scrapeSelfridgesUrls(KYLIE_URLS, "kylie");
+  // No brand filter: these URLs are Kylie-specific pages/searches, so all
+  // products returned are Kylie By Kylie Jenner. A filter would drop items
+  // whose brand field is extracted with a different casing or suffix.
+  const rows = await scrapeSelfridgesUrls(KYLIE_URLS);
 
   if (rows.length === 0) {
     console.log("No Kylie products found — check Oxylabs response or URL validity.");
