@@ -80,7 +80,7 @@ export default function AdminOrderRow({ order, onUpdated, onStockAdded }: Props)
   const [savingPnl, setSavingPnl] = useState(false);
 
   // Per-item sourcing
-  const [itemDrafts, setItemDrafts] = useState<Record<string, { vendor: string; cost_gbp: string; sourced: boolean }>>({});
+  const [itemDrafts, setItemDrafts] = useState<Record<string, { vendor: string; cost_gbp: string; bank_rate: string; sourced: boolean }>>({});
   const [savingItem, setSavingItem] = useState<string | null>(null);
 
   // Per-item edit
@@ -93,15 +93,38 @@ export default function AdminOrderRow({ order, onUpdated, onStockAdded }: Props)
   const [savingEdit, setSavingEdit] = useState(false);
   const [removingItemId, setRemovingItemId] = useState<string | null>(null);
 
+  // Add item
+  const [addItemOpen, setAddItemOpen] = useState(false);
+  const [addDraft, setAddDraft] = useState({ brand: "", name: "", price_gbp: "", price_usd: "", quantity: "1", product_url: "" });
+  const [addQuery, setAddQuery] = useState("");
+  const [addResults, setAddResults] = useState<ProductSearchResult[]>([]);
+  const [addSearching, setAddSearching] = useState(false);
+  const [addShowSearch, setAddShowSearch] = useState(false);
+  const [savingAdd, setSavingAdd] = useState(false);
+  // Resend invoice
+  const [resending, setResending] = useState<"email" | "download" | null>(null);
+
   useEffect(() => {
-    if (!pnlOpen && !editItemId) return;
+    if (!pnlOpen && !editItemId && !addItemOpen) return;
     fetch("/api/exchange-rate")
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (d && Number.isFinite(d.rate) && d.rate > 0) setRate(d.rate);
       })
       .catch(() => {});
-  }, [pnlOpen, editItemId]);
+  }, [pnlOpen, editItemId, addItemOpen]);
+
+  useEffect(() => {
+    if (!addShowSearch || addQuery.trim().length < 2) { setAddResults([]); return; }
+    const timer = setTimeout(() => {
+      setAddSearching(true);
+      fetch(`/api/admin/stock?search=${encodeURIComponent(addQuery.trim())}`)
+        .then((r) => r.json())
+        .then((d) => { setAddResults(d.products ?? []); setAddSearching(false); })
+        .catch(() => setAddSearching(false));
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [addQuery, addShowSearch]);
 
   useEffect(() => {
     if (!editShowSearch || editQuery.trim().length < 2) { setEditResults([]); return; }
@@ -148,14 +171,15 @@ export default function AdminOrderRow({ order, onUpdated, onStockAdded }: Props)
     return itemDrafts[item.id] ?? {
       vendor: item.vendor ?? "selfridges",
       cost_gbp: item.cost_gbp != null ? String(item.cost_gbp) : "",
+      bank_rate: "",
       sourced: item.sourced ?? false
     };
   }
 
-  function setItemDraft(id: string, patch: Partial<{ vendor: string; cost_gbp: string; sourced: boolean }>) {
+  function setItemDraft(id: string, patch: Partial<{ vendor: string; cost_gbp: string; bank_rate: string; sourced: boolean }>) {
     setItemDrafts((prev) => ({
       ...prev,
-      [id]: { ...( prev[id] ?? { vendor: "selfridges", cost_gbp: "", sourced: false } ), ...patch }
+      [id]: { ...( prev[id] ?? { vendor: "selfridges", cost_gbp: "", bank_rate: "", sourced: false } ), ...patch }
     }));
   }
 
@@ -166,13 +190,14 @@ export default function AdminOrderRow({ order, onUpdated, onStockAdded }: Props)
     setSavingItem(item.id);
     try {
       const costGbpVal = draft.cost_gbp !== "" ? Number(draft.cost_gbp) : null;
+      const bankRateVal = draft.bank_rate !== "" ? Number(draft.bank_rate) : null;
       const res = await fetch(`/api/admin/order-items/${item.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           vendor: draft.vendor || null,
           cost_gbp: costGbpVal,
-          cost_usd: costGbpVal != null ? Math.round(costGbpVal * rate * 100) / 100 : null,
+          cost_usd: costGbpVal != null && bankRateVal != null ? Math.round(costGbpVal * bankRateVal * 100) / 100 : null,
           sourced: draft.sourced
         })
       });
@@ -300,6 +325,85 @@ export default function AdminOrderRow({ order, onUpdated, onStockAdded }: Props)
       alert((err as Error).message);
     } finally {
       setRemovingItemId(null);
+    }
+  }
+
+  function patchAdd(key: keyof typeof addDraft, value: string) {
+    setAddDraft((prev) => {
+      const next = { ...prev, [key]: value };
+      if (key === "price_gbp") {
+        const gbp = Number(value);
+        next.price_usd = Number.isFinite(gbp) && gbp > 0 ? (Math.round(gbp * rate * 100) / 100).toFixed(2) : "";
+      }
+      return next;
+    });
+  }
+
+  function fillAddFromProduct(p: ProductSearchResult) {
+    setAddDraft({ brand: p.brand, name: p.name, price_gbp: Number(p.price_gbp).toFixed(2), price_usd: Number(p.price_usd).toFixed(2), quantity: "1", product_url: p.product_url ?? "" });
+    setAddShowSearch(false);
+    setAddQuery("");
+    setAddResults([]);
+  }
+
+  async function addItem() {
+    if (!addDraft.brand.trim() || !addDraft.name.trim()) return;
+    setSavingAdd(true);
+    try {
+      const res = await fetch(`/api/admin/orders/${local.id}/items`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          brand: addDraft.brand.trim(),
+          name: addDraft.name.trim(),
+          price_gbp: Number(addDraft.price_gbp) || 0,
+          price_usd: Number(addDraft.price_usd) || 0,
+          quantity: Math.max(1, parseInt(addDraft.quantity) || 1),
+          product_url: addDraft.product_url.trim() || null,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to add item");
+      const data = await res.json() as {
+        item: import("@/lib/db").OrderLineItem;
+        order_total_usd: string | null;
+        order_total_gbp: string | null;
+        order_items_count: number | null;
+      };
+      apply({
+        items: [...(local.items ?? []), data.item],
+        ...(data.order_total_usd != null ? { total_usd: data.order_total_usd } : {}),
+        ...(data.order_total_gbp != null ? { total_gbp: data.order_total_gbp } : {}),
+        ...(data.order_items_count != null ? { items_count: data.order_items_count } : {}),
+      });
+      setAddItemOpen(false);
+      setAddDraft({ brand: "", name: "", price_gbp: "", price_usd: "", quantity: "1", product_url: "" });
+      setAddQuery("");
+      setAddResults([]);
+    } catch (err) {
+      alert((err as Error).message);
+    } finally {
+      setSavingAdd(false);
+    }
+  }
+
+  async function regenerateInvoice(sendEmail: boolean) {
+    setResending(sendEmail ? "email" : "download");
+    try {
+      const res = await fetch(`/api/admin/orders/${local.id}/resend-invoice`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sendEmail }),
+      });
+      if (!res.ok) throw new Error("Failed to regenerate invoice");
+      const data = await res.json() as { invoice_sent_at: string };
+      apply({ invoice_sent_at: data.invoice_sent_at });
+      if (!sendEmail) {
+        window.open(`/api/admin/invoice/${local.id}`, "_blank");
+      }
+    } catch (err) {
+      alert((err as Error).message);
+    } finally {
+      setResending(null);
     }
   }
 
@@ -588,6 +692,18 @@ export default function AdminOrderRow({ order, onUpdated, onStockAdded }: Props)
                                   min="0"
                                   step="0.01"
                                 />
+                                <label className="text-[10px] uppercase tracking-[0.14em] text-ink/60 whitespace-nowrap">
+                                  Rate
+                                </label>
+                                <input
+                                  type="number"
+                                  value={draft.bank_rate}
+                                  onChange={(e) => setItemDraft(it.id!, { bank_rate: e.target.value })}
+                                  className="w-20 border border-ink/15 bg-white px-2 py-1 text-sm focus:border-accent focus:outline-none"
+                                  placeholder="1.2740"
+                                  min="0"
+                                  step="0.0001"
+                                />
                                 <label className="flex items-center gap-1.5 text-[11px] text-ink/60 cursor-pointer">
                                   <input
                                     type="checkbox"
@@ -716,6 +832,108 @@ export default function AdminOrderRow({ order, onUpdated, onStockAdded }: Props)
                     Find on Selfridges 🔍
                   </a>
                 )}
+                {/* Add Item */}
+                <div className="mt-3">
+                  <button
+                    type="button"
+                    onClick={() => setAddItemOpen((v) => !v)}
+                    className="text-xs font-medium text-accent hover:underline"
+                  >
+                    {addItemOpen ? "Cancel" : "+ Add Item"}
+                  </button>
+                  {addItemOpen ? (
+                    <div className="mt-3 space-y-3 border border-ink/10 p-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-[10px] uppercase tracking-[0.14em] text-ink/60">New item</p>
+                        <button type="button" onClick={() => setAddShowSearch((v) => !v)} className="text-xs text-accent hover:underline">
+                          {addShowSearch ? "Hide search" : "Search catalogue"}
+                        </button>
+                      </div>
+                      {addShowSearch ? (
+                        <div className="space-y-2">
+                          <input
+                            autoFocus
+                            type="text"
+                            value={addQuery}
+                            onChange={(e) => setAddQuery(e.target.value)}
+                            placeholder="Search by name or brand…"
+                            className="w-full border border-ink/15 bg-white px-3 py-2 text-sm focus:border-accent focus:outline-none"
+                          />
+                          {addSearching ? (
+                            <p className="text-xs text-ink/50">Searching…</p>
+                          ) : addResults.length > 0 ? (
+                            <ul className="max-h-48 overflow-y-auto divide-y divide-ink/10 border border-ink/10">
+                              {addResults.map((p) => (
+                                <li key={p.id}>
+                                  <button type="button" onClick={() => fillAddFromProduct(p)} className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-ink/[0.03]">
+                                    {p.image_url ? (
+                                      // eslint-disable-next-line @next/next/no-img-element
+                                      <img src={p.image_url} alt={p.name} className="h-8 w-8 flex-shrink-0 border border-ink/10 object-contain" />
+                                    ) : (
+                                      <div className="h-8 w-8 flex-shrink-0 border border-ink/10 bg-ink/5" />
+                                    )}
+                                    <div className="min-w-0">
+                                      <p className="truncate text-sm font-medium text-ink">{p.name}</p>
+                                      <p className="text-xs text-ink/50">{p.brand} · £{Number(p.price_gbp).toFixed(2)}</p>
+                                    </div>
+                                    <span className="ml-auto text-xs text-accent">Select →</span>
+                                  </button>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : addQuery.trim().length >= 2 ? (
+                            <p className="text-xs text-ink/50">No products found.</p>
+                          ) : null}
+                        </div>
+                      ) : null}
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <div>
+                          <label className="block text-[10px] uppercase tracking-[0.14em] text-ink/60">Brand</label>
+                          <input type="text" value={addDraft.brand} onChange={(e) => patchAdd("brand", e.target.value)}
+                            className="mt-1 w-full border border-ink/15 bg-white px-2 py-1.5 text-sm focus:border-accent focus:outline-none" />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] uppercase tracking-[0.14em] text-ink/60">Product name</label>
+                          <input type="text" value={addDraft.name} onChange={(e) => patchAdd("name", e.target.value)}
+                            className="mt-1 w-full border border-ink/15 bg-white px-2 py-1.5 text-sm focus:border-accent focus:outline-none" />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] uppercase tracking-[0.14em] text-ink/60">Price GBP</label>
+                          <input type="number" value={addDraft.price_gbp} onChange={(e) => patchAdd("price_gbp", e.target.value)}
+                            min="0" step="0.01"
+                            className="mt-1 w-full border border-ink/15 bg-white px-2 py-1.5 text-sm focus:border-accent focus:outline-none" />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] uppercase tracking-[0.14em] text-ink/60">Price USD</label>
+                          <input type="number" value={addDraft.price_usd} onChange={(e) => patchAdd("price_usd", e.target.value)}
+                            min="0" step="0.01"
+                            className="mt-1 w-full border border-ink/15 bg-white px-2 py-1.5 text-sm focus:border-accent focus:outline-none" />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] uppercase tracking-[0.14em] text-ink/60">Qty</label>
+                          <input type="number" value={addDraft.quantity} onChange={(e) => patchAdd("quantity", e.target.value)}
+                            min="1" step="1"
+                            className="mt-1 w-full border border-ink/15 bg-white px-2 py-1.5 text-sm focus:border-accent focus:outline-none" />
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={addItem}
+                          disabled={savingAdd || !addDraft.brand.trim() || !addDraft.name.trim()}
+                          className="rounded-full bg-accent px-4 py-1.5 text-xs font-bold uppercase tracking-[0.14em] text-white shadow-md transition-opacity hover:opacity-90 disabled:opacity-50"
+                        >
+                          {savingAdd ? "Adding…" : "Add to Order"}
+                        </button>
+                        <button type="button" onClick={() => { setAddItemOpen(false); setAddQuery(""); setAddResults([]); }}
+                          className="text-xs text-ink/50 hover:text-ink">
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+
                 <p className="mt-4 text-[10px] uppercase tracking-[0.2em] text-ink/60">Total</p>
                 <p className="mt-1 text-sm">{formatUsd(totalUsd)}</p>
                 {local.tracking_number ? (
@@ -747,6 +965,22 @@ export default function AdminOrderRow({ order, onUpdated, onStockAdded }: Props)
                       <a href={`/api/admin/invoice/${local.id}`} className="btn-outline text-xs">
                         Download Invoice
                       </a>
+                      <button
+                        type="button"
+                        onClick={() => regenerateInvoice(false)}
+                        disabled={resending !== null}
+                        className="btn-outline text-xs disabled:opacity-50"
+                      >
+                        {resending === "download" ? "Regenerating…" : "Regenerate & Download"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => regenerateInvoice(true)}
+                        disabled={resending !== null}
+                        className="btn-outline text-xs disabled:opacity-50"
+                      >
+                        {resending === "email" ? "Sending…" : "Email Updated Invoice"}
+                      </button>
                     </>
                   )}
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { OrderWithCustomer, OrderLineItem, OrderStatus } from "@/lib/db";
 
 interface FlatItem {
@@ -12,6 +12,7 @@ interface Draft {
   vendor: string;        // "selfridges" | free text
   vendorOther: string;   // free text when not selfridges
   cost_gbp: string;
+  bank_rate: string;
   sourced: boolean;
 }
 
@@ -35,6 +36,7 @@ function deriveDraft(item: OrderLineItem): Draft {
     vendor: isSelfridges ? "selfridges" : "other",
     vendorOther: isSelfridges ? "" : vendor,
     cost_gbp: item.cost_gbp != null ? String(item.cost_gbp) : "",
+    bank_rate: "",
     sourced: item.sourced ?? false
   };
 }
@@ -42,15 +44,7 @@ function deriveDraft(item: OrderLineItem): Draft {
 export default function AdminAwaitingOrderTab({ orders, onOrderUpdated }: Props) {
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [saving, setSaving] = useState<string | null>(null);
-  const [rate, setRate] = useState(1.34);
   const [showDone, setShowDone] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/exchange-rate")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => { if (d && Number.isFinite(d.rate) && d.rate > 0) setRate(d.rate); })
-      .catch(() => {});
-  }, []);
 
   // Items from payment-confirmed orders that haven't shipped/delivered yet
   const flat: FlatItem[] = orders
@@ -76,6 +70,7 @@ export default function AdminAwaitingOrderTab({ orders, onOrderUpdated }: Props)
     const d = getDraft(item);
     const vendorName = d.vendor === "selfridges" ? "selfridges" : d.vendorOther.trim() || "other";
     const costGbpVal = d.cost_gbp !== "" ? Number(d.cost_gbp) : null;
+    const bankRateVal = d.bank_rate !== "" ? Number(d.bank_rate) : null;
     setSaving(item.id);
     try {
       const res = await fetch(`/api/admin/order-items/${item.id}`, {
@@ -84,7 +79,7 @@ export default function AdminAwaitingOrderTab({ orders, onOrderUpdated }: Props)
         body: JSON.stringify({
           vendor: vendorName,
           cost_gbp: costGbpVal,
-          cost_usd: costGbpVal != null ? Math.round(costGbpVal * rate * 100) / 100 : null,
+          cost_usd: costGbpVal != null && bankRateVal != null ? Math.round(costGbpVal * bankRateVal * 100) / 100 : null,
           sourced: d.sourced
         })
       });
@@ -115,6 +110,7 @@ export default function AdminAwaitingOrderTab({ orders, onOrderUpdated }: Props)
     // Auto-save immediately when checkbox is toggled
     const vendorName = d.vendor === "selfridges" ? "selfridges" : d.vendorOther.trim() || "other";
     const costGbpVal = d.cost_gbp !== "" ? Number(d.cost_gbp) : null;
+    const bankRateVal2 = d.bank_rate !== "" ? Number(d.bank_rate) : null;
     setSaving(item.id);
     try {
       const res = await fetch(`/api/admin/order-items/${item.id}`, {
@@ -123,7 +119,7 @@ export default function AdminAwaitingOrderTab({ orders, onOrderUpdated }: Props)
         body: JSON.stringify({
           vendor: vendorName,
           cost_gbp: costGbpVal,
-          cost_usd: costGbpVal != null ? Math.round(costGbpVal * rate * 100) / 100 : null,
+          cost_usd: costGbpVal != null && bankRateVal2 != null ? Math.round(costGbpVal * bankRateVal2 * 100) / 100 : null,
           sourced: next
         })
       });
@@ -181,12 +177,12 @@ export default function AdminAwaitingOrderTab({ orders, onOrderUpdated }: Props)
         ) : null}
       </div>
 
-      <ItemTable items={pending} drafts={drafts} saving={saving} rate={rate} onSetDraft={setDraft} onSave={save} onToggle={toggleSourced} dim={false} />
+      <ItemTable items={pending} drafts={drafts} saving={saving} onSetDraft={setDraft} onSave={save} onToggle={toggleSourced} dim={false} />
 
       {showDone && done.length > 0 ? (
         <div className="mt-6">
           <p className="mb-2 text-[10px] uppercase tracking-[0.2em] text-ink/40">Already Ordered</p>
-          <ItemTable items={done} drafts={drafts} saving={saving} rate={rate} onSetDraft={setDraft} onSave={save} onToggle={toggleSourced} dim />
+          <ItemTable items={done} drafts={drafts} saving={saving} onSetDraft={setDraft} onSave={save} onToggle={toggleSourced} dim />
         </div>
       ) : null}
     </div>
@@ -194,12 +190,11 @@ export default function AdminAwaitingOrderTab({ orders, onOrderUpdated }: Props)
 }
 
 function ItemTable({
-  items, drafts, saving, rate, onSetDraft, onSave, onToggle, dim
+  items, drafts, saving, onSetDraft, onSave, onToggle, dim
 }: {
   items: FlatItem[];
   drafts: Record<string, Draft>;
   saving: string | null;
-  rate: number;
   onSetDraft: (id: string, patch: Partial<Draft>) => void;
   onSave: (fi: FlatItem) => void;
   onToggle: (fi: FlatItem) => void;
@@ -228,7 +223,8 @@ function ItemTable({
             const d = drafts[id] ?? deriveDraft(item);
             const isBusy = saving === id;
             const costGbpNum = d.cost_gbp !== "" ? Number(d.cost_gbp) : null;
-            const costUsdPreview = costGbpNum != null ? costGbpNum * rate : null;
+            const bankRateNum = d.bank_rate !== "" ? Number(d.bank_rate) : null;
+            const costUsdPreview = costGbpNum != null && bankRateNum != null ? costGbpNum * bankRateNum : null;
 
             return (
               <tr
@@ -330,6 +326,18 @@ function ItemTable({
                       min="0"
                       step="0.01"
                       className="w-20 border border-ink/15 bg-white px-2 py-1 text-sm focus:border-accent focus:outline-none"
+                    />
+                  </div>
+                  <div className="mt-1.5 flex items-center gap-1.5">
+                    <span className="text-[10px] text-ink/40">Rate</span>
+                    <input
+                      type="number"
+                      value={d.bank_rate}
+                      onChange={(e) => onSetDraft(id, { bank_rate: e.target.value })}
+                      placeholder="e.g. 1.2740"
+                      min="0"
+                      step="0.0001"
+                      className="w-24 border border-ink/15 bg-white px-2 py-1 text-xs focus:border-accent focus:outline-none"
                     />
                   </div>
                   {costUsdPreview != null ? (
