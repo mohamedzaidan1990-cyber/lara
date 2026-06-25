@@ -80,7 +80,7 @@ export default function AdminOrderRow({ order, onUpdated, onStockAdded }: Props)
   const [savingPnl, setSavingPnl] = useState(false);
 
   // Per-item sourcing
-  const [itemDrafts, setItemDrafts] = useState<Record<string, { vendor: string; cost_gbp: string; bank_rate: string; sourced: boolean }>>({});
+  const [itemDrafts, setItemDrafts] = useState<Record<string, { vendor: string; cost_gbp: string; bank_rate: string; cost_usd: string; sourced: boolean }>>({});
   const [savingItem, setSavingItem] = useState<string | null>(null);
 
   // Per-item edit
@@ -172,14 +172,15 @@ export default function AdminOrderRow({ order, onUpdated, onStockAdded }: Props)
       vendor: item.vendor ?? "selfridges",
       cost_gbp: item.cost_gbp != null ? String(item.cost_gbp) : "",
       bank_rate: "",
+      cost_usd: item.cost_usd != null ? String(item.cost_usd) : "",
       sourced: item.sourced ?? false
     };
   }
 
-  function setItemDraft(id: string, patch: Partial<{ vendor: string; cost_gbp: string; bank_rate: string; sourced: boolean }>) {
+  function setItemDraft(id: string, patch: Partial<{ vendor: string; cost_gbp: string; bank_rate: string; cost_usd: string; sourced: boolean }>) {
     setItemDrafts((prev) => ({
       ...prev,
-      [id]: { ...( prev[id] ?? { vendor: "selfridges", cost_gbp: "", bank_rate: "", sourced: false } ), ...patch }
+      [id]: { ...( prev[id] ?? { vendor: "selfridges", cost_gbp: "", bank_rate: "", cost_usd: "", sourced: false } ), ...patch }
     }));
   }
 
@@ -191,13 +192,15 @@ export default function AdminOrderRow({ order, onUpdated, onStockAdded }: Props)
     try {
       const costGbpVal = draft.cost_gbp !== "" ? Number(draft.cost_gbp) : null;
       const bankRateVal = draft.bank_rate !== "" ? Number(draft.bank_rate) : null;
+      const directUsd = draft.cost_usd !== "" ? Number(draft.cost_usd) : null;
+      const costUsdVal = directUsd ?? (costGbpVal != null && bankRateVal != null ? Math.round(costGbpVal * bankRateVal * 100) / 100 : null);
       const res = await fetch(`/api/admin/order-items/${item.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           vendor: draft.vendor || null,
           cost_gbp: costGbpVal,
-          cost_usd: costGbpVal != null && bankRateVal != null ? Math.round(costGbpVal * bankRateVal * 100) / 100 : null,
+          cost_usd: costUsdVal,
           sourced: draft.sourced
         })
       });
@@ -703,6 +706,18 @@ export default function AdminOrderRow({ order, onUpdated, onStockAdded }: Props)
                                   placeholder="1.2740"
                                   min="0"
                                   step="0.0001"
+                                />
+                                <label className="text-[10px] uppercase tracking-[0.14em] text-ink/60 whitespace-nowrap">
+                                  Cost ($)
+                                </label>
+                                <input
+                                  type="number"
+                                  value={draft.cost_usd}
+                                  onChange={(e) => setItemDraft(it.id!, { cost_usd: e.target.value })}
+                                  className="w-20 border border-ink/15 bg-white px-2 py-1 text-sm focus:border-accent focus:outline-none"
+                                  placeholder="0.00"
+                                  min="0"
+                                  step="0.01"
                                 />
                                 <label className="flex items-center gap-1.5 text-[11px] text-ink/60 cursor-pointer">
                                   <input

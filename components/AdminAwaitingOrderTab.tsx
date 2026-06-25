@@ -13,6 +13,7 @@ interface Draft {
   vendorOther: string;   // free text when not selfridges
   cost_gbp: string;
   bank_rate: string;
+  cost_usd: string;
   sourced: boolean;
 }
 
@@ -37,6 +38,7 @@ function deriveDraft(item: OrderLineItem): Draft {
     vendorOther: isSelfridges ? "" : vendor,
     cost_gbp: item.cost_gbp != null ? String(item.cost_gbp) : "",
     bank_rate: "",
+    cost_usd: item.cost_usd != null ? String(item.cost_usd) : "",
     sourced: item.sourced ?? false
   };
 }
@@ -71,6 +73,8 @@ export default function AdminAwaitingOrderTab({ orders, onOrderUpdated }: Props)
     const vendorName = d.vendor === "selfridges" ? "selfridges" : d.vendorOther.trim() || "other";
     const costGbpVal = d.cost_gbp !== "" ? Number(d.cost_gbp) : null;
     const bankRateVal = d.bank_rate !== "" ? Number(d.bank_rate) : null;
+    const directUsd = d.cost_usd !== "" ? Number(d.cost_usd) : null;
+    const costUsdVal = directUsd ?? (costGbpVal != null && bankRateVal != null ? Math.round(costGbpVal * bankRateVal * 100) / 100 : null);
     setSaving(item.id);
     try {
       const res = await fetch(`/api/admin/order-items/${item.id}`, {
@@ -79,7 +83,7 @@ export default function AdminAwaitingOrderTab({ orders, onOrderUpdated }: Props)
         body: JSON.stringify({
           vendor: vendorName,
           cost_gbp: costGbpVal,
-          cost_usd: costGbpVal != null && bankRateVal != null ? Math.round(costGbpVal * bankRateVal * 100) / 100 : null,
+          cost_usd: costUsdVal,
           sourced: d.sourced
         })
       });
@@ -111,6 +115,8 @@ export default function AdminAwaitingOrderTab({ orders, onOrderUpdated }: Props)
     const vendorName = d.vendor === "selfridges" ? "selfridges" : d.vendorOther.trim() || "other";
     const costGbpVal = d.cost_gbp !== "" ? Number(d.cost_gbp) : null;
     const bankRateVal2 = d.bank_rate !== "" ? Number(d.bank_rate) : null;
+    const directUsd2 = d.cost_usd !== "" ? Number(d.cost_usd) : null;
+    const costUsdVal2 = directUsd2 ?? (costGbpVal != null && bankRateVal2 != null ? Math.round(costGbpVal * bankRateVal2 * 100) / 100 : null);
     setSaving(item.id);
     try {
       const res = await fetch(`/api/admin/order-items/${item.id}`, {
@@ -119,7 +125,7 @@ export default function AdminAwaitingOrderTab({ orders, onOrderUpdated }: Props)
         body: JSON.stringify({
           vendor: vendorName,
           cost_gbp: costGbpVal,
-          cost_usd: costGbpVal != null && bankRateVal2 != null ? Math.round(costGbpVal * bankRateVal2 * 100) / 100 : null,
+          cost_usd: costUsdVal2,
           sourced: next
         })
       });
@@ -224,7 +230,8 @@ function ItemTable({
             const isBusy = saving === id;
             const costGbpNum = d.cost_gbp !== "" ? Number(d.cost_gbp) : null;
             const bankRateNum = d.bank_rate !== "" ? Number(d.bank_rate) : null;
-            const costUsdPreview = costGbpNum != null && bankRateNum != null ? costGbpNum * bankRateNum : null;
+            const directUsdNum = d.cost_usd !== "" ? Number(d.cost_usd) : null;
+            const costUsdPreview = directUsdNum ?? (costGbpNum != null && bankRateNum != null ? costGbpNum * bankRateNum : null);
 
             return (
               <tr
@@ -340,8 +347,20 @@ function ItemTable({
                       className="w-24 border border-ink/15 bg-white px-2 py-1 text-xs focus:border-accent focus:outline-none"
                     />
                   </div>
+                  <div className="mt-1.5 flex items-center gap-1.5">
+                    <span className="text-[10px] text-ink/40">$</span>
+                    <input
+                      type="number"
+                      value={d.cost_usd}
+                      onChange={(e) => onSetDraft(id, { cost_usd: e.target.value })}
+                      placeholder="direct USD"
+                      min="0"
+                      step="0.01"
+                      className="w-24 border border-ink/15 bg-white px-2 py-1 text-xs focus:border-accent focus:outline-none"
+                    />
+                  </div>
                   {costUsdPreview != null ? (
-                    <p className="mt-0.5 text-[10px] text-ink/40">≈ {fmt(costUsdPreview)}</p>
+                    <p className="mt-0.5 text-[10px] text-ink/40">= {fmt(costUsdPreview)}</p>
                   ) : null}
                 </td>
 
