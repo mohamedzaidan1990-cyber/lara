@@ -40,7 +40,7 @@ export default function AdminClientsTab({ orders }: { orders: OrderWithCustomer[
   const clients = useMemo(() => {
     const map = new Map<string, ClientEntry>();
     for (const o of orders) {
-      const key = o.customer_id ?? `${o.full_name}||${o.phone}`;
+      const key = o.phone?.trim() || o.customer_id || o.full_name;
       if (!map.has(key)) {
         map.set(key, { key, name: o.full_name, phone: o.phone, address: o.address, orders: [], totalSpent: 0, outstanding: 0 });
       }
