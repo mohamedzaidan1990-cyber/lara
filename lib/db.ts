@@ -179,7 +179,150 @@ export const SCHEMA_STATEMENTS = [
   // Lightest shade image for fast card rendering (no JOIN needed per card).
   `alter table products add column if not exists light_shade_image_url text`,
   // Tracks when variant enrichment last ran for a product.
-  `alter table products add column if not exists variants_checked_at timestamp`
+  `alter table products add column if not exists variants_checked_at timestamp`,
+  // ----- Promo entry flag -----
+  `alter table orders add column if not exists promo_entry boolean default false`,
+  // ----- Seed: Habibti Lip And Cheek Best Sellers Kit -----
+  `insert into products (brand, name, category, price_gbp, price_usd, product_url, image_url, price_locked, deliverable_lebanon)
+   values (
+     'Huda Beauty',
+     'Habibti Lip And Cheek Best Sellers Kit',
+     'Makeup',
+     43.30,
+     55,
+     'https://hudabeauty.com/en-qa/products/habibti-lip-and-cheek-best-sellers-kit-2026-hb01665?variant=50974606393622',
+     'https://hudabeauty.com/cdn/shop/files/PDP-SECTION1-HABIBTILIP_CHEEK-TILE1.jpg?v=1769546543',
+     true,
+     true
+   ) on conflict (product_url) do nothing`,
+  // ----- One-time backfill: mark SBB-734384 as a promo entry -----
+  `update orders set promo_entry = true where order_number = 'SBB-734384' and promo_entry = false`,
+  // ----- One-time backfill: mark SBB-220816 as a promo entry -----
+  `update orders set promo_entry = true where order_number = 'SBB-220816' and promo_entry = false`,
+  // ----- Per-item Lebanon arrival tracking -----
+  `alter table order_items add column if not exists in_lebanon boolean default false`,
+  // ----- Backfill order cost/profit from item costs (idempotent: skips rows where value already matches) -----
+  `update orders o
+   set cost_usd   = sub.total_cost_usd,
+       cost_gbp   = sub.total_cost_gbp,
+       profit_usd = round((coalesce(o.total_usd, o.price_usd, 0) - sub.total_cost_usd - coalesce(o.platform_fee_usd, 0))::numeric, 2)
+   from (
+     select order_id,
+            round(sum(cost_usd)::numeric, 2) as total_cost_usd,
+            round(sum(cost_gbp)::numeric, 2) as total_cost_gbp
+     from order_items
+     where cost_usd is not null
+     group by order_id
+   ) sub
+   where o.id = sub.order_id
+     and (o.cost_usd is distinct from sub.total_cost_usd)`,
+  // ----- New promo: Summer's Hottest Look Set + EDP gift (July 2026) -----
+  // Reset old promo entries (Habibti Kit promo is over). Idempotent: once set to false they won't match again.
+  `update orders set promo_entry = false where promo_entry = true and created_at < '2026-07-02 00:00:00'::timestamp`,
+  // Add Summer's Hottest Look Set to catalogue.
+  `insert into products (brand, name, category, price_gbp, price_usd, product_url, image_url, price_locked, deliverable_lebanon)
+   values (
+     'Huda Beauty',
+     'Summer''s Hottest Look Set',
+     'Makeup',
+     110,
+     140,
+     'https://hudabeauty.com/en-qa/products/summers-hottest-look-set_136',
+     'https://hudabeauty.com/cdn/shop/files/STRAWBERRY-LATTE-COLLECTION-BUNDLES_SUMMERS-HOTTEST-LOOK-PACKSHOT.webp?v=1774850353',
+     true,
+     true
+   ) on conflict (product_url) do update set price_usd = 150, price_locked = true`,
+  // Add Easy Bake Intense EDP Travel Spray 10ml.
+  `insert into products (brand, name, category, price_gbp, price_usd, product_url, image_url, price_locked, deliverable_lebanon)
+   values (
+     'Huda Beauty',
+     'Easy Bake Intense Eau de Parfum Travel Spray 10ml',
+     'Fragrance',
+     25,
+     42,
+     'https://hudabeauty.com/en-qa/products/easy-bake-intense-eau-de-parfum-travel-spray-10ml-hb01781',
+     'https://hudabeauty.com/cdn/shop/files/EASY-BAKE-INTENSE-FRAGRANCE-10ML-ECOMM_01.webp?v=1777881528',
+     true,
+     true
+   ) on conflict (product_url) do update set price_usd = 42, price_locked = true`,
+  // ----- Huda Beauty expanded catalogue (July 2026) -----
+  `insert into products (brand, name, category, price_gbp, price_usd, product_url, image_url, price_locked, deliverable_lebanon)
+   values (
+     'Huda Beauty', 'Easy Bake Intense Kit', 'Fragrance', 107, 155,
+     'https://hudabeauty.com/en-qa/products/easy-bake-intense-kit-set_137',
+     'https://hudabeauty.com/cdn/shop/files/01-NEVER-TOO-MUCH-KIT_beacdb2c-e21d-4fcb-a492-a626103f2ca5.webp?v=1777873077',
+     true, true
+   ) on conflict (product_url) do update set price_usd = 155, price_locked = true`,
+  `insert into products (brand, name, category, price_gbp, price_usd, product_url, image_url, price_locked, deliverable_lebanon)
+   values (
+     'Huda Beauty', 'Blush Filter Liquid Blush', 'Makeup', 24, 39,
+     'https://hudabeauty.com/en-gb/products/blush-filter-liquid-blush-hb01345m',
+     'https://hudabeauty.com/cdn/shop/files/BLUSH-FILTER-REFRESH_PDP_PACKSHOTS_FINAL_6-STRAWBERRY-LATTE.webp?v=1774424494',
+     true, true
+   ) on conflict (product_url) do nothing`,
+  `insert into products (brand, name, category, price_gbp, price_usd, product_url, image_url, price_locked, deliverable_lebanon)
+   values (
+     'Huda Beauty', 'FAUX FILLER Extra Shine Lip Gloss', 'Makeup', 19, 24,
+     'https://hudabeauty.com/en-gb/products/faux-filler-extra-shine-lip-gloss-hb01251m',
+     'https://hudabeauty.com/cdn/shop/files/STRAWBERRY-LATTE_FFGLOSS_PDP_PACKSHOTS_LIGHTCEALER_1.webp?v=1774885552',
+     true, true
+   ) on conflict (product_url) do nothing`,
+  `insert into products (brand, name, category, price_gbp, price_usd, product_url, image_url, price_locked, deliverable_lebanon)
+   values (
+     'Huda Beauty', 'Tantour Contour & Bronzer Cream', 'Makeup', 24, 30,
+     'https://hudabeauty.com/en-gb/products/tantour-contour-bronzer-cream-hb00281m',
+     'https://cdn.shopify.com/s/files/1/0959/8962/9206/files/PDP-SECTION1-TANTOUR-MEDIUM-TILE1.webp?v=1759616886',
+     true, true
+   ) on conflict (product_url) do nothing`,
+  `insert into products (brand, name, category, price_gbp, price_usd, product_url, image_url, price_locked, deliverable_lebanon)
+   values (
+     'Huda Beauty', 'Makeout Sesh Lip Duo Rosy Nudes', 'Makeup', 39, 50,
+     'https://hudabeauty.com/en-qa/products/makeout-sesh-lip-duo-rosy-nudes-hb01753',
+     'https://cdn.shopify.com/s/files/1/0959/8962/9206/files/PDP-SECTION1-MAKEOUTSESH-ROSYNUDES-TILE1.webp?v=1761570576',
+     true, true
+   ) on conflict (product_url) do nothing`,
+  `insert into products (brand, name, category, price_gbp, price_usd, product_url, image_url, price_locked, deliverable_lebanon)
+   values (
+     'ONE/SIZE by Patrick Starrr', 'Oil Sucker Liquid Blotting Paper Touch Up Spray', 'Makeup', 35, 45,
+     'https://www.sephora.me/qa-en/p/oil-sucker-liquid-blotting-paper-touch-up-spray/814356',
+     'https://cdn.shopify.com/s/files/1/0352/4139/4313/files/OilSuckerSpray_4x5_2ca20768-5bbf-4fd3-b80a-716acd83bbf7.jpg',
+     true, true
+   ) on conflict (product_url) do nothing`,
+  `insert into products (brand, name, category, price_gbp, price_usd, product_url, image_url, price_locked, deliverable_lebanon)
+   values (
+     'Fenty Skin', 'Butta Drop Hydrating Body Milk', 'Skincare', 40, 52,
+     'https://www.sephora.me/qa-en/p/butta-drop-body-milk/730936',
+     'https://cdn.shopify.com/s/files/1/0341/3458/9485/files/FSB_SPR26_T2PRODUCT_ECOMM_BODYMILK_LOTION_FENTYFRESH_1200X1500_72DPI_1.jpg?v=1783013212',
+     true, true
+   ) on conflict (product_url) do nothing`,
+  `insert into products (brand, name, category, price_gbp, price_usd, product_url, image_url, price_locked, deliverable_lebanon)
+   values
+     ('Fenty Skin', 'Butta Drop Hydrating Body Milk — Amber Bouquet', 'Skincare', 40, 52,
+      'https://www.sephora.me/qa-en/p/butta-drop-body-milk-amber-bouquet/813825',
+      'https://cdn.shopify.com/s/files/1/0341/3458/9485/files/FSB_SPR26_T2PRODUCT_ECOMM_BODYMILK_LOTION_AMBERBOUQUET_1200X1500_72DPI.jpg?v=1778713227',
+      true, true),
+     ('Fenty Skin', 'Butta Drop Hydrating Body Milk — Vanilla Dream', 'Skincare', 40, 52,
+      'https://www.sephora.me/qa-en/p/butta-drop-hydrating-body-milk-vanilla-dream/797084',
+      'https://cdn.shopify.com/s/files/1/0341/3458/9485/files/FSB_SPR26_T2PRODUCT_ECOMM_BODYMILK_LOTION_VANILLADREAMS_1200X1500_72DPI.jpg?v=1769535173',
+      true, true),
+     ('Fenty Skin', 'Butta Drop Hydrating Body Milk — Salted Caramel', 'Skincare', 40, 52,
+      'https://www.sephora.me/qa-en/p/butta-drop-milk-salted-caramel/765583',
+      'https://cdn.shopify.com/s/files/1/0341/3458/9485/files/FS_FALL25_T2PRODUCT_ECOMM_BODY-MILK-SALTED-CARAMEL_1200X1500_72DPI.jpg?v=1754005575',
+      true, true)
+   on conflict (product_url) do nothing`,
+  // ----- Huda Beauty × Seasons by B Kit — exclusive promo bundle (July 2026) -----
+  `insert into products (brand, name, category, price_gbp, price_usd, product_url, image_url, price_locked, deliverable_lebanon)
+   values (
+     'Huda Beauty',
+     'Huda Beauty × Seasons by B Kit',
+     'Makeup',
+     155,
+     200,
+     'https://seasonsbyb.co.uk/kit/huda-x-snb-2026',
+     'https://hudabeauty.com/cdn/shop/files/STRAWBERRY-LATTE-COLLECTION-BUNDLES_SUMMERS-HOTTEST-LOOK-PACKSHOT.webp',
+     true,
+     true
+   ) on conflict (product_url) do update set price_usd = 200, price_locked = true`
 ];
 
 export async function ensureSchema(): Promise<void> {
@@ -196,6 +339,8 @@ export type OrderStatus =
   | "fulfilled_from_stock"
   | "shipped"
   | "in_lebanon"
+  | "ready_to_deliver"
+  | "partially_delivered"
   | "delivered"
   | "cancelled"
   | "refunded";
@@ -207,6 +352,8 @@ export const ORDER_STATUSES: OrderStatus[] = [
   "fulfilled_from_stock",
   "shipped",
   "in_lebanon",
+  "ready_to_deliver",
+  "partially_delivered",
   "delivered",
   "cancelled",
   "refunded"
@@ -219,6 +366,8 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   fulfilled_from_stock: "Fulfilled from stock",
   shipped: "Shipped",
   in_lebanon: "In transit",
+  ready_to_deliver: "Ready to deliver",
+  partially_delivered: "Partially delivered",
   delivered: "Delivered",
   cancelled: "Cancelled",
   refunded: "Refunded"
@@ -264,6 +413,7 @@ export interface OrderRow {
   profit_notes?: string | null;
   source?: string | null;
   amount_paid_usd?: string | number | null;
+  promo_entry?: boolean | null;
 }
 
 export interface OrderLineItem {
@@ -278,6 +428,7 @@ export interface OrderLineItem {
   cost_gbp?: string | number | null;
   cost_usd?: string | number | null;
   sourced?: boolean;
+  in_lebanon?: boolean;
 }
 
 export interface ExpenseRow {
