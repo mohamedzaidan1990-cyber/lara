@@ -32,6 +32,8 @@ const GROUPS: Group[] = [
   { key: "pending", label: "Pending Payment", color: "#C0392B", match: (o) => !o.payment_confirmed && o.status === "pending" },
   { key: "payment_confirmed", label: "Payment Confirmed", color: "#E08B45", match: (o) => o.status === "payment_confirmed" },
   { key: "ordered_selfridges", label: "Ordered", color: "#3A6EA5", match: (o) => o.status === "ordered_selfridges" || o.status === "fulfilled_from_stock" },
+  { key: "ready_to_deliver", label: "Ready to Deliver", color: "#16A34A", match: (o) => o.status === "ready_to_deliver" },
+  { key: "partially_delivered", label: "Partially Delivered", color: "#D97706", match: (o) => o.status === "partially_delivered" },
   { key: "shipped", label: "Shipped", color: "#7A4FB0", match: (o) => o.status === "shipped" || o.status === "in_lebanon" },
   { key: "delivered", label: "Delivered", color: "#277C43", match: (o) => o.status === "delivered" }
 ];
@@ -75,7 +77,7 @@ export default function AdminDashboard({ initialOrders, initialBespoke = [], ini
 
   const awaitingCount = useMemo(() => {
     return orders
-      .filter((o) => o.payment_confirmed && !["shipped", "in_lebanon", "delivered", "cancelled", "refunded"].includes(o.status))
+      .filter((o) => o.payment_confirmed && !["shipped", "in_lebanon", "ready_to_deliver", "partially_delivered", "delivered", "cancelled", "refunded"].includes(o.status))
       .flatMap((o) => o.items ?? [])
       .filter((it) => it.id && !it.sourced).length;
   }, [orders]);
