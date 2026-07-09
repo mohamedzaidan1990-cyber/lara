@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { ensureSchema, getSql } from "@/lib/db";
 import { isAdmin } from "@/lib/auth";
-import { getGBPtoUSD } from "@/lib/currency";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,32 +10,33 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const body = (await req.json().catch(() => ({}))) as {
-    cost_gbp?: number | string;
     platform_fee_usd?: number | string;
     profit_notes?: string;
   };
 
-  const costGbp = Number(body.cost_gbp);
-  if (!Number.isFinite(costGbp) || costGbp < 0) {
-    return NextResponse.json({ error: "Invalid cost_gbp" }, { status: 400 });
-  }
   const platformFee = Number.isFinite(Number(body.platform_fee_usd)) ? Math.max(0, Number(body.platform_fee_usd)) : 0;
 
   await ensureSchema();
   const sql = getSql();
 
   const rows = (await sql`
-    select id, total_usd, price_usd from orders where id = ${params.id} limit 1
-  `) as Array<{ id: string; total_usd: string | number | null; price_usd: string | number | null }>;
+    select id, coalesce(total_usd, price_usd, 0) as revenue_usd from orders where id = ${params.id} limit 1
+  `) as Array<{ id: string; revenue_usd: string | number }>;
   const order = rows[0];
   if (!order) {
     return NextResponse.json({ error: "Order not found" }, { status: 404 });
   }
 
-  const rate = await getGBPtoUSD();
-  const costUsd = Math.round(costGbp * rate * 100) / 100; // actual conversion, no markup
-  const revenueUsd = Number(order.total_usd ?? order.price_usd) || 0;
-  const profitUsd = Math.round((revenueUsd - costUsd - platformFee) * 100) / 100;
+  // Derive cost from item costs — never take a manual cost_gbp input.
+  const costSums = (await sql`
+    select sum(cost_usd) as total_cost_usd, sum(cost_gbp) as total_cost_gbp
+    from order_items where order_id = ${params.id}
+  `) as Array<{ total_cost_usd: string | null; total_cost_gbp: string | null }>;
+
+  const costUsd = costSums[0]?.total_cost_usd != null ? Math.round(Number(costSums[0].total_cost_usd) * 100) / 100 : null;
+  const costGbp = costSums[0]?.total_cost_gbp != null ? Math.round(Number(costSums[0].total_cost_gbp) * 100) / 100 : null;
+  const revenueUsd = Number(order.revenue_usd) || 0;
+  const profitUsd = costUsd != null ? Math.round((revenueUsd - costUsd - platformFee) * 100) / 100 : null;
 
   await sql`
     update orders
@@ -51,7 +51,6 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     cost_usd: costUsd,
     platform_fee_usd: platformFee,
     profit_usd: profitUsd,
-    revenue_usd: revenueUsd,
-    rate
+    revenue_usd: revenueUsd
   });
 }

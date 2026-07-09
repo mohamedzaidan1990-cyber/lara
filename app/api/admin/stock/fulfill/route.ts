@@ -16,12 +16,15 @@ export async function POST(req: Request) {
   const sql = getSql();
 
   const stockRows = (await sql`
-    SELECT id, quantity FROM stock_items WHERE id = ${body.stock_item_id}
-  `) as Array<{ id: string; quantity: number }>;
+    SELECT id, quantity, cost_gbp, cost_usd FROM stock_items WHERE id = ${body.stock_item_id}
+  `) as Array<{ id: string; quantity: number; cost_gbp: string | null; cost_usd: string | null }>;
   if (!stockRows.length) return NextResponse.json({ error: "Stock item not found" }, { status: 404 });
   if (stockRows[0].quantity < 1) return NextResponse.json({ error: "No quantity available" }, { status: 409 });
 
-  const orderCheck = (await sql`SELECT id FROM orders WHERE id = ${body.order_id}`) as Array<{ id: string }>;
+  const orderCheck = (await sql`
+    SELECT id, coalesce(total_usd, price_usd, 0) as total_usd, coalesce(platform_fee_usd, 0) as platform_fee_usd
+    FROM orders WHERE id = ${body.order_id}
+  `) as Array<{ id: string; total_usd: string | number; platform_fee_usd: string | number }>;
   if (!orderCheck.length) return NextResponse.json({ error: "Order not found" }, { status: 404 });
 
   let updatedStockItem: StockItemRow | null = null;
@@ -38,7 +41,22 @@ export async function POST(req: Request) {
 
   await sql`UPDATE order_items SET sourced = true WHERE order_id = ${body.order_id}`;
 
-  await sql`UPDATE orders SET status = 'fulfilled_from_stock', updated_at = now() WHERE id = ${body.order_id}`;
+  // Transfer cost from stock item to order and recalculate profit.
+  const stockCostGbp = stockRows[0].cost_gbp != null ? Number(stockRows[0].cost_gbp) : null;
+  const stockCostUsd = stockRows[0].cost_usd != null ? Number(stockRows[0].cost_usd) : null;
+  if (stockCostGbp != null && stockCostUsd != null) {
+    const revenueUsd = Number(orderCheck[0].total_usd) || 0;
+    const platformFee = Number(orderCheck[0].platform_fee_usd) || 0;
+    const profitUsd = Math.round((revenueUsd - stockCostUsd - platformFee) * 100) / 100;
+    await sql`
+      UPDATE orders
+      SET status = 'fulfilled_from_stock', cost_gbp = ${stockCostGbp}, cost_usd = ${stockCostUsd},
+          profit_usd = ${profitUsd}, updated_at = now()
+      WHERE id = ${body.order_id}
+    `;
+  } else {
+    await sql`UPDATE orders SET status = 'fulfilled_from_stock', updated_at = now() WHERE id = ${body.order_id}`;
+  }
 
   const orderRows = (await sql`
     SELECT o.id, o.order_number, o.customer_id, o.customer_email, o.product_name, o.product_brand, o.product_url,

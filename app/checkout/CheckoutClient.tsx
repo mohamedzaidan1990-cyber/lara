@@ -29,6 +29,8 @@ export default function CheckoutClient({ whish }: { whish: string }) {
   const clearCart = useCart((s) => s.clearCart);
   const { totalItems, totalUSD } = computeTotals(items);
   const hasFragrance = items.some((i) => i.category === "Fragrance");
+  const hasPromoGift = items.some((i) => i.is_promo_gift);
+  const hasEdpGift = items.some((i) => i.is_promo_gift && i.product_url?.includes("easy-bake-intense-eau-de-parfum"));
 
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [form, setForm] = useState({ full_name: "", email: "", phone: "", address: "", notes: "" });
@@ -147,8 +149,9 @@ export default function CheckoutClient({ whish }: { whish: string }) {
           <ul className="mt-6 divide-y divide-ink/10 border-y border-ink/10">
             {items.map((item) => {
               const src = productImageSrc(item.image_url);
+              const isGift = !!item.is_promo_gift;
               return (
-                <li key={item.id} className="flex gap-4 py-4">
+                <li key={item.id} className={`flex gap-4 py-4 ${isGift ? "rounded-lg bg-accent/[0.04] px-2" : ""}`}>
                   <div className="h-20 w-20 flex-shrink-0 overflow-hidden bg-ink/[0.04]">
                     {src ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -156,16 +159,25 @@ export default function CheckoutClient({ whish }: { whish: string }) {
                     ) : null}
                   </div>
                   <div className="flex flex-1 flex-col">
-                    <p className="text-[10px] uppercase tracking-[0.2em] text-ink/55">{item.brand}</p>
-                    <p className="text-sm text-ink">{item.name}</p>
-                    <div className="mt-2 flex items-center gap-2">
-                      <button type="button" aria-label="Decrease" onClick={() => updateQuantity(item.id, item.quantity - 1)} className="flex h-6 w-6 items-center justify-center border border-ink/20 hover:border-accent">−</button>
-                      <span className="min-w-5 text-center text-sm">{item.quantity}</span>
-                      <button type="button" aria-label="Increase" onClick={() => updateQuantity(item.id, item.quantity + 1)} className="flex h-6 w-6 items-center justify-center border border-ink/20 hover:border-accent">+</button>
-                      <button type="button" onClick={() => removeItem(item.id)} className="ml-3 text-[10px] uppercase tracking-[0.18em] text-ink/40 hover:text-accent">Remove</button>
+                    <div className="flex items-center gap-2">
+                      <p className="text-[10px] uppercase tracking-[0.2em] text-ink/55">{item.brand}</p>
+                      {isGift ? <span className="rounded-full bg-accent px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.15em] text-white">Free Gift</span> : null}
                     </div>
+                    <p className="text-sm text-ink">{item.name}</p>
+                    {isGift ? (
+                      <p className="mt-1 text-[10px] text-ink/40">Complimentary with your Summer&apos;s Hottest Look Set order</p>
+                    ) : (
+                      <div className="mt-2 flex items-center gap-2">
+                        <button type="button" aria-label="Decrease" onClick={() => updateQuantity(item.id, item.quantity - 1)} className="flex h-6 w-6 items-center justify-center border border-ink/20 hover:border-accent">−</button>
+                        <span className="min-w-5 text-center text-sm">{item.quantity}</span>
+                        <button type="button" aria-label="Increase" onClick={() => updateQuantity(item.id, item.quantity + 1)} className="flex h-6 w-6 items-center justify-center border border-ink/20 hover:border-accent">+</button>
+                        <button type="button" onClick={() => removeItem(item.id)} className="ml-3 text-[10px] uppercase tracking-[0.18em] text-ink/40 hover:text-accent">Remove</button>
+                      </div>
+                    )}
                   </div>
-                  <div className="font-serif text-ink">{formatUsd(item.price_usd * item.quantity)}</div>
+                  <div className="font-serif text-ink">
+                    {isGift ? <span className="text-accent font-medium">Free</span> : formatUsd(item.price_usd * item.quantity)}
+                  </div>
                 </li>
               );
             })}
@@ -176,6 +188,15 @@ export default function CheckoutClient({ whish }: { whish: string }) {
           </div>
           <DeliveryNote />
           {hasFragrance ? <FragranceNote /> : null}
+          {hasPromoGift ? (
+            <div className="mt-4 flex items-start gap-2 rounded-lg border border-accent/20 bg-accent/[0.05] p-3 text-sm text-ink">
+              <span className="text-base leading-none">🎁</span>
+              <span>
+                Your complimentary gift(s) are included in your order.
+                {hasEdpGift ? " We'll contact you on WhatsApp to choose your shades for the Summer's Hottest Look Set." : ""}
+              </span>
+            </div>
+          ) : null}
           <button type="button" onClick={() => setStep(2)} className="btn-primary mt-6 w-full justify-center">
             Continue to Details
           </button>
@@ -230,8 +251,8 @@ export default function CheckoutClient({ whish }: { whish: string }) {
             <ul className="mt-3 space-y-1 text-sm text-ink">
               {items.map((i) => (
                 <li key={i.id} className="flex justify-between">
-                  <span>{i.brand} — {i.name}{i.quantity > 1 ? ` ×${i.quantity}` : ""}</span>
-                  <span>{formatUsd(i.price_usd * i.quantity)}</span>
+                  <span>{i.brand} — {i.name}{i.quantity > 1 ? ` ×${i.quantity}` : ""}{i.is_promo_gift ? " 🎁" : ""}</span>
+                  <span className={i.is_promo_gift ? "text-accent font-medium" : ""}>{i.is_promo_gift ? "Free" : formatUsd(i.price_usd * i.quantity)}</span>
                 </li>
               ))}
             </ul>

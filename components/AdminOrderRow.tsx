@@ -75,13 +75,13 @@ export default function AdminOrderRow({ order, onUpdated, onStockAdded }: Props)
   // Profit & loss
   const [pnlOpen, setPnlOpen] = useState(false);
   const [rate, setRate] = useState(1.34);
-  const [costGbp, setCostGbp] = useState(local.cost_gbp != null ? String(local.cost_gbp) : "");
   const [platformFee, setPlatformFee] = useState(local.platform_fee_usd != null ? String(local.platform_fee_usd) : "");
   const [savingPnl, setSavingPnl] = useState(false);
 
   // Per-item sourcing
   const [itemDrafts, setItemDrafts] = useState<Record<string, { vendor: string; cost_gbp: string; bank_rate: string; cost_usd: string; sourced: boolean }>>({});
   const [savingItem, setSavingItem] = useState<string | null>(null);
+  const [togglingLebanon, setTogglingLebanon] = useState<string | null>(null);
 
   // Per-item edit
   const [editItemId, setEditItemId] = useState<string | null>(null);
@@ -105,14 +105,14 @@ export default function AdminOrderRow({ order, onUpdated, onStockAdded }: Props)
   const [resending, setResending] = useState<"email" | "download" | null>(null);
 
   useEffect(() => {
-    if (!pnlOpen && !editItemId && !addItemOpen) return;
+    if (!editItemId && !addItemOpen) return;
     fetch("/api/exchange-rate")
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (d && Number.isFinite(d.rate) && d.rate > 0) setRate(d.rate);
       })
       .catch(() => {});
-  }, [pnlOpen, editItemId, addItemOpen]);
+  }, [editItemId, addItemOpen]);
 
   useEffect(() => {
     if (!addShowSearch || addQuery.trim().length < 2) { setAddResults([]); return; }
@@ -139,17 +139,12 @@ export default function AdminOrderRow({ order, onUpdated, onStockAdded }: Props)
   }, [editQuery, editShowSearch]);
 
   async function savePnl() {
-    const cg = Number(costGbp);
-    if (!Number.isFinite(cg) || cg < 0) {
-      alert("Enter a valid GBP cost.");
-      return;
-    }
     setSavingPnl(true);
     try {
       const res = await fetch(`/api/admin/orders/${local.id}/costs`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cost_gbp: cg, platform_fee_usd: Number(platformFee) || 0 })
+        body: JSON.stringify({ platform_fee_usd: Number(platformFee) || 0 })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Save failed");
@@ -205,18 +200,63 @@ export default function AdminOrderRow({ order, onUpdated, onStockAdded }: Props)
         })
       });
       if (!res.ok) throw new Error("Failed to save");
-      const updated = (await res.json()) as { vendor: string | null; cost_gbp: string | null; cost_usd: string | null; sourced: boolean };
+      const updated = (await res.json()) as {
+        vendor: string | null; cost_gbp: string | null; cost_usd: string | null; sourced: boolean;
+        order_cost_usd?: number | null; order_cost_gbp?: number | null; order_profit_usd?: number | null;
+      };
       const nextItems = (local.items ?? []).map((it) =>
         it.id === item.id
           ? { ...it, vendor: updated.vendor, cost_gbp: updated.cost_gbp, cost_usd: updated.cost_usd, sourced: updated.sourced }
           : it
       );
-      apply({ items: nextItems });
+      apply({
+        items: nextItems,
+        cost_usd: updated.order_cost_usd ?? local.cost_usd,
+        cost_gbp: updated.order_cost_gbp ?? local.cost_gbp,
+        profit_usd: updated.order_profit_usd ?? local.profit_usd
+      });
     } catch (err) {
       alert((err as Error).message);
     } finally {
       setSavingItem(null);
     }
+  }
+
+  async function toggleInLebanon(item: OrderLineItem, checked: boolean) {
+    if (!item.id) return;
+    setTogglingLebanon(item.id);
+    try {
+      const res = await fetch(`/api/admin/order-items/${item.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ in_lebanon: checked })
+      });
+      if (!res.ok) throw new Error("Failed to update");
+      const updated = (await res.json()) as { in_lebanon: boolean; order_status?: string | null };
+      const nextItems = (local.items ?? []).map((it) =>
+        it.id === item.id ? { ...it, in_lebanon: updated.in_lebanon } : it
+      );
+      const statusPatch = updated.order_status ? { status: updated.order_status as OrderStatus } : {};
+      apply({ items: nextItems, ...statusPatch });
+      onUpdated?.({ ...local, items: nextItems, ...statusPatch });
+    } catch (err) {
+      alert((err as Error).message);
+    } finally {
+      setTogglingLebanon(null);
+    }
+  }
+
+  function markPartialDelivered() {
+    const someInLebanon = (local.items ?? []).some((it) => it.in_lebanon);
+    if (!someInLebanon) {
+      alert("Please tick at least one item as 'Reached Lebanon' before marking a partial delivery.");
+      return;
+    }
+    void patch(
+      { status: "partially_delivered" as OrderStatus },
+      "Mark as partially delivered? This indicates you've delivered the available items and will deliver the rest later.",
+      { status: "partially_delivered" as OrderStatus }
+    );
   }
 
   function startEdit(it: OrderLineItem) {
@@ -558,6 +598,11 @@ export default function AdminOrderRow({ order, onUpdated, onStockAdded }: Props)
               {local.source === "instagram" ? "📸 IG" : local.source === "whatsapp" ? "💬 WA" : "📞"}
             </span>
           ) : null}
+          {local.promo_entry ? (
+            <span className="ml-1.5 inline-block rounded bg-pink-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em] text-pink-700">
+              🎁 Promo Entry
+            </span>
+          ) : null}
         </td>
         <td className="px-4 py-3 text-sm text-ink">{local.full_name}</td>
         <td className="px-4 py-3 text-sm text-ink/70">{local.phone}</td>
@@ -607,7 +652,7 @@ export default function AdminOrderRow({ order, onUpdated, onStockAdded }: Props)
               </div>
 
               {/* Items + sourcing */}
-              <div>
+              <div className="min-w-0">
                 <div className="flex items-center gap-3">
                   <p className="text-[10px] uppercase tracking-[0.2em] text-ink/60">
                     Items{local.items && local.items.length ? ` (${local.items.length})` : ""}
@@ -615,11 +660,19 @@ export default function AdminOrderRow({ order, onUpdated, onStockAdded }: Props)
                   {(() => {
                     const total = local.items?.length ?? 0;
                     const sourced = local.items?.filter((it) => it.sourced).length ?? 0;
+                    const inLebanon = local.items?.filter((it) => it.in_lebanon).length ?? 0;
                     if (total === 0) return null;
                     return (
-                      <span className={"text-[10px] font-medium " + (sourced === total ? "text-green-600" : "text-amber-600")}>
-                        {sourced}/{total} ordered
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className={"text-[10px] font-medium " + (sourced === total ? "text-green-600" : "text-amber-600")}>
+                          {sourced}/{total} ordered
+                        </span>
+                        {(status === "ordered_selfridges" || status === "partially_delivered" || status === "ready_to_deliver") ? (
+                          <span className={"text-[10px] font-medium " + (inLebanon === total && total > 0 ? "text-green-600" : "text-ink/40")}>
+                            · {inLebanon}/{total} in Lebanon
+                          </span>
+                        ) : null}
+                      </div>
                     );
                   })()}
                 </div>
@@ -682,7 +735,7 @@ export default function AdminOrderRow({ order, onUpdated, onStockAdded }: Props)
                                   ))}
                                 </div>
                               </div>
-                              <div className="flex items-center gap-3">
+                              <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                                 <label className="text-[10px] uppercase tracking-[0.14em] text-ink/60 whitespace-nowrap">
                                   Cost (£)
                                 </label>
@@ -690,7 +743,7 @@ export default function AdminOrderRow({ order, onUpdated, onStockAdded }: Props)
                                   type="number"
                                   value={draft.cost_gbp}
                                   onChange={(e) => setItemDraft(it.id!, { cost_gbp: e.target.value })}
-                                  className="w-24 border border-ink/15 bg-white px-2 py-1 text-sm focus:border-accent focus:outline-none"
+                                  className="w-20 border border-ink/15 bg-white px-2 py-1 text-sm focus:border-accent focus:outline-none"
                                   placeholder="0.00"
                                   min="0"
                                   step="0.01"
@@ -702,8 +755,8 @@ export default function AdminOrderRow({ order, onUpdated, onStockAdded }: Props)
                                   type="number"
                                   value={draft.bank_rate}
                                   onChange={(e) => setItemDraft(it.id!, { bank_rate: e.target.value })}
-                                  className="w-20 border border-ink/15 bg-white px-2 py-1 text-sm focus:border-accent focus:outline-none"
-                                  placeholder="1.2740"
+                                  className="w-16 border border-ink/15 bg-white px-2 py-1 text-sm focus:border-accent focus:outline-none"
+                                  placeholder="1.274"
                                   min="0"
                                   step="0.0001"
                                 />
@@ -719,7 +772,7 @@ export default function AdminOrderRow({ order, onUpdated, onStockAdded }: Props)
                                   min="0"
                                   step="0.01"
                                 />
-                                <label className="flex items-center gap-1.5 text-[11px] text-ink/60 cursor-pointer">
+                                <label className="flex items-center gap-1.5 text-[11px] text-ink/60 cursor-pointer whitespace-nowrap">
                                   <input
                                     type="checkbox"
                                     checked={draft.sourced}
@@ -732,7 +785,7 @@ export default function AdminOrderRow({ order, onUpdated, onStockAdded }: Props)
                                   type="button"
                                   onClick={() => saveItem(it)}
                                   disabled={savingItem === it.id}
-                                  className="ml-auto rounded bg-ink/5 px-2.5 py-1 text-[11px] font-medium text-ink/70 hover:bg-ink/10 disabled:opacity-40"
+                                  className="rounded bg-ink/5 px-2.5 py-1 text-[11px] font-medium text-ink/70 hover:bg-ink/10 disabled:opacity-40"
                                 >
                                   {savingItem === it.id ? "Saving…" : "Save"}
                                 </button>
@@ -744,6 +797,26 @@ export default function AdminOrderRow({ order, onUpdated, onStockAdded }: Props)
                                 </p>
                               ) : null}
                             </div>
+                          ) : null}
+
+                          {/* Reached Lebanon toggle */}
+                          {it.id && (status === "ordered_selfridges" || status === "partially_delivered") ? (
+                            <div className="mt-2 border-t border-ink/10 pt-2">
+                              <label className="flex cursor-pointer items-center gap-2 text-[11px]">
+                                <input
+                                  type="checkbox"
+                                  checked={it.in_lebanon ?? false}
+                                  onChange={(e) => toggleInLebanon(it, e.target.checked)}
+                                  disabled={togglingLebanon === it.id}
+                                  className="accent-green-600"
+                                />
+                                <span className={it.in_lebanon ? "font-medium text-green-700" : "text-ink/60"}>
+                                  {togglingLebanon === it.id ? "Saving…" : it.in_lebanon ? "Reached Lebanon ✓" : "Reached Lebanon"}
+                                </span>
+                              </label>
+                            </div>
+                          ) : it.in_lebanon && status === "ready_to_deliver" ? (
+                            <p className="mt-2 border-t border-ink/10 pt-2 text-[11px] font-medium text-green-700">Reached Lebanon ✓</p>
                           ) : null}
 
                           {/* Inline edit panel */}
@@ -1015,6 +1088,30 @@ export default function AdminOrderRow({ order, onUpdated, onStockAdded }: Props)
                     </button>
                   ) : null}
 
+                  {status === "ordered_selfridges" && (local.items ?? []).some((it) => it.in_lebanon) ? (
+                    <button type="button" onClick={markPartialDelivered} disabled={busy !== null} className="btn-outline text-xs disabled:opacity-50">
+                      {busy === "partially_delivered" ? "Saving…" : "Partial Deliver"}
+                    </button>
+                  ) : null}
+
+                  {status === "ready_to_deliver" ? (
+                    <>
+                      <span className="text-sm font-medium text-green-700">All items in Lebanon ✓</span>
+                      <button type="button" onClick={markDelivered} disabled={busy !== null} className="btn-gold text-xs disabled:opacity-50">
+                        {busy === "delivered" ? "Saving…" : "Mark as Delivered"}
+                      </button>
+                    </>
+                  ) : null}
+
+                  {status === "partially_delivered" ? (
+                    <>
+                      <span className="text-sm font-medium" style={{ color: "#D97706" }}>Partially Delivered</span>
+                      <button type="button" onClick={markDelivered} disabled={busy !== null} className="btn-gold text-xs disabled:opacity-50">
+                        {busy === "delivered" ? "Saving…" : "Complete Delivery"}
+                      </button>
+                    </>
+                  ) : null}
+
                   {status === "shipped" || status === "in_lebanon" ? (
                     <button type="button" onClick={markDelivered} disabled={busy !== null} className="btn-gold text-xs disabled:opacity-50">
                       Mark as Delivered
@@ -1114,17 +1211,11 @@ export default function AdminOrderRow({ order, onUpdated, onStockAdded }: Props)
                 <div className="mt-3 grid gap-6 lg:grid-cols-2">
                   <div>
                     <label className="block text-[10px] uppercase tracking-[0.18em] text-ink/60">
-                      What we paid on Selfridges (GBP)
+                      Item cost (auto-calculated from sourcing)
                     </label>
-                    <input
-                      type="number"
-                      value={costGbp}
-                      onChange={(e) => setCostGbp(e.target.value)}
-                      className="mt-1 w-full border border-ink/15 bg-white px-3 py-2 text-sm focus:border-accent focus:outline-none"
-                      placeholder="0.00"
-                    />
-                    <p className="mt-1 text-xs text-ink/50">
-                      ≈ {usd(Number(costGbp) * rate || 0)} (rate {rate.toFixed(4)})
+                    <p className="mt-1 py-2 text-sm text-ink/70">
+                      {local.cost_usd != null ? usd(Number(local.cost_usd)) : <span className="text-ink/40">No item costs entered yet</span>}
+                      {local.cost_gbp != null ? <span className="ml-2 text-xs text-ink/40">/ £{Number(local.cost_gbp).toFixed(2)}</span> : null}
                     </p>
                     <label className="mt-4 block text-[10px] uppercase tracking-[0.18em] text-ink/60">
                       Platform fees (USD)
@@ -1144,25 +1235,29 @@ export default function AdminOrderRow({ order, onUpdated, onStockAdded }: Props)
                   <div className="border border-ink/10 bg-cream p-4 text-sm">
                     {(() => {
                       const revenue = Number(local.total_usd ?? local.price_usd) || 0;
-                      const costUsd = local.cost_usd != null ? Number(local.cost_usd) : Number(costGbp) * rate || 0;
+                      const costUsd = local.cost_usd != null ? Number(local.cost_usd) : null;
                       const fee = local.platform_fee_usd != null ? Number(local.platform_fee_usd) : Number(platformFee) || 0;
-                      const profit = local.profit_usd != null ? Number(local.profit_usd) : revenue - costUsd - fee;
-                      const margin = revenue > 0 ? (profit / revenue) * 100 : 0;
+                      const profit = local.profit_usd != null ? Number(local.profit_usd) : (costUsd != null ? revenue - costUsd - fee : null);
+                      const margin = revenue > 0 && profit != null ? (profit / revenue) * 100 : null;
                       return (
                         <>
                           <PnlLine label="Revenue" value={usd(revenue)} />
-                          <PnlLine label="Cost (Selfridges)" value={usd(costUsd)} />
+                          <PnlLine label="Cost (items)" value={costUsd != null ? usd(costUsd) : "—"} />
                           <PnlLine label="Platform fees" value={usd(fee)} />
                           <div className="mt-2 flex justify-between border-t border-ink/10 pt-2 font-medium">
                             <span>Net Profit</span>
-                            <span style={{ color: profit >= 0 ? "#277C43" : "#C0392B" }}>{usd(profit)}</span>
+                            <span style={{ color: profit != null ? (profit >= 0 ? "#277C43" : "#C0392B") : undefined }}>
+                              {profit != null ? usd(profit) : "—"}
+                            </span>
                           </div>
-                          <div className="flex justify-between text-xs text-ink/60">
-                            <span>Margin</span>
-                            <span>{margin.toFixed(0)}%</span>
-                          </div>
-                          {local.cost_usd == null ? (
-                            <p className="mt-2 text-[11px] text-ink/40">Live preview — not yet saved.</p>
+                          {margin != null ? (
+                            <div className="flex justify-between text-xs text-ink/60">
+                              <span>Margin</span>
+                              <span>{margin.toFixed(0)}%</span>
+                            </div>
+                          ) : null}
+                          {costUsd == null ? (
+                            <p className="mt-2 text-[11px] text-ink/40">Enter item costs in the sourcing tab.</p>
                           ) : null}
                         </>
                       );

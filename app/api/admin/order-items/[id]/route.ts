@@ -16,6 +16,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     cost_gbp?: number | string | null;
     cost_usd?: number | string | null;
     sourced?: boolean;
+    // Lebanon arrival toggle
+    in_lebanon?: boolean;
     // Product edit fields (new)
     product_name?: string;
     product_brand?: string;
@@ -29,6 +31,42 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const sql = getSql();
 
   const isProductEdit = body.product_name !== undefined || body.product_brand !== undefined;
+  const isLebanonToggle =
+    body.in_lebanon !== undefined &&
+    !isProductEdit &&
+    body.vendor === undefined &&
+    body.cost_gbp === undefined &&
+    body.cost_usd === undefined &&
+    body.sourced === undefined;
+
+  if (isLebanonToggle) {
+    await sql`UPDATE order_items SET in_lebanon = ${body.in_lebanon!} WHERE id = ${params.id}`;
+
+    const rows = (await sql`
+      SELECT id, order_id, in_lebanon FROM order_items WHERE id = ${params.id} LIMIT 1
+    `) as Array<{ id: string; order_id: string; in_lebanon: boolean }>;
+    const row = rows[0];
+    if (!row) return NextResponse.json({ ok: true });
+
+    let orderStatus: string | null = null;
+    const notInLb = (await sql`
+      SELECT COUNT(*)::int AS cnt FROM order_items
+      WHERE order_id = ${row.order_id} AND in_lebanon = false
+    `) as Array<{ cnt: number }>;
+
+    if ((notInLb[0]?.cnt ?? 1) === 0) {
+      const orderRows = (await sql`
+        SELECT status FROM orders WHERE id = ${row.order_id} LIMIT 1
+      `) as Array<{ status: string }>;
+      const curStatus = orderRows[0]?.status;
+      if (curStatus === "ordered_selfridges" || curStatus === "partially_delivered") {
+        await sql`UPDATE orders SET status = 'ready_to_deliver', updated_at = now() WHERE id = ${row.order_id}`;
+        orderStatus = "ready_to_deliver";
+      }
+    }
+
+    return NextResponse.json({ id: row.id, in_lebanon: row.in_lebanon, order_status: orderStatus });
+  }
 
   if (isProductEdit) {
     if (!body.product_brand?.trim() || !body.product_name?.trim()) {
@@ -99,6 +137,22 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const row = rows[0];
   if (!row) return NextResponse.json({ ok: true });
 
+  // Roll up item costs to the parent order.
+  const costSums = (await sql`
+    SELECT SUM(cost_usd) as total_cost_usd, SUM(cost_gbp) as total_cost_gbp
+    FROM order_items WHERE order_id = ${row.order_id}
+  `) as Array<{ total_cost_usd: string | null; total_cost_gbp: string | null }>;
+  const orderMeta = (await sql`
+    SELECT coalesce(total_usd, price_usd, 0) as revenue, coalesce(platform_fee_usd, 0) as platform_fee
+    FROM orders WHERE id = ${row.order_id} LIMIT 1
+  `) as Array<{ revenue: string | number; platform_fee: string | number }>;
+
+  const totalCostUsd = costSums[0]?.total_cost_usd != null ? Math.round(Number(costSums[0].total_cost_usd) * 100) / 100 : null;
+  const totalCostGbp = costSums[0]?.total_cost_gbp != null ? Math.round(Number(costSums[0].total_cost_gbp) * 100) / 100 : null;
+  const revenue = Number(orderMeta[0]?.revenue) || 0;
+  const platformFee = Number(orderMeta[0]?.platform_fee) || 0;
+  const profitUsd = totalCostUsd != null ? Math.round((revenue - totalCostUsd - platformFee) * 100) / 100 : null;
+
   let orderStatus: string | null = null;
   if (body.sourced === true) {
     const orderRows = (await sql`
@@ -114,12 +168,29 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       if ((unsourced[0]?.cnt ?? 1) === 0) {
         await sql`
           UPDATE orders
-          SET status = 'ordered_selfridges', ordered_selfridges_at = now(), updated_at = now()
+          SET status = 'ordered_selfridges', ordered_selfridges_at = now(),
+              cost_usd = ${totalCostUsd}, cost_gbp = ${totalCostGbp}, profit_usd = ${profitUsd},
+              updated_at = now()
           WHERE id = ${row.order_id}
         `;
         orderStatus = "ordered_selfridges";
+      } else {
+        await sql`
+          UPDATE orders SET cost_usd = ${totalCostUsd}, cost_gbp = ${totalCostGbp}, profit_usd = ${profitUsd}, updated_at = now()
+          WHERE id = ${row.order_id}
+        `;
       }
+    } else {
+      await sql`
+        UPDATE orders SET cost_usd = ${totalCostUsd}, cost_gbp = ${totalCostGbp}, profit_usd = ${profitUsd}, updated_at = now()
+        WHERE id = ${row.order_id}
+      `;
     }
+  } else {
+    await sql`
+      UPDATE orders SET cost_usd = ${totalCostUsd}, cost_gbp = ${totalCostGbp}, profit_usd = ${profitUsd}, updated_at = now()
+      WHERE id = ${row.order_id}
+    `;
   }
 
   return NextResponse.json({
@@ -129,7 +200,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     cost_usd: row.cost_usd,
     sourced: row.sourced,
     order_id: row.order_id,
-    order_status: orderStatus
+    order_status: orderStatus,
+    order_cost_usd: totalCostUsd,
+    order_cost_gbp: totalCostGbp,
+    order_profit_usd: profitUsd
   });
 }
 

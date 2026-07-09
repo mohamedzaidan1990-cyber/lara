@@ -8,6 +8,7 @@ export interface InvoiceOrder {
   payment_method?: string | null;
   total_usd: number;
   amount_paid_usd?: number;
+  promo_entry?: boolean;
 }
 
 export interface InvoiceCustomer {
@@ -76,12 +77,18 @@ export function generateInvoice(order: InvoiceOrder, customer: InvoiceCustomer, 
   doc.text(`Invoice #: ${order.order_number}`, right, 27, { align: "right" });
   doc.text(`Date: ${fmtDate(order.created_at)}`, right, 32, { align: "right" });
 
-  // Status
+  // Status — driven by amount_paid_usd, not the workflow flag payment_confirmed
+  const _amountPaidStatus = order.amount_paid_usd ?? 0;
+  const _isFullyPaid = _amountPaidStatus >= order.total_usd && order.total_usd > 0;
+  const _isPartialStatus = _amountPaidStatus > 0 && _amountPaidStatus < order.total_usd;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
-  if (order.payment_confirmed) {
+  if (_isFullyPaid) {
     doc.setTextColor(...GREEN);
     doc.text("STATUS: PAID", right, 38, { align: "right" });
+  } else if (_isPartialStatus) {
+    doc.setTextColor(180, 100, 0);
+    doc.text("STATUS: PARTIAL", right, 38, { align: "right" });
   } else {
     doc.setTextColor(...MUTED);
     doc.text("STATUS: UNPAID", right, 38, { align: "right" });
@@ -110,6 +117,18 @@ export function generateInvoice(order: InvoiceOrder, customer: InvoiceCustomer, 
   const addressLines = doc.splitTextToSize(customer.address || "—", 90);
   doc.text(addressLines, left, y);
   y += addressLines.length * 5;
+
+  // ---- Promo banner (above items table when promo_entry is true) ----
+  if (order.promo_entry) {
+    const bannerY = y + 4;
+    doc.setFillColor(...GOLD);
+    doc.roundedRect(left, bannerY, right - left, 10, 2, 2, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(255, 255, 255);
+    doc.text("Huda Beauty × Seasons by B Offer", pageWidth / 2, bannerY + 6.5, { align: "center" });
+    y = bannerY + 14;
+  }
 
   // ---- Items table ----
   const startY = Math.max(y + 6, 90);
@@ -143,6 +162,7 @@ export function generateInvoice(order: InvoiceOrder, customer: InvoiceCustomer, 
   const afterTable: number = doc.lastAutoTable?.finalY ?? startY + 40;
   let py = afterTable + 12;
   const amountPaid = order.amount_paid_usd ?? 0;
+  const isFullyPaid = amountPaid >= order.total_usd && order.total_usd > 0;
   const isPartial = amountPaid > 0 && amountPaid < order.total_usd;
   const balanceDue = Math.max(0, order.total_usd - amountPaid);
 
@@ -160,16 +180,40 @@ export function generateInvoice(order: InvoiceOrder, customer: InvoiceCustomer, 
     doc.setTextColor(180, 100, 0);
     doc.text(`Amount received: ${usd(amountPaid)}`, left, py);
     py += 5;
-    doc.text(`Balance due on delivery: ${usd(balanceDue)}`, left, py);
+    doc.text(`Balance due: ${usd(balanceDue)}`, left, py);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(...MUTED);
     py += 5;
     doc.text("Confirmed by: Seasons by B team", left, py);
+    py += 6;
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...GOLD);
+    doc.text("Please pay the remaining balance via Whish transfer to: 03055491", left, py);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...MUTED);
   } else {
-    doc.text(`Payment status: ${order.payment_confirmed ? "Paid in Full" : "Pending"}`, left, py);
+    doc.text(`Payment status: ${isFullyPaid ? "Paid in Full" : "Pending"}`, left, py);
     py += 5;
     doc.text("Confirmed by: Seasons by B team", left, py);
+    if (!isFullyPaid) {
+      py += 6;
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...GOLD);
+      doc.text("Please pay via Whish transfer to: 03055491", left, py);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(...MUTED);
+    }
   }
+
+  // ---- Delivery charge note (all invoices) ----
+  py += 8;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.setTextColor(...INK);
+  doc.text("Delivery charge: $5.00", left, py);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(...MUTED);
+  doc.text("  — payable in cash to the delivery driver upon delivery.", left + 32, py);
 
   // ---- Footer ----
   const footY = pageHeight - 26;

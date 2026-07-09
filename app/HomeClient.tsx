@@ -7,6 +7,7 @@ import ProductCard, { type ProductCardData } from "@/components/ProductCard";
 import type { CategoryStat } from "@/lib/categories";
 import { whatsappRequestLink } from "@/lib/links";
 import HeroSection from "@/components/HeroSection";
+import PromoSection from "@/components/PromoSection";
 import AutoVideo from "@/components/AutoVideo";
 import BeeLoader from "@/components/BeeLoader";
 import { BeeMascot } from "@/components/BeeMascot";
@@ -31,6 +32,8 @@ export default function HomeClient({ categories }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState("All");
   const [sort, setSort] = useState<SearchSort>("relevant");
+
+  const bespoke = whatsappRequestLink();
 
   useEffect(() => {
     setError(null);
@@ -63,29 +66,46 @@ export default function HomeClient({ categories }: Props) {
     }
   }
 
-  // Client-side filter + sort applied on top of the API results.
   const displayedResults = results
     ? [...results]
         .filter((p) => activeCategory === "All" || p.category === activeCategory)
         .sort((a, b) => {
           if (sort === "price-asc") return (a.price_usd ?? 0) - (b.price_usd ?? 0);
           if (sort === "price-desc") return (b.price_usd ?? 0) - (a.price_usd ?? 0);
-          return 0; // "relevant" — keep API order
+          return 0;
         })
     : null;
 
+  function clearSearch() {
+    setResults(null);
+    setQuery("");
+  }
+
   return (
-    <div>
-      <HeroSection />
+    <div className="flex flex-col">
 
-      <ShadeFinderBanner />
-
-      <section id="shop" className="mx-auto max-w-7xl px-4 pt-16 sm:px-6 lg:px-8">
-        <SearchBar query={query} setQuery={setQuery} onSubmit={runSearch} />
+      {/* ── 1 MOBILE / 5 DESKTOP: Search + mobile-only CTA buttons ── */}
+      <section
+        id="shop"
+        className="order-1 lg:order-5 mx-auto w-full max-w-7xl px-4 pt-6 pb-2 sm:px-6 lg:px-8 lg:pt-16 lg:pb-0"
+      >
+        <div className="text-center">
+          <p className="text-[11px] uppercase tracking-[0.32em] text-accent">Search the edit</p>
+          <h2 className="mt-2 font-serif text-3xl text-ink">What are you looking for?</h2>
+          <div className="mt-6">
+            <SearchAutocomplete query={query} setQuery={setQuery} onSubmit={runSearch} />
+          </div>
+        </div>
+        {/* Shop Now + Request Bespoke — visible on mobile only, sit right under search */}
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-3 lg:hidden">
+          <Link href="#shop-categories" className="btn-primary">Shop Now</Link>
+          <a href={bespoke} target="_blank" rel="noreferrer" className="btn-outline">Request Bespoke</a>
+        </div>
       </section>
 
-      {results !== null ? (
-        <section className="mx-auto max-w-7xl px-4 pb-16 pt-10 sm:px-6 lg:px-8">
+      {/* ── 2 MOBILE / 6 DESKTOP: Search results (when active) ── */}
+      {results !== null && (
+        <section className="order-2 lg:order-6 mx-auto w-full max-w-7xl px-4 pb-16 pt-8 sm:px-6 lg:px-8">
           <div className="mb-5 flex items-end justify-between">
             <h2 className="font-serif text-2xl text-ink">
               {loading ? "Searching…" : `Results for "${query}"`}
@@ -93,19 +113,14 @@ export default function HomeClient({ categories }: Props) {
             <button
               type="button"
               className="text-xs uppercase tracking-[0.2em] text-ink/60 hover:text-accent"
-              onClick={() => {
-                setResults(null);
-                setQuery("");
-              }}
+              onClick={clearSearch}
             >
               Clear
             </button>
           </div>
 
-          {/* Filter + sort controls */}
-          {!loading && results.length > 0 ? (
+          {!loading && results.length > 0 && (
             <div className="mb-6 flex flex-wrap items-center gap-3">
-              {/* Category chips */}
               <div className="flex flex-wrap gap-2">
                 {SEARCH_CATEGORIES.map((cat) => (
                   <button
@@ -123,8 +138,6 @@ export default function HomeClient({ categories }: Props) {
                   </button>
                 ))}
               </div>
-
-              {/* Sort */}
               <div className="ml-auto">
                 <select
                   value={sort}
@@ -137,13 +150,13 @@ export default function HomeClient({ categories }: Props) {
                 </select>
               </div>
             </div>
-          ) : null}
+          )}
 
-          {loading ? <BeeLoader fullScreen={false} /> : null}
-          {error ? (
+          {loading && <BeeLoader fullScreen={false} />}
+          {error && (
             <p className="rounded border border-accent/40 bg-accent/5 p-4 text-sm text-accent-700">{error}</p>
-          ) : null}
-          {!loading && displayedResults !== null && displayedResults.length === 0 ? (
+          )}
+          {!loading && displayedResults !== null && displayedResults.length === 0 && (
             <div className="flex flex-col items-center gap-4 rounded border border-ink/10 bg-ink/[0.02] p-12 text-center">
               <BeeMascot variant="floating" />
               <p className="text-sm text-ink/60">
@@ -152,42 +165,51 @@ export default function HomeClient({ categories }: Props) {
                   : "No products matched. Try a different search — or send our bee a bespoke request below."}
               </p>
             </div>
-          ) : null}
-          {!loading && displayedResults !== null && displayedResults.length > 0 ? (
+          )}
+          {!loading && displayedResults !== null && displayedResults.length > 0 && (
             <div className="grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
               {displayedResults.map((p, i) => (
                 <ProductCard key={(p.product_url || p.name) + i} product={p} index={i} />
               ))}
             </div>
-          ) : null}
+          )}
         </section>
-      ) : (
-        <>
-          <CategoryCards categories={categories} />
-          <KBeautyTeaser />
-        </>
       )}
 
-      <BespokeSection />
+      {/* ── 3 MOBILE / 2 DESKTOP: Promo ── */}
+      <div id="promo" className="order-3 lg:order-2">
+        <PromoSection />
+      </div>
 
-      <WhySeasons />
-    </div>
-  );
-}
+      {/* ── 4 MOBILE / 1 DESKTOP: Hero ── */}
+      <div className="order-4 lg:order-1">
+        <HeroSection />
+      </div>
 
-interface SearchBarProps {
-  query: string;
-  setQuery: (v: string) => void;
-  onSubmit: (e: React.FormEvent) => void;
-}
+      {/* ── 5 MOBILE / 3 DESKTOP: Huda Beauty banner ── */}
+      <div className="order-5 lg:order-3">
+        <HudaBeautyBanner />
+      </div>
 
-function SearchBar({ query, setQuery, onSubmit }: SearchBarProps) {
-  return (
-    <div className="text-center">
-      <p className="text-[11px] uppercase tracking-[0.32em] text-accent">Search the edit</p>
-      <h2 className="mt-2 font-serif text-3xl text-ink">What are you looking for?</h2>
-      <div className="mt-6">
-        <SearchAutocomplete query={query} setQuery={setQuery} onSubmit={onSubmit} />
+      {/* ── 6 MOBILE / 4 DESKTOP: Shade Finder banner ── */}
+      <div className="order-6 lg:order-4">
+        <ShadeFinderBanner />
+      </div>
+
+      {/* ── 7 MOBILE+DESKTOP: Category cards (hidden when search results active) ── */}
+      {results === null && (
+        <div id="shop-categories" className="order-7 lg:order-7">
+          <CategoryCards categories={categories} />
+          <KBeautyTeaser />
+        </div>
+      )}
+
+      <div className="order-8">
+        <BespokeSection />
+      </div>
+
+      <div className="order-9">
+        <WhySeasons />
       </div>
     </div>
   );
@@ -202,9 +224,7 @@ function ShadeFinderBanner() {
         style={{ background: "linear-gradient(110deg, #ffe6f4 0%, #f080c0 55%, #ffd6ee 100%)" }}
       >
         <div className="flex items-center gap-4">
-          <span className="text-3xl" aria-hidden>
-            🐝
-          </span>
+          <span className="text-3xl" aria-hidden>🐝</span>
           <div>
             <p className="text-[10px] uppercase tracking-[0.28em] text-ink/60">AI Shade Finder</p>
             <p className="mt-1 font-serif text-xl text-ink sm:text-2xl">
@@ -300,9 +320,7 @@ function BespokeSection() {
           <ul className="mt-7 space-y-3">
             {features.map((f) => (
               <li key={f.t} className="flex items-start gap-3 text-sm text-ink/80">
-                <span aria-hidden className="mt-0.5">
-                  🐝
-                </span>
+                <span aria-hidden className="mt-0.5">🐝</span>
                 <span>
                   <strong className="text-ink">{f.t}</strong> — {f.d}
                 </span>
@@ -325,12 +343,9 @@ function BespokeSection() {
   );
 }
 
-// Brand film for the personal-sourcing section. Autoplays on loop; tap the
-// speaker to play its sound (replaces the old floating-accessory collage).
 function HeroVideo() {
   return (
     <div className="relative mx-auto w-full max-w-lg">
-      {/* soft glow behind the film */}
       <div className="absolute -inset-6 rounded-[2.75rem] bg-accent/15 blur-3xl" aria-hidden />
       <AutoVideo
         src="/hero.mp4"
@@ -342,6 +357,46 @@ function HeroVideo() {
   );
 }
 
+function HudaBeautyBanner() {
+  return (
+    <div className="mx-auto mt-6 max-w-7xl px-4 sm:px-6 lg:px-8">
+      <Link
+        href="/brand/huda-beauty"
+        className="group relative block overflow-hidden rounded-[2rem] border border-white/10 shadow-soft transition-all duration-300 hover:-translate-y-1 hover:shadow-pop"
+        style={{ background: "linear-gradient(110deg, #1a0412 0%, #3d0a28 45%, #1a0412 100%)" }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="https://hudabeauty.com/cdn/shop/files/01-NEVER-TOO-MUCH-KIT_beacdb2c-e21d-4fcb-a492-a626103f2ca5.webp?v=1777873077"
+          alt=""
+          aria-hidden
+          className="pointer-events-none absolute right-0 top-0 h-full w-1/2 object-cover opacity-30 transition-opacity duration-500 group-hover:opacity-40"
+          style={{ maskImage: "linear-gradient(to left, black 40%, transparent 100%)" }}
+        />
+        <div className="relative flex flex-col items-start justify-between gap-6 p-8 sm:flex-row sm:items-center">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.36em]" style={{ color: "#e040a0", textShadow: "0 0 10px rgba(224,64,160,0.7)" }}>
+              Now on Seasons
+            </p>
+            <h3 className="mt-2 font-serif text-2xl sm:text-3xl" style={{ color: "#f06ec0", textShadow: "0 0 8px rgba(224,64,160,0.5)" }}>
+              Huda Beauty Collection
+            </h3>
+            <p className="mt-2 max-w-sm text-sm" style={{ color: "#d458a8" }}>
+              Fragrances, makeup, kits and more — sourced from London, delivered to your door in Lebanon.
+            </p>
+          </div>
+          <span
+            className="inline-flex shrink-0 items-center gap-2 rounded-full px-6 py-3 text-xs font-bold uppercase tracking-[0.16em] text-white shadow-lg transition-all group-hover:scale-[1.05]"
+            style={{ background: "#e040a0", boxShadow: "0 4px 18px rgba(224,64,160,0.5)" }}
+          >
+            Shop Huda Beauty →
+          </span>
+        </div>
+      </Link>
+    </div>
+  );
+}
+
 function KBeautyTeaser() {
   return (
     <section className="mx-auto max-w-7xl px-4 pb-6 sm:px-6 lg:px-8">
@@ -349,16 +404,11 @@ function KBeautyTeaser() {
         href="/k-beauty"
         className="group relative block overflow-hidden rounded-[2rem] border border-white/60 shadow-soft transition-all duration-300 hover:-translate-y-1 hover:shadow-pop"
         style={{
-          background:
-            "linear-gradient(135deg, #ffe0ef 0%, #f97db8 45%, #c94f92 80%, #8a2560 100%)"
+          background: "linear-gradient(135deg, #ffe0ef 0%, #f97db8 45%, #c94f92 80%, #8a2560 100%)"
         }}
       >
-        <span aria-hidden className="pointer-events-none absolute right-6 top-4 text-6xl opacity-20">
-          🌸
-        </span>
-        <span aria-hidden className="pointer-events-none absolute right-20 bottom-4 text-3xl opacity-15">
-          🌸
-        </span>
+        <span aria-hidden className="pointer-events-none absolute right-6 top-4 text-6xl opacity-20">🌸</span>
+        <span aria-hidden className="pointer-events-none absolute right-20 bottom-4 text-3xl opacity-15">🌸</span>
         <div className="relative flex flex-col items-start justify-between gap-6 p-8 sm:flex-row sm:items-center">
           <div>
             <p className="text-[10px] uppercase tracking-[0.36em] text-white/70">New on Seasons</p>

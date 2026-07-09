@@ -288,13 +288,40 @@ h4,
   transform: scaleX(1);
 }
 
+/* ===== Promo section — Ken Burns background ===== */
+@keyframes kenBurns {
+  0%   { transform: scale(1)    translate(0%,   0%);  }
+  25%  { transform: scale(1.06) translate(-1.5%, 0.5%); }
+  50%  { transform: scale(1.1)  translate(-1%,  1.5%); }
+  75%  { transform: scale(1.06) translate(0.5%, 1%);  }
+  100% { transform: scale(1)    translate(0%,   0%);  }
+}
+@keyframes promoGlow {
+  0%, 100% { opacity: 0.18; }
+  50%       { opacity: 0.32; }
+}
+@keyframes promoDots {
+  0%   { transform: translateY(0); }
+  50%  { transform: translateY(-4px); }
+  100% { transform: translateY(0); }
+}
+.promo-bg-anim {
+  animation: kenBurns 22s ease-in-out infinite;
+  will-change: transform;
+}
+.promo-glow-anim {
+  animation: promoGlow 6s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .bee-wings,
   .bee-anim-floating,
   .bee-anim-loading,
   .bee-anim-success,
   .gold-shimmer::after,
-  .bespoke-pulse {
+  .bespoke-pulse,
+  .promo-bg-anim,
+  .promo-glow-anim {
     animation: none !important;
   }
 }

@@ -88,7 +88,10 @@ export default function AdminAwaitingOrderTab({ orders, onOrderUpdated }: Props)
         })
       });
       if (!res.ok) throw new Error("Save failed");
-      const updated = await res.json() as { vendor: string | null; cost_gbp: string | null; cost_usd: string | null; sourced: boolean; order_status?: string | null };
+      const updated = await res.json() as {
+        vendor: string | null; cost_gbp: string | null; cost_usd: string | null; sourced: boolean; order_status?: string | null;
+        order_cost_usd?: number | null; order_cost_gbp?: number | null; order_profit_usd?: number | null;
+      };
       const nextItems = (order.items ?? []).map((it) =>
         it.id === item.id
           ? { ...it, vendor: updated.vendor, cost_gbp: updated.cost_gbp, cost_usd: updated.cost_usd, sourced: updated.sourced }
@@ -97,7 +100,10 @@ export default function AdminAwaitingOrderTab({ orders, onOrderUpdated }: Props)
       const statusPatch = updated.order_status
         ? { status: updated.order_status as OrderStatus, ordered_selfridges_at: new Date().toISOString() }
         : {};
-      onOrderUpdated({ ...order, items: nextItems, ...statusPatch });
+      const costPatch = updated.order_cost_usd !== undefined
+        ? { cost_usd: updated.order_cost_usd, cost_gbp: updated.order_cost_gbp, profit_usd: updated.order_profit_usd }
+        : {};
+      onOrderUpdated({ ...order, items: nextItems, ...statusPatch, ...costPatch });
     } catch (err) {
       alert((err as Error).message);
     } finally {
@@ -130,7 +136,10 @@ export default function AdminAwaitingOrderTab({ orders, onOrderUpdated }: Props)
         })
       });
       if (!res.ok) throw new Error("Save failed");
-      const updated = await res.json() as { vendor: string | null; cost_gbp: string | null; cost_usd: string | null; sourced: boolean; order_status?: string | null };
+      const updated = await res.json() as {
+        vendor: string | null; cost_gbp: string | null; cost_usd: string | null; sourced: boolean; order_status?: string | null;
+        order_cost_usd?: number | null; order_cost_gbp?: number | null; order_profit_usd?: number | null;
+      };
       const nextItems = (fi.order.items ?? []).map((it) =>
         it.id === item.id
           ? { ...it, vendor: updated.vendor, cost_gbp: updated.cost_gbp, cost_usd: updated.cost_usd, sourced: updated.sourced }
@@ -139,7 +148,10 @@ export default function AdminAwaitingOrderTab({ orders, onOrderUpdated }: Props)
       const statusPatch = updated.order_status
         ? { status: updated.order_status as OrderStatus, ordered_selfridges_at: new Date().toISOString() }
         : {};
-      onOrderUpdated({ ...fi.order, items: nextItems, ...statusPatch });
+      const costPatch = updated.order_cost_usd !== undefined
+        ? { cost_usd: updated.order_cost_usd, cost_gbp: updated.order_cost_gbp, profit_usd: updated.order_profit_usd }
+        : {};
+      onOrderUpdated({ ...fi.order, items: nextItems, ...statusPatch, ...costPatch });
     } catch (err) {
       alert((err as Error).message);
       setDraft(item.id, { sourced: !next }); // revert

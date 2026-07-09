@@ -63,10 +63,11 @@ export default function HeroSection() {
           >
             Luxury beauty, skincare and personal sourcing — curated in London, delivered to your door with a pop of joy in 10–14 days.
           </motion.p>
+          {/* Buttons hidden on mobile — shown at top under search instead */}
           <motion.div
             variants={fade}
             transition={{ duration: 0.6 }}
-            className="mt-8 flex flex-wrap items-center gap-3"
+            className="mt-8 hidden flex-wrap items-center gap-3 lg:flex"
           >
             <Link href="#shop" className="btn-primary">
               Shop Now

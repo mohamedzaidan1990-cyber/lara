@@ -51,6 +51,7 @@ export async function GET() {
            o.payment_screenshot, o.notes, o.created_at, o.updated_at,
            o.invoice_sent_at, o.tracking_number,
            o.cost_gbp, o.cost_usd, o.platform_fee_usd, o.profit_usd, o.profit_notes,
+           o.promo_entry,
            coalesce(c.full_name, '') as full_name,
            coalesce(c.phone, '') as phone,
            coalesce(c.address, '') as address,
@@ -135,6 +136,10 @@ export async function POST(req: Request) {
   const summaryBrand = items.length === 1 ? items[0].brand : "Multiple brands";
   const summaryUrl = items[0].product_url ?? null;
 
+  // Promo eligibility is now determined at payment confirmation time (generate-invoice),
+  // not at order placement. Orders always start with promo_entry = false.
+  const promoEntry = false;
+
   await ensureSchema();
   const sql = getSql();
 
@@ -156,12 +161,12 @@ export async function POST(req: Request) {
       inserted = (await sql`
         insert into orders (
           order_number, customer_id, customer_email, product_name, product_brand, product_url,
-          price_gbp, price_usd, total_gbp, total_usd, items_count, payment_method, payment_screenshot, notes
+          price_gbp, price_usd, total_gbp, total_usd, items_count, payment_method, payment_screenshot, notes, promo_entry
         )
         values (
           ${orderNumber}, ${customerId}, ${cust.email}, ${summaryName}, ${summaryBrand}, ${summaryUrl},
           ${totalGBP}, ${totalUSD}, ${totalGBP}, ${totalUSD}, ${itemsCount},
-          ${body.payment_method ?? null}, ${body.payment_screenshot ?? null}, ${cust.notes ?? null}
+          ${body.payment_method ?? null}, ${body.payment_screenshot ?? null}, ${cust.notes ?? null}, ${promoEntry}
         )
         returning id, order_number
       `) as Array<{ id: string; order_number: string }>;

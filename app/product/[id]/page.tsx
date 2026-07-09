@@ -3,8 +3,12 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import ProductCard from "@/components/ProductCard";
 import { getProductById, getRelatedProducts } from "@/lib/products";
+import { getSql } from "@/lib/db";
 import { categorySlug } from "@/lib/categories";
 import ProductDetailClient from "./ProductDetailClient";
+
+const SUMMER_SET_URL = "https://hudabeauty.com/en-qa/products/summers-hottest-look-set_136";
+const EDP_URL = "https://hudabeauty.com/en-qa/products/easy-bake-intense-eau-de-parfum-travel-spray-10ml-hb01781";
 
 interface Params {
   id: string;
@@ -28,6 +32,20 @@ export default async function ProductPage({ params }: { params: Params }) {
   const related = await getRelatedProducts(product.category, product.id, 4);
   const slug = categorySlug(product.category);
 
+  // If this is the Summer's Hottest Look Set, fetch the EDP gift product to auto-add it to cart.
+  let promoGift: { id: string; brand: string; name: string; price_usd: number; price_gbp: number; image_url: string | null; product_url: string | null; category: string } | null = null;
+  if (product.product_url === SUMMER_SET_URL) {
+    try {
+      const sql = getSql();
+      const rows = await sql`
+        select id, brand, name, price_gbp::float as price_gbp, price_usd::float as price_usd,
+               product_url, image_url, category
+        from products where product_url = ${EDP_URL} limit 1
+      ` as Array<{ id: string; brand: string; name: string; price_gbp: number; price_usd: number; product_url: string | null; image_url: string | null; category: string }>;
+      promoGift = rows[0] ?? null;
+    } catch { /* non-fatal */ }
+  }
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
       <nav aria-label="Breadcrumb" className="text-[11px] uppercase tracking-[0.2em] text-ink/60">
@@ -47,7 +65,7 @@ export default async function ProductPage({ params }: { params: Params }) {
       </nav>
 
       <div className="mt-8">
-        <ProductDetailClient product={product} />
+        <ProductDetailClient product={product} promoGift={promoGift} />
       </div>
 
       {related.length > 0 ? (

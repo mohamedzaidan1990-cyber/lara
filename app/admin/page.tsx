@@ -27,7 +27,8 @@ export default async function AdminPage() {
              (select json_agg(json_build_object(
                 'id', oi.id, 'brand', oi.product_brand, 'name', oi.product_name, 'quantity', oi.quantity,
                 'price_usd', oi.price_usd, 'price_gbp', oi.price_gbp, 'product_url', oi.product_url,
-                'vendor', oi.vendor, 'cost_gbp', oi.cost_gbp, 'cost_usd', oi.cost_usd, 'sourced', oi.sourced
+                'vendor', oi.vendor, 'cost_gbp', oi.cost_gbp, 'cost_usd', oi.cost_usd, 'sourced', oi.sourced,
+                'in_lebanon', oi.in_lebanon
               )) from order_items oi where oi.order_id = o.id),
              '[]'
            ) as items

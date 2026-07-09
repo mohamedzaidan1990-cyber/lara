@@ -13,6 +13,7 @@ export interface CartItem {
   product_url: string;
   category: string;
   quantity: number;
+  is_promo_gift?: boolean;
 }
 
 interface CartState {

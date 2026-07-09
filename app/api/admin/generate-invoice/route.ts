@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { ensureSchema, getSql } from "@/lib/db";
 import { isAdmin } from "@/lib/auth";
 import { generateInvoice, type InvoiceItem } from "@/lib/invoice";
-import { sendInvoiceEmail } from "@/lib/email";
+import { sendInvoiceEmail, sendPromoEmail } from "@/lib/email";
 import { sendWhatsAppText } from "@/lib/whatsapp";
 
 export const runtime = "nodejs";
@@ -18,6 +18,7 @@ interface OrderJoin {
   created_at: string;
   amount_paid_usd: string | number | null;
   payment_confirmed: boolean | null;
+  promo_entry: boolean | null;
   full_name: string;
   phone: string;
   address: string;
@@ -37,7 +38,7 @@ export async function POST(req: Request) {
 
   const rows = (await sql`
     select o.id, o.order_number, o.customer_email, o.payment_method, o.total_usd, o.price_usd, o.created_at,
-           o.amount_paid_usd, o.payment_confirmed,
+           o.amount_paid_usd, o.payment_confirmed, o.promo_entry,
            coalesce(c.full_name, '') as full_name,
            coalesce(c.phone, '') as phone,
            coalesce(c.address, '') as address
@@ -52,9 +53,9 @@ export async function POST(req: Request) {
   }
 
   const itemRows = (await sql`
-    select product_brand as brand, product_name as name, quantity, price_usd
+    select product_brand as brand, product_name as name, quantity, price_usd, product_url
     from order_items where order_id = ${order.id} order by created_at asc
-  `) as Array<{ brand: string; name: string; quantity: number; price_usd: string | number }>;
+  `) as Array<{ brand: string; name: string; quantity: number; price_usd: string | number; product_url: string | null }>;
 
   const items: InvoiceItem[] =
     itemRows.length > 0
@@ -63,14 +64,29 @@ export async function POST(req: Request) {
 
   const totalUsd = Number(order.total_usd ?? order.price_usd) || items.reduce((s, it) => s + it.price_usd * it.quantity, 0);
 
+  // Promo eligibility: buying the Huda Beauty × Seasons by B Kit.
+  const KIT_URL = "https://seasonsbyb.co.uk/kit/huda-x-snb-2026";
+  const hasSet = itemRows.some(
+    (r) => r.product_url === KIT_URL || r.name.toLowerCase().includes("huda beauty × seasons by b kit")
+  );
+  let promoEntry = !!order.promo_entry;
+  if (hasSet && !promoEntry) {
+    const countRows = (await sql`
+      select count(*)::int as n from orders
+      where promo_entry = true and payment_confirmed = true and status not in ('cancelled', 'refunded')
+    `) as Array<{ n: number }>;
+    if (Number(countRows[0]?.n ?? 0) < 10) promoEntry = true;
+  }
+
   const pdf = generateInvoice(
     {
       order_number: order.order_number,
       created_at: order.created_at,
-      payment_confirmed: !!order.payment_confirmed,
+      payment_confirmed: true,
       payment_method: order.payment_method,
       total_usd: totalUsd,
-      amount_paid_usd: Number(order.amount_paid_usd) || undefined
+      amount_paid_usd: Number(order.amount_paid_usd) || undefined,
+      promo_entry: promoEntry
     },
     { full_name: order.full_name, email: order.customer_email ?? "", phone: order.phone, address: order.address },
     items
@@ -80,11 +96,25 @@ export async function POST(req: Request) {
   await sql`
     update orders
     set invoice_pdf = ${base64}, invoice_sent_at = now(),
-        payment_confirmed = true, status = 'payment_confirmed', updated_at = now()
+        payment_confirmed = true, status = 'payment_confirmed',
+        promo_entry = ${promoEntry}, updated_at = now()
     where id = ${order.id}
   `;
 
   const firstName = (order.full_name || "there").split(" ")[0];
+
+  // If promo entry, get the current entry number for the email.
+  let promoEntryNumber = 0;
+  if (promoEntry && order.customer_email) {
+    try {
+      const countRows = (await sql`
+        select count(*)::int as n from orders
+        where promo_entry = true and payment_confirmed = true and status not in ('cancelled', 'refunded')
+      `) as Array<{ n: number }>;
+      promoEntryNumber = Number(countRows[0]?.n ?? 1);
+    } catch { /* non-fatal */ }
+  }
+
   // Fire-and-forget notifications.
   try {
     await Promise.all([
@@ -95,6 +125,14 @@ export async function POST(req: Request) {
             customerName: order.full_name,
             pdfBase64: base64
           }).catch((err) => console.error("sendInvoiceEmail error", err))
+        : Promise.resolve(),
+      promoEntry && order.customer_email
+        ? sendPromoEmail({
+            orderNumber: order.order_number,
+            customerEmail: order.customer_email,
+            customerName: order.full_name,
+            entryNumber: promoEntryNumber || 1
+          }).catch((err) => console.error("sendPromoEmail error", err))
         : Promise.resolve(),
       order.phone
         ? sendWhatsAppText(

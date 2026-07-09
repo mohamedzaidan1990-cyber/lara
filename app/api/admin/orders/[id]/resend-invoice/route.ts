@@ -17,6 +17,7 @@ interface OrderJoin {
   created_at: string;
   amount_paid_usd: string | number | null;
   payment_confirmed: boolean | null;
+  promo_entry: boolean | null;
   full_name: string;
   phone: string;
   address: string;
@@ -32,7 +33,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
   const rows = (await sql`
     SELECT o.id, o.order_number, o.customer_email, o.payment_method, o.total_usd, o.price_usd,
-           o.created_at, o.amount_paid_usd, o.payment_confirmed,
+           o.created_at, o.amount_paid_usd, o.payment_confirmed, o.promo_entry,
            COALESCE(c.full_name, '') AS full_name,
            COALESCE(c.phone, '') AS phone,
            COALESCE(c.address, '') AS address
@@ -65,6 +66,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       payment_method: order.payment_method,
       total_usd: totalUsd,
       amount_paid_usd: Number(order.amount_paid_usd) || undefined,
+      promo_entry: !!order.promo_entry,
     },
     { full_name: order.full_name, email: order.customer_email ?? "", phone: order.phone, address: order.address },
     items

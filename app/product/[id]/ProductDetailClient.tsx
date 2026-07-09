@@ -23,8 +23,20 @@ function formatUsd(value: number): string {
   }).format(value);
 }
 
+interface PromoGift {
+  id: string;
+  brand: string;
+  name: string;
+  price_usd: number;
+  price_gbp: number;
+  image_url: string | null;
+  product_url: string | null;
+  category: string;
+}
+
 interface Props {
   product: ProductDetail;
+  promoGift?: PromoGift | null;
 }
 
 interface ProductVariant {
@@ -143,7 +155,7 @@ function ShadePicker({
   );
 }
 
-export default function ProductDetailClient({ product }: Props) {
+export default function ProductDetailClient({ product, promoGift }: Props) {
   const addItem = useCart((s) => s.addItem);
   const openCart = useCart((s) => s.openCart);
 
@@ -202,6 +214,27 @@ export default function ProductDetailClient({ product }: Props) {
       category: product.category ?? "",
       quantity: qty
     });
+
+    // Auto-add the promo EDP gift when buying the Summer's Hottest Look Set.
+    if (promoGift) {
+      const giftId = `${promoGift.product_url}#promo-gift`;
+      const cartState = useCart.getState();
+      if (!cartState.items.some((i) => i.id === giftId)) {
+        cartState.addItem({
+          id: giftId,
+          brand: promoGift.brand,
+          name: promoGift.name,
+          price_usd: 0,
+          price_gbp: 0,
+          image_url: promoGift.image_url ?? "",
+          product_url: promoGift.product_url ?? "",
+          category: promoGift.category ?? "",
+          quantity: 1,
+          is_promo_gift: true
+        });
+      }
+    }
+
     setShadeError(false);
     setAdded(true);
     setTimeout(() => setAdded(false), 1600);
@@ -309,6 +342,25 @@ export default function ProductDetailClient({ product }: Props) {
         <p className="mt-4 font-serif text-3xl text-ink">{formatUsd(product.price_usd)}</p>
 
         <p className="mt-5 max-w-prose text-sm leading-relaxed text-ink/70">{description}</p>
+
+        {/* Promo gift banner — only shown on the Summer's Hottest Look Set page */}
+        {promoGift ? (
+          <div className="mt-5 flex items-start gap-3 rounded-xl border border-accent/25 bg-accent/[0.06] p-4">
+            <span className="text-xl leading-none">🎁</span>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-accent">Complimentary Gift</p>
+              <p className="mt-1 text-sm text-ink">
+                Buy this Set and receive the <strong>Easy Bake Intense EDP</strong> free. 1 buyer gets the full-size bottle; the remaining 9 each get the Travel Spray 10ml (worth $42).
+              </p>
+              <p className="mt-1 text-[11px] text-ink/50">
+                First 10 buyers only · Website orders only · Confirmed when your payment clears.
+              </p>
+              <p className="mt-1 text-[11px] text-ink/50">
+                We&apos;ll contact you on WhatsApp to choose your shades.
+              </p>
+            </div>
+          </div>
+        ) : null}
 
         {shadeRelevant ? (
           <div id="shade-picker-section">

@@ -486,6 +486,84 @@ Questions? ${waUrl}`;
   }
 }
 
+export async function sendPromoEmail(args: {
+  orderNumber: string;
+  customerEmail: string;
+  customerName: string;
+  entryNumber: number;
+}): Promise<void> {
+  const resend = getResend();
+  if (!resend) {
+    console.warn("[email] RESEND_API_KEY not configured — skipping promo email");
+    return;
+  }
+  const cfg = getEmailConfig();
+  const subject = `You've got the chance to win! 🎁 Huda Beauty × Seasons by B`;
+  const firstName = args.customerName.split(" ")[0] || "there";
+  const preheader = `You're one of the first 10! Prizes include $100 cash, $55 cash & Huda Beauty minis.`;
+  const hudaUrl = `${cfg.siteUrl}/brand/huda-beauty`;
+
+  const html = baseLayout(
+    subject,
+    `
+    <div style="font-size:11px;text-transform:uppercase;letter-spacing:3px;color:${COLOR_ACCENT};font-weight:600;">Huda Beauty × Seasons by B</div>
+    <h1 style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:28px;line-height:1.2;margin:8px 0 16px;color:${COLOR_INK};font-weight:700;">You&rsquo;ve got the chance to win, ${firstName}! 🎁</h1>
+    <p style="font-size:15px;line-height:1.65;color:${COLOR_INK};margin:0 0 12px;">
+      Your order <strong>${args.orderNumber}</strong> includes the Habibti Lip &amp; Cheek Best Sellers Kit &mdash; you&rsquo;re <strong>#${args.entryNumber}</strong> out of the first 10 qualifying buyers!
+    </p>
+    <p style="font-size:15px;line-height:1.65;color:${COLOR_INK};margin:0 0 24px;">
+      Your prize will be placed randomly inside your package. Keep an eye out when it arrives!
+    </p>
+    <table role="presentation" class="stack-block" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid rgba(224,64,160,0.35);background-color:rgba(224,64,160,0.08);margin-bottom:24px;">
+      <tr><td style="padding:22px;">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:3px;color:${COLOR_INK_MUTED};margin-bottom:12px;">Prize tiers</div>
+        <div style="font-size:15px;color:${COLOR_INK};line-height:2;">
+          <div>&#129351; <strong>$100 USD cash</strong></div>
+          <div>&#129352; <strong>$55 USD cash</strong></div>
+          <div>&#127800; <strong>8&times; Huda Beauty mini products</strong></div>
+        </div>
+      </td></tr>
+    </table>
+    <p style="font-size:13px;line-height:1.65;color:${COLOR_INK_MUTED};margin:0 0 24px;">
+      First 10 buyers only. Prizes placed randomly in qualifying packages.
+    </p>
+    <p style="margin:0;">${ctaButton(hudaUrl, "Browse Huda Beauty")}</p>
+    `,
+    preheader
+  );
+
+  const text = `Huda Beauty x Seasons by B — You've got the chance to win!
+
+Hi ${firstName}, you're #${args.entryNumber} out of the first 10 qualifying buyers!
+
+Your order ${args.orderNumber} includes the Habibti Lip & Cheek Best Sellers Kit.
+
+Prizes:
+$100 USD cash
+$55 USD cash
+8x Huda Beauty mini products
+
+Your prize will be placed randomly inside your package. Keep an eye out when it arrives!
+
+First 10 buyers only. Prizes placed randomly in qualifying packages.
+
+Browse Huda Beauty: ${hudaUrl}`;
+
+  try {
+    const { data, error } = await resend.emails.send({
+      from: FROM_ADDRESS,
+      to: args.customerEmail,
+      subject,
+      html,
+      text
+    });
+    if (error) console.error("[email] sendPromoEmail resend error:", JSON.stringify(error));
+    else console.log("[email] sendPromoEmail sent id=" + ((data as { id?: string } | null)?.id ?? "?"));
+  } catch (err) {
+    console.error("[email] sendPromoEmail threw", err);
+  }
+}
+
 export async function sendPaymentConfirmation(order: EmailOrder, customer: EmailCustomer): Promise<void> {
   const resend = getResend();
   if (!resend) {
