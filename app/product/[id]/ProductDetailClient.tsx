@@ -245,6 +245,7 @@ export default function ProductDetailClient({ product, promoGift }: Props) {
   const bespokeHref = whatsappRequestLink(bespokeMessage);
 
   const description =
+    product.description ??
     `The ${product.name} by ${product.brand} — a ${product.category.toLowerCase()} piece curated by Seasons by B ` +
     `and sourced from London's finest luxury retailers, delivered door to door in Lebanon.`;
 
