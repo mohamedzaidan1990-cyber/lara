@@ -41,9 +41,12 @@ export function generateStaticParams(): Array<{ slug: string }> {
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const def = getCategoryBySlug(params.slug);
   if (!def) return { title: "Category not found — Seasons by B" };
+  const title = `${def.label} — Seasons by B`;
   return {
-    title: `${def.label} — Seasons by B`,
-    description: def.blurb
+    title,
+    description: def.blurb,
+    alternates: { canonical: `https://www.seasonsbyb.co.uk/category/${params.slug}` },
+    openGraph: { title, description: def.blurb, url: `https://www.seasonsbyb.co.uk/category/${params.slug}`, siteName: "Seasons by B", type: "website" },
   };
 }
 

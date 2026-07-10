@@ -168,7 +168,7 @@ function SiteFooter() {
       </div>
       <div className="border-t border-accent/10 bg-accent/5">
         <div className="mx-auto max-w-7xl px-4 py-6 text-center text-[11px] font-bold uppercase tracking-[0.24em] text-accent/60 sm:px-6 lg:px-8">
-          © 2025 Seasons by B. Curated with joy in London.
+          © 2026 Seasons by B. Curated with joy in London.
         </div>
       </div>
     </footer>

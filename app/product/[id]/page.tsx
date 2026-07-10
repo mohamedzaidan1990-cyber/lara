@@ -16,12 +16,36 @@ interface Params {
 
 export const dynamic = "force-dynamic";
 
+const SITE_URL = "https://www.seasonsbyb.co.uk";
+
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const product = await getProductById(params.id);
   if (!product) return { title: "Product not found — Seasons by B" };
+  const title = `${product.brand} ${product.name} — Seasons by B`;
+  const description = `Buy ${product.brand} ${product.name} from London, delivered to Lebanon in 10–14 days by Seasons by B. From £${product.price_gbp}.`;
+  const imageUrl = product.image_url
+    ? product.image_url.startsWith("http")
+      ? product.image_url
+      : `${SITE_URL}${product.image_url}`
+    : `${SITE_URL}/icons/icon-512.png`;
   return {
-    title: `${product.brand} ${product.name} — Seasons by B`,
-    description: `${product.brand} ${product.name} — sourced from London and delivered to Lebanon by Seasons by B.`
+    title,
+    description,
+    alternates: { canonical: `${SITE_URL}/product/${params.id}` },
+    openGraph: {
+      title,
+      description,
+      url: `${SITE_URL}/product/${params.id}`,
+      siteName: "Seasons by B",
+      images: [{ url: imageUrl, alt: `${product.brand} ${product.name}` }],
+      type: "website",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [imageUrl],
+    },
   };
 }
 
@@ -46,8 +70,31 @@ export default async function ProductPage({ params }: { params: Params }) {
     } catch { /* non-fatal */ }
   }
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: product.name,
+    brand: { "@type": "Brand", name: product.brand },
+    description: product.description ?? `${product.brand} ${product.name} — ${product.category} sourced from London by Seasons by B.`,
+    image: product.image_url
+      ? product.image_url.startsWith("http") ? product.image_url : `${SITE_URL}${product.image_url}`
+      : undefined,
+    offers: {
+      "@type": "Offer",
+      priceCurrency: "GBP",
+      price: product.price_gbp.toFixed(2),
+      availability: "https://schema.org/InStock",
+      url: `${SITE_URL}/product/${product.id}`,
+      seller: { "@type": "Organization", name: "Seasons by B" },
+    },
+  };
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <nav aria-label="Breadcrumb" className="text-[11px] uppercase tracking-[0.2em] text-ink/60">
         <Link href="/" className="hover:text-accent">
           Home

@@ -19,9 +19,13 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const info = await getBrandBySlug(params.slug);
   if (!info) return { title: "Brand not found — Seasons by B" };
+  const title = `${info.brand} — Seasons by B`;
+  const description = `Shop all ${info.total} ${info.brand} products, curated from London and delivered to Lebanon by Seasons by B.`;
   return {
-    title: `${info.brand} — Seasons by B`,
-    description: `Shop all ${info.total} ${info.brand} products, curated from London and delivered to your door.`
+    title,
+    description,
+    alternates: { canonical: `https://www.seasonsbyb.co.uk/brand/${params.slug}` },
+    openGraph: { title, description, url: `https://www.seasonsbyb.co.uk/brand/${params.slug}`, siteName: "Seasons by B", type: "website" },
   };
 }
 
