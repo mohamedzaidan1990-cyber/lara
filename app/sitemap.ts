@@ -3,6 +3,8 @@ import { getSql } from "@/lib/db";
 import { brandSlug } from "@/lib/brands";
 import { categorySlug } from "@/lib/categories";
 
+export const dynamic = "force-dynamic";
+
 const BASE = "https://www.seasonsbyb.co.uk";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
