@@ -79,14 +79,12 @@ export async function getBrandProducts(
 
   const orderBy =
     sort === "price-asc"
-      ? "price_gbp asc, scraped_at desc"
+      ? "price_gbp asc, scraped_at desc nulls last"
       : sort === "price-desc"
-        ? "price_gbp desc, scraped_at desc"
-        : sort === "newest"
-          ? "scraped_at desc, name asc"
-          : // featured — deterministic daily shuffle, stable across pagination.
-            "md5(id::text || $2) asc";
-  const params: unknown[] = sort === "featured" ? [brand, dailySeed()] : [brand];
+        ? "price_gbp desc, scraped_at desc nulls last"
+        : // newest + featured both show most-recently-added first.
+          "scraped_at desc nulls last, name asc";
+  const params: unknown[] = [brand];
 
   const rows = (await sql(
     `select id, brand, name, category, subcategory, price_gbp::float8 as price_gbp, price_usd::float8 as price_usd,
