@@ -18,16 +18,27 @@ export const dynamic = "force-dynamic";
 
 const SITE_URL = "https://www.seasonsbyb.co.uk";
 
+// For OG tags we need a direct, publicly-accessible URL — social crawlers
+// (WhatsApp, iMessage, Twitter) won't reliably follow our image proxy.
+// If the stored URL is a proxy path, decode the real CDN URL from it.
+function ogImage(imageUrl: string | null): string {
+  if (!imageUrl) return `${SITE_URL}/icons/icon-512.png`;
+  if (imageUrl.startsWith("http")) return imageUrl;
+  if (imageUrl.startsWith("/api/image-proxy?url=")) {
+    try {
+      return decodeURIComponent(imageUrl.slice("/api/image-proxy?url=".length));
+    } catch { /* fall through */ }
+  }
+  // Static public file (e.g. /huda-beauty-gift-set.jpg)
+  return `${SITE_URL}${imageUrl}`;
+}
+
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const product = await getProductById(params.id);
   if (!product) return { title: "Product not found — Seasons by B" };
   const title = `${product.brand} ${product.name} — Seasons by B`;
   const description = `Buy ${product.brand} ${product.name} from London, delivered to Lebanon in 10–14 days by Seasons by B. From £${product.price_gbp}.`;
-  const imageUrl = product.image_url
-    ? product.image_url.startsWith("http")
-      ? product.image_url
-      : `${SITE_URL}${product.image_url}`
-    : `${SITE_URL}/icons/icon-512.png`;
+  const imageUrl = ogImage(product.image_url);
   return {
     title,
     description,
@@ -76,9 +87,7 @@ export default async function ProductPage({ params }: { params: Params }) {
     name: product.name,
     brand: { "@type": "Brand", name: product.brand },
     description: product.description ?? `${product.brand} ${product.name} — ${product.category} sourced from London by Seasons by B.`,
-    image: product.image_url
-      ? product.image_url.startsWith("http") ? product.image_url : `${SITE_URL}${product.image_url}`
-      : undefined,
+    image: ogImage(product.image_url),
     offers: {
       "@type": "Offer",
       priceCurrency: "GBP",
