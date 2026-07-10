@@ -8,11 +8,14 @@ const BASE = "https://www.seasonsbyb.co.uk";
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const sql = getSql();
 
-  const [products, brands, categories] = await Promise.all([
-    sql`SELECT id, scraped_at FROM products ORDER BY scraped_at DESC NULLS LAST` as Promise<Array<{ id: string; scraped_at: string | null }>>,
-    sql`SELECT DISTINCT brand FROM products WHERE brand IS NOT NULL ORDER BY brand` as Promise<Array<{ brand: string }>>,
-    sql`SELECT DISTINCT category FROM products WHERE category IS NOT NULL` as Promise<Array<{ category: string }>>,
+  const [productsRaw, brandsRaw, categoriesRaw] = await Promise.all([
+    sql`SELECT id, scraped_at FROM products ORDER BY scraped_at DESC NULLS LAST`,
+    sql`SELECT DISTINCT brand FROM products WHERE brand IS NOT NULL ORDER BY brand`,
+    sql`SELECT DISTINCT category FROM products WHERE category IS NOT NULL`,
   ]);
+  const products  = productsRaw   as Array<{ id: string; scraped_at: string | null }>;
+  const brands    = brandsRaw     as Array<{ brand: string }>;
+  const categories = categoriesRaw as Array<{ category: string }>;
 
   const statics: MetadataRoute.Sitemap = [
     { url: `${BASE}/`,             changeFrequency: "daily",   priority: 1.0 },
