@@ -124,6 +124,11 @@ function SiteFooter() {
               </Link>
             </li>
             <li>
+              <Link href="/brands" className="transition-colors hover:text-accent">
+                All Brands
+              </Link>
+            </li>
+            <li>
               <Link href="/info" className="transition-colors hover:text-accent">
                 How it works
               </Link>

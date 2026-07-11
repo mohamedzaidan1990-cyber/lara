@@ -1,90 +1,37 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import ProductCard, { type ProductCardData } from "@/components/ProductCard";
 import type { CategoryStat } from "@/lib/categories";
+import type { BrandDirectoryEntry } from "@/lib/brands";
 import { whatsappRequestLink } from "@/lib/links";
 import HeroSection from "@/components/HeroSection";
 import PromoSection from "@/components/PromoSection";
 import AutoVideo from "@/components/AutoVideo";
-import BeeLoader from "@/components/BeeLoader";
-import { BeeMascot } from "@/components/BeeMascot";
 import SearchAutocomplete from "@/components/SearchAutocomplete";
-
-interface SearchProduct extends ProductCardData {
-  category?: string;
-}
-
-type SearchSort = "relevant" | "price-asc" | "price-desc";
-
-const SEARCH_CATEGORIES = ["All", "Makeup", "Skincare", "Fragrance", "Home Fragrance", "Haircare", "Beauty tools", "Health & Nutrition"];
 
 interface Props {
   categories: CategoryStat[];
+  brands: BrandDirectoryEntry[];
 }
 
-export default function HomeClient({ categories }: Props) {
+export default function HomeClient({ categories, brands }: Props) {
+  const router = useRouter();
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<SearchProduct[] | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [activeCategory, setActiveCategory] = useState("All");
-  const [sort, setSort] = useState<SearchSort>("relevant");
-
   const bespoke = whatsappRequestLink();
 
-  useEffect(() => {
-    setError(null);
-  }, [query]);
-
-  async function runSearch(e: React.FormEvent) {
+  function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!query.trim()) {
-      setResults(null);
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    setActiveCategory("All");
-    setSort("relevant");
-    try {
-      const res = await fetch("/api/search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query, category: "All" })
-      });
-      if (!res.ok) throw new Error("Search failed");
-      const data = (await res.json()) as { products: SearchProduct[] };
-      setResults(data.products ?? []);
-    } catch (err) {
-      setError((err as Error).message);
-      setResults([]);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  const displayedResults = results
-    ? [...results]
-        .filter((p) => activeCategory === "All" || p.category === activeCategory)
-        .sort((a, b) => {
-          if (sort === "price-asc") return (a.price_usd ?? 0) - (b.price_usd ?? 0);
-          if (sort === "price-desc") return (b.price_usd ?? 0) - (a.price_usd ?? 0);
-          return 0;
-        })
-    : null;
-
-  function clearSearch() {
-    setResults(null);
-    setQuery("");
+    if (!query.trim()) return;
+    router.push(`/search?q=${encodeURIComponent(query.trim())}`);
   }
 
   return (
     <div className="flex flex-col">
 
-      {/* ── 1 MOBILE / 5 DESKTOP: Search + mobile-only CTA buttons ── */}
+      {/* ── 1 MOBILE / 5 DESKTOP: Search ── */}
       <section
         id="shop"
         className="order-1 lg:order-5 mx-auto w-full max-w-7xl px-4 pt-6 pb-2 sm:px-6 lg:px-8 lg:pt-16 lg:pb-0"
@@ -93,88 +40,44 @@ export default function HomeClient({ categories }: Props) {
           <p className="text-[11px] uppercase tracking-[0.32em] text-accent">Search the edit</p>
           <h2 className="mt-2 font-serif text-3xl text-ink">What are you looking for?</h2>
           <div className="mt-6">
-            <SearchAutocomplete query={query} setQuery={setQuery} onSubmit={runSearch} />
+            <SearchAutocomplete query={query} setQuery={setQuery} onSubmit={onSubmit} />
           </div>
         </div>
-        {/* Shop Now + Request Bespoke — visible on mobile only, sit right under search */}
         <div className="mt-4 flex flex-wrap items-center justify-center gap-3 lg:hidden">
           <Link href="#shop-categories" className="btn-primary">Shop Now</Link>
           <a href={bespoke} target="_blank" rel="noreferrer" className="btn-outline">Request Bespoke</a>
         </div>
       </section>
 
-      {/* ── 2 MOBILE / 6 DESKTOP: Search results (when active) ── */}
-      {results !== null && (
-        <section className="order-2 lg:order-6 mx-auto w-full max-w-7xl px-4 pb-16 pt-8 sm:px-6 lg:px-8">
-          <div className="mb-5 flex items-end justify-between">
-            <h2 className="font-serif text-2xl text-ink">
-              {loading ? "Searching…" : `Results for "${query}"`}
-            </h2>
-            <button
-              type="button"
-              className="text-xs uppercase tracking-[0.2em] text-ink/60 hover:text-accent"
-              onClick={clearSearch}
+      {/* ── 2 MOBILE / 6 DESKTOP: Brand directory ── */}
+      <section className="order-2 lg:order-6 mx-auto w-full max-w-7xl px-4 pt-8 pb-4 sm:px-6 lg:px-8">
+        <div className="rounded-[2rem] border border-white/60 bg-white/40 p-6 backdrop-blur-sm">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.32em] text-accent">Browse by brand</p>
+              <h2 className="mt-1 font-serif text-xl text-ink">All Brands A–Z</h2>
+            </div>
+            <Link
+              href="/brands"
+              className="text-[11px] uppercase tracking-[0.2em] text-ink/60 hover:text-accent transition-colors"
             >
-              Clear
-            </button>
+              Full directory →
+            </Link>
           </div>
-
-          {!loading && results.length > 0 && (
-            <div className="mb-6 flex flex-wrap items-center gap-3">
-              <div className="flex flex-wrap gap-2">
-                {SEARCH_CATEGORIES.map((cat) => (
-                  <button
-                    key={cat}
-                    type="button"
-                    onClick={() => setActiveCategory(cat)}
-                    className={
-                      "rounded-full border px-4 py-1.5 text-xs font-medium uppercase tracking-[0.14em] transition-colors " +
-                      (activeCategory === cat
-                        ? "border-accent bg-accent text-white"
-                        : "border-ink/15 bg-white text-ink hover:border-accent hover:text-accent")
-                    }
-                  >
-                    {cat}
-                  </button>
-                ))}
-              </div>
-              <div className="ml-auto">
-                <select
-                  value={sort}
-                  onChange={(e) => setSort(e.target.value as SearchSort)}
-                  className="rounded-full border border-ink/15 bg-white px-4 py-1.5 text-xs uppercase tracking-[0.14em] text-ink focus:border-accent focus:outline-none"
-                >
-                  <option value="relevant">Most Relevant</option>
-                  <option value="price-asc">Price: Low → High</option>
-                  <option value="price-desc">Price: High → Low</option>
-                </select>
-              </div>
-            </div>
-          )}
-
-          {loading && <BeeLoader fullScreen={false} />}
-          {error && (
-            <p className="rounded border border-accent/40 bg-accent/5 p-4 text-sm text-accent-700">{error}</p>
-          )}
-          {!loading && displayedResults !== null && displayedResults.length === 0 && (
-            <div className="flex flex-col items-center gap-4 rounded border border-ink/10 bg-ink/[0.02] p-12 text-center">
-              <BeeMascot variant="floating" />
-              <p className="text-sm text-ink/60">
-                {activeCategory !== "All"
-                  ? `No ${activeCategory} results for "${query}". Try a different category.`
-                  : "No products matched. Try a different search — or send our bee a bespoke request below."}
-              </p>
-            </div>
-          )}
-          {!loading && displayedResults !== null && displayedResults.length > 0 && (
-            <div className="grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
-              {displayedResults.map((p, i) => (
-                <ProductCard key={(p.product_url || p.name) + i} product={p} index={i} />
-              ))}
-            </div>
-          )}
-        </section>
-      )}
+          <div className="flex flex-wrap gap-2">
+            {brands.map((b) => (
+              <Link
+                key={b.brand}
+                href={`/brand/${b.slug}`}
+                className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-white px-3 py-1.5 text-xs font-bold text-ink transition-all hover:border-accent hover:text-accent"
+              >
+                {b.brand}
+                <span className="text-[10px] font-normal text-ink/40">{b.count}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
 
       {/* ── 3 MOBILE / 2 DESKTOP: Promo ── */}
       <div id="promo" className="order-3 lg:order-2">
@@ -196,13 +99,11 @@ export default function HomeClient({ categories }: Props) {
         <ShadeFinderBanner />
       </div>
 
-      {/* ── 7 MOBILE+DESKTOP: Category cards (hidden when search results active) ── */}
-      {results === null && (
-        <div id="shop-categories" className="order-7 lg:order-7">
-          <CategoryCards categories={categories} />
-          <KBeautyTeaser />
-        </div>
-      )}
+      {/* ── 7 MOBILE+DESKTOP: Category cards ── */}
+      <div id="shop-categories" className="order-7 lg:order-7">
+        <CategoryCards categories={categories} />
+        <KBeautyTeaser />
+      </div>
 
       <div className="order-8">
         <BespokeSection />

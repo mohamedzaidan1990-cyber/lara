@@ -98,3 +98,25 @@ export async function getBrandProducts(
 
   return { products: rows, total, page: safePage, totalPages, sort };
 }
+
+export interface BrandDirectoryEntry {
+  brand: string;
+  slug: string;
+  count: number;
+}
+
+export async function getBrandsForDirectory(): Promise<BrandDirectoryEntry[]> {
+  try {
+    const sql = getSql();
+    const rows = (await sql`
+      SELECT brand, count(*)::int as count
+      FROM products
+      WHERE brand IS NOT NULL
+      GROUP BY brand
+      ORDER BY brand ASC
+    `) as Array<{ brand: string; count: number }>;
+    return rows.map((r) => ({ brand: r.brand, slug: brandSlug(r.brand), count: r.count }));
+  } catch {
+    return [];
+  }
+}

@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { ShoppingBag } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ShoppingBag, Search } from "lucide-react";
 import { CATEGORY_DEFS } from "@/lib/categories";
 import { useCart } from "@/lib/cart";
 import { INSTAGRAM_URL } from "@/lib/links";
@@ -34,9 +35,27 @@ function CartButton({ className = "" }: { className?: string }) {
 }
 
 export default function SiteHeader() {
+  const router = useRouter();
   const [shopOpen, setShopOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const shopRef = useRef<HTMLDivElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+
+  function openSearch() {
+    setSearchOpen(true);
+    setMobileOpen(false);
+    setTimeout(() => searchInputRef.current?.focus(), 50);
+  }
+
+  function submitSearch(e: React.FormEvent) {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+    setSearchOpen(false);
+    router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+    setSearchQuery("");
+  }
 
   // Close the shop dropdown on outside click / Escape.
   useEffect(() => {
@@ -87,7 +106,7 @@ export default function SiteHeader() {
             {shopOpen ? (
               <div
                 role="menu"
-                className="absolute right-0 top-full mt-4 w-64 overflow-hidden rounded-2xl border border-accent/10 bg-white/90 shadow-soft backdrop-blur-xl"
+                className="absolute left-0 top-full mt-4 w-64 overflow-hidden rounded-2xl border border-accent/10 bg-white/90 shadow-soft backdrop-blur-xl"
               >
                 <ul className="py-2">
                   {CATEGORY_DEFS.map((cat) => (
@@ -102,6 +121,19 @@ export default function SiteHeader() {
                       </Link>
                     </li>
                   ))}
+                  <li role="none">
+                    <div className="mx-4 my-1 border-t border-ink/10" />
+                  </li>
+                  <li role="none">
+                    <Link
+                      href="/brands"
+                      role="menuitem"
+                      onClick={() => setShopOpen(false)}
+                      className="block px-5 py-3 text-xs font-bold uppercase tracking-[0.16em] text-accent transition-colors hover:bg-accent/10"
+                    >
+                      All Brands A–Z →
+                    </Link>
+                  </li>
                 </ul>
               </div>
             ) : null}
@@ -126,6 +158,14 @@ export default function SiteHeader() {
           >
             Instagram
           </a>
+          <button
+            type="button"
+            aria-label="Search"
+            onClick={openSearch}
+            className="inline-flex h-9 w-9 items-center justify-center text-ink transition-colors hover:text-accent"
+          >
+            <Search className="h-5 w-5" />
+          </button>
           <CartButton />
         </nav>
 
@@ -145,6 +185,29 @@ export default function SiteHeader() {
         </div>
       </div>
 
+      {searchOpen ? (
+        <div className="mx-3 mt-2 rounded-2xl glass-pill px-4 py-3 shadow-soft sm:mx-6">
+          <form onSubmit={submitSearch} className="flex items-center gap-2">
+            <Search className="h-4 w-4 shrink-0 text-ink/40" />
+            <input
+              ref={searchInputRef}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Escape" && setSearchOpen(false)}
+              placeholder="Search products and brands…"
+              className="flex-1 bg-transparent text-sm text-ink placeholder:text-ink/40 focus:outline-none"
+            />
+            <button
+              type="button"
+              onClick={() => setSearchOpen(false)}
+              className="text-xs uppercase tracking-[0.18em] text-ink/50 hover:text-accent"
+            >
+              Cancel
+            </button>
+          </form>
+        </div>
+      ) : null}
+
       {mobileOpen ? (
         <div className="mx-3 mt-3 rounded-3xl glass-pill p-4 shadow-soft sm:hidden">
           <div className="mx-auto max-w-7xl">
@@ -162,6 +225,22 @@ export default function SiteHeader() {
                 </li>
               ))}
             </ul>
+            <div className="mt-3 border-t border-accent/10 pt-3">
+              <button
+                type="button"
+                onClick={openSearch}
+                className="flex w-full items-center gap-2 rounded-full px-3 py-2 text-xs font-bold uppercase tracking-[0.16em] text-ink hover:text-accent"
+              >
+                <Search className="h-4 w-4" /> Search
+              </button>
+              <Link
+                href="/brands"
+                onClick={() => setMobileOpen(false)}
+                className="block rounded-full px-3 py-2 text-xs font-bold uppercase tracking-[0.16em] text-accent hover:opacity-80"
+              >
+                All Brands A–Z →
+              </Link>
+            </div>
             <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-accent/10 pt-3 text-xs font-bold uppercase tracking-[0.16em]">
               <Link
                 href="/k-beauty"

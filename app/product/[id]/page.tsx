@@ -6,6 +6,7 @@ import { getProductById, getRelatedProducts } from "@/lib/products";
 import { getSql } from "@/lib/db";
 import { categorySlug } from "@/lib/categories";
 import ProductDetailClient from "./ProductDetailClient";
+import { BackButton } from "./BackButton";
 
 const SUMMER_SET_URL = "https://hudabeauty.com/en-qa/products/summers-hottest-look-set_136";
 const EDP_URL = "https://hudabeauty.com/en-qa/products/easy-bake-intense-eau-de-parfum-travel-spray-10ml-hb01781";
@@ -104,6 +105,9 @@ export default async function ProductPage({ params }: { params: Params }) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
+      <div className="mb-3">
+        <BackButton />
+      </div>
       <nav aria-label="Breadcrumb" className="text-[11px] uppercase tracking-[0.2em] text-ink/60">
         <Link href="/" className="hover:text-accent">
           Home

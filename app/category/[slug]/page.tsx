@@ -10,6 +10,7 @@ import {
   getCategorySubcategories,
   getPopularBrands,
   parseBrand,
+  parseMaxUsd,
   parsePage,
   parseSort,
   parseSubcategory
@@ -30,6 +31,7 @@ interface SearchParams {
   page?: string | string[];
   brand?: string | string[];
   sub?: string | string[];
+  maxusd?: string | string[];
 }
 
 export const dynamic = "force-dynamic";
@@ -66,8 +68,9 @@ export default async function CategoryPage({
   const page = parsePage(searchParams.page);
   const brand = parseBrand(searchParams.brand);
   const sub = parseSubcategory(searchParams.sub);
+  const maxUsd = parseMaxUsd(searchParams.maxusd);
   const [result, brands, popularBrands, subcategories] = await Promise.all([
-    getCategoryProducts(def.name, sort, page, { brand, subcategory: sub }),
+    getCategoryProducts(def.name, sort, page, { brand, subcategory: sub, maxUsd }),
     getCategoryBrands(def.name),
     getPopularBrands(def.name),
     getCategorySubcategories(def.name)
@@ -127,6 +130,7 @@ export default async function CategoryPage({
             currentBrand={activeBrand}
             subcategories={subcategories}
             currentSubcategory={activeSub}
+            currentMaxUsd={result.maxUsd}
             slug={def.slug}
           />
         </div>

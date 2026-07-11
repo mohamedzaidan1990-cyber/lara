@@ -4,12 +4,21 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTransition } from "react";
 import type { BrandCount, SubcategoryCount } from "@/lib/categories";
 
+const BUDGETS: Array<{ label: string; value: number | null }> = [
+  { label: "All prices", value: null },
+  { label: "Under $25", value: 25 },
+  { label: "Under $50", value: 50 },
+  { label: "Under $100", value: 100 },
+  { label: "Under $150", value: 150 },
+];
+
 interface Props {
   current: "featured" | "newest" | "price-asc" | "price-desc";
   brands?: BrandCount[];
   currentBrand?: string | null;
   subcategories?: SubcategoryCount[];
   currentSubcategory?: string | null;
+  currentMaxUsd?: number | null;
   slug: string;
 }
 
@@ -26,6 +35,7 @@ export default function CategoryControls({
   currentBrand = null,
   subcategories = [],
   currentSubcategory = null,
+  currentMaxUsd = null,
   slug
 }: Props) {
   const router = useRouter();
@@ -60,8 +70,41 @@ export default function CategoryControls({
     };
   }
 
+  function onBudgetChange(value: number | null) {
+    const next = new URLSearchParams(params.toString());
+    if (value !== null) next.set("maxusd", String(value));
+    else next.delete("maxusd");
+    next.delete("page");
+    const qs = next.toString();
+    startTransition(() => {
+      router.push(qs ? `/category/${slug}?${qs}` : `/category/${slug}`);
+    });
+  }
+
   return (
-    <div className="flex flex-wrap items-center gap-4 text-sm text-ink/80">
+    <div className="flex flex-col gap-4 w-full">
+      {/* Budget filter */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-[10px] uppercase tracking-[0.2em] text-ink/60 mr-1">Budget</span>
+        {BUDGETS.map((b) => (
+          <button
+            key={b.label}
+            type="button"
+            disabled={pending}
+            onClick={() => onBudgetChange(b.value)}
+            className={
+              "rounded-full border px-4 py-1.5 text-xs font-medium uppercase tracking-[0.14em] transition-colors " +
+              (currentMaxUsd === b.value
+                ? "border-accent bg-accent text-white"
+                : "border-ink/15 bg-white text-ink hover:border-accent hover:text-accent")
+            }
+          >
+            {b.label}
+          </button>
+        ))}
+      </div>
+      {/* Sort + brand + subcategory */}
+      <div className="flex flex-wrap items-center gap-4 text-sm text-ink/80">
       {subcategories.length > 0 ? (
         <div className="flex items-center gap-3">
           <label htmlFor="sub" className="text-[10px] uppercase tracking-[0.2em] text-ink/60">
@@ -123,6 +166,7 @@ export default function CategoryControls({
             </option>
           ))}
         </select>
+      </div>
       </div>
     </div>
   );

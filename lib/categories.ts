@@ -125,6 +125,13 @@ export function dailySeed(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+export function parseMaxUsd(value: string | string[] | undefined): number | null {
+  const v = Array.isArray(value) ? value[0] : value;
+  const n = Number(v);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return n;
+}
+
 export function parsePage(value: string | string[] | undefined): number {
   const v = Array.isArray(value) ? value[0] : value;
   const n = Number(v);
@@ -236,11 +243,13 @@ export interface CategoryProductsResult {
   sort: CategorySort;
   brand: string | null;
   subcategory: string | null;
+  maxUsd: number | null;
 }
 
 export interface CategoryProductsOptions {
   brand?: string | null;
   subcategory?: string | null;
+  maxUsd?: number | null;
   seed?: string;
 }
 
@@ -253,6 +262,7 @@ export async function getCategoryProducts(
   const sql = getSql();
   const brand = opts.brand?.trim() ? opts.brand.trim() : null;
   const sub = opts.subcategory?.trim() ? opts.subcategory.trim() : null;
+  const maxUsd = opts.maxUsd ?? null;
   const seed = opts.seed ?? dailySeed();
   const safePage = page < 1 ? 1 : page;
   const offset = (safePage - 1) * PAGE_SIZE;
@@ -263,14 +273,13 @@ export async function getCategoryProducts(
   `) as Array<{ n: number }>;
   const categoryTotal = catTotalRows[0]?.n ?? 0;
 
-  // Filtered total — the `${brand}::text is null` trick keeps a single query for
-  // both the filtered and unfiltered cases.
   const totalRows = (await sql`
     select count(*)::int as n
     from products
     where category = ${categoryName}
       and (${brand}::text is null or brand = ${brand})
       and (${sub}::text is null or subcategory = ${sub})
+      and (${maxUsd}::int is null or price_usd <= ${maxUsd})
   `) as Array<{ n: number }>;
   const total = totalRows[0]?.n ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -283,6 +292,7 @@ export async function getCategoryProducts(
       from products
       where category = ${categoryName} and (${brand}::text is null or brand = ${brand})
         and (${sub}::text is null or subcategory = ${sub})
+        and (${maxUsd}::int is null or price_usd <= ${maxUsd})
       order by price_gbp asc, scraped_at desc
       limit ${PAGE_SIZE} offset ${offset}
     `) as ProductListRow[];
@@ -293,6 +303,7 @@ export async function getCategoryProducts(
       from products
       where category = ${categoryName} and (${brand}::text is null or brand = ${brand})
         and (${sub}::text is null or subcategory = ${sub})
+        and (${maxUsd}::int is null or price_usd <= ${maxUsd})
       order by price_gbp desc, scraped_at desc
       limit ${PAGE_SIZE} offset ${offset}
     `) as ProductListRow[];
@@ -303,19 +314,18 @@ export async function getCategoryProducts(
       from products
       where category = ${categoryName} and (${brand}::text is null or brand = ${brand})
         and (${sub}::text is null or subcategory = ${sub})
+        and (${maxUsd}::int is null or price_usd <= ${maxUsd})
       order by scraped_at desc, brand asc
       limit ${PAGE_SIZE} offset ${offset}
     `) as ProductListRow[];
   } else {
-    // featured — most-wanted first: Selfridges bestseller badge, then the
-    // relevance rank captured by the scraper, then a deterministic daily
-    // shuffle for everything unranked (stable across pagination).
     rows = (await sql`
       select id, brand, name, category, subcategory, price_gbp::float8 as price_gbp, price_usd::float8 as price_usd,
              deliverable_lebanon, product_url, image_url, light_shade_image_url
       from products
       where category = ${categoryName} and (${brand}::text is null or brand = ${brand})
         and (${sub}::text is null or subcategory = ${sub})
+        and (${maxUsd}::int is null or price_usd <= ${maxUsd})
       order by coalesce(is_bestseller, false) desc, popularity asc nulls last, md5(id::text || ${seed}) asc
       limit ${PAGE_SIZE} offset ${offset}
     `) as ProductListRow[];
@@ -330,7 +340,8 @@ export async function getCategoryProducts(
     totalPages,
     sort,
     brand,
-    subcategory: sub
+    subcategory: sub,
+    maxUsd
   };
 }
 

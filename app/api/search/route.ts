@@ -19,14 +19,6 @@ interface SearchRow {
   light_shade_image_url: string | null;
 }
 
-// Catalogue search over the products table. Returns real product rows (with id)
-// so every result opens the product detail page — same flow as the category
-// grids — rather than the quick-order form.
-//
-// Matching is token-based: the query is split into normalized words and every
-// word must appear in the normalized brand+name string. This makes
-// "dior lipstick" (brand + name), "kiehls" (apostrophe in the stored brand)
-// and "kerastase" (accents) all match, where a whole-phrase LIKE would not.
 export async function POST(req: Request) {
   const body = (await req.json().catch(() => ({}))) as { query?: string; category?: string };
   const query = (body.query ?? "").trim();
@@ -43,8 +35,8 @@ export async function POST(req: Request) {
 
   try {
     const sql = getSql();
-    // Rank products whose BRAND matches more of the query first, so a search
-    // for "dior" leads with Dior's own products before name-only matches.
+
+    // Exact token match first
     const rows = (await sql(
       `select id, brand, name, category, subcategory,
               price_gbp::float8 as price_gbp, price_usd::float8 as price_usd,
@@ -60,7 +52,25 @@ export async function POST(req: Request) {
        limit 60`,
       [cat, tokens]
     )) as SearchRow[];
-    return NextResponse.json({ products: rows });
+
+    if (rows.length > 0) {
+      return NextResponse.json({ products: rows });
+    }
+
+    // Fuzzy fallback via pg_trgm for typos / close spellings
+    const fuzzy = (await sql(
+      `select id, brand, name, category, subcategory,
+              price_gbp::float8 as price_gbp, price_usd::float8 as price_usd,
+              deliverable_lebanon, product_url, image_url, light_shade_image_url
+       from products
+       where ($1::text is null or category = $1)
+         and word_similarity($2, lower(brand || ' ' || name)) > 0.15
+       order by word_similarity($2, lower(brand || ' ' || name)) desc
+       limit 60`,
+      [cat, query.toLowerCase()]
+    )) as SearchRow[];
+
+    return NextResponse.json({ products: fuzzy });
   } catch {
     return NextResponse.json({ products: [] });
   }
