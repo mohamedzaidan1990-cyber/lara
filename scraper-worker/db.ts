@@ -121,6 +121,11 @@ export async function ensureSchema(): Promise<void> {
   `);
 }
 
+const VALID_CATEGORIES = new Set([
+  "Makeup", "Skincare", "Fragrance", "Home Fragrance",
+  "Haircare", "Beauty tools", "Health & Nutrition"
+]);
+
 export async function upsertProducts(products: ScrapedProductRow[]): Promise<number> {
   if (products.length === 0) return 0;
   const client = getPool();
@@ -129,6 +134,12 @@ export async function upsertProducts(products: ScrapedProductRow[]): Promise<num
     if (!p.product_url) continue;
     // Final guard against mis-parsed markup blobs (huge / HTML-laden values).
     if (!p.brand || !p.name || p.brand.length > 180 || p.name.length > 200 || /[<>{}]/.test(p.brand + p.name)) {
+      continue;
+    }
+    // Reject any row whose category is not in the 7 known categories — prevents
+    // Selfridges nav/facet objects (e.g. "Face", "Lips") from entering the DB.
+    if (!VALID_CATEGORIES.has(p.category)) {
+      console.warn(`[db] skipping invalid category "${p.category}": ${p.brand} — ${p.name}`);
       continue;
     }
     // Skip brands that Selfridges cannot deliver to Lebanon.
@@ -149,7 +160,12 @@ export async function upsertProducts(products: ScrapedProductRow[]): Promise<num
          ON CONFLICT (product_url) DO UPDATE SET
            brand = excluded.brand,
            name = excluded.name,
-           category = excluded.category,
+           -- Only accept the incoming category if it is a known valid value;
+           -- fall back to the stored value so a bad re-scrape never clobbers a
+           -- category we manually corrected.
+           category = case when excluded.category = ANY(ARRAY['Makeup','Skincare','Fragrance','Home Fragrance','Haircare','Beauty tools','Health & Nutrition'])
+                           then excluded.category
+                           else products.category end,
            price_gbp = case when products.price_locked then products.price_gbp else excluded.price_gbp end,
            price_usd = case when products.price_locked then products.price_usd else excluded.price_usd end,
            deliverable_lebanon = excluded.deliverable_lebanon,

@@ -711,7 +711,8 @@ async function buildDirectRow(
     price_usd: priceUsd,
     deliverable_lebanon: true,
     product_url: productUrl,
-    image_url: image
+    image_url: image,
+    subcategory: classifySubcategory(category, name)
   };
 }
 
