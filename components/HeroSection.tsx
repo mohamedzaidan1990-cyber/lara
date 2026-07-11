@@ -21,7 +21,6 @@ export default function HeroSection() {
           src="/hero-top.mp4"
           wrapperClassName="absolute inset-0"
           videoClassName="h-full w-full object-cover"
-          soundOnInteract
           buttonSide="right"
           loop={false}
           label="Seasons by B brand film"

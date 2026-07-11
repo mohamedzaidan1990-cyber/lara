@@ -20,7 +20,16 @@ interface Props {
 export default function HomeClient({ categories, brands }: Props) {
   const router = useRouter();
   const [query, setQuery] = useState("");
+  const [activeLetter, setActiveLetter] = useState<string | null>(null);
   const bespoke = whatsappRequestLink();
+
+  const grouped = brands.reduce<Record<string, BrandDirectoryEntry[]>>((acc, b) => {
+    const l = b.brand[0]?.toUpperCase() ?? "#";
+    if (!acc[l]) acc[l] = [];
+    acc[l].push(b);
+    return acc;
+  }, {});
+  const letters = Object.keys(grouped).sort();
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -65,17 +74,36 @@ export default function HomeClient({ categories, brands }: Props) {
             </Link>
           </div>
           <div className="flex flex-wrap gap-2">
-            {brands.map((b) => (
-              <Link
-                key={b.brand}
-                href={`/brand/${b.slug}`}
-                className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-white px-3 py-1.5 text-xs font-bold text-ink transition-all hover:border-accent hover:text-accent"
+            {letters.map((l) => (
+              <button
+                key={l}
+                type="button"
+                onClick={() => setActiveLetter(activeLetter === l ? null : l)}
+                className={
+                  "h-9 w-9 rounded-full border text-sm font-bold transition-all " +
+                  (activeLetter === l
+                    ? "border-accent bg-accent text-white"
+                    : "border-ink/15 bg-white text-ink hover:border-accent hover:text-accent")
+                }
               >
-                {b.brand}
-                <span className="text-[10px] font-normal text-ink/40">{b.count}</span>
-              </Link>
+                {l}
+              </button>
             ))}
           </div>
+          {activeLetter && grouped[activeLetter] ? (
+            <div className="mt-4 flex flex-wrap gap-2 border-t border-ink/10 pt-4">
+              {grouped[activeLetter].map((b) => (
+                <Link
+                  key={b.brand}
+                  href={`/brand/${b.slug}`}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-white px-3 py-1.5 text-xs font-bold text-ink transition-all hover:border-accent hover:text-accent"
+                >
+                  {b.brand}
+                  <span className="text-[10px] font-normal text-ink/40">{b.count}</span>
+                </Link>
+              ))}
+            </div>
+          ) : null}
         </div>
       </section>
 
