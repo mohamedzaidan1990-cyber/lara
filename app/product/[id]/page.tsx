@@ -65,7 +65,10 @@ export default async function ProductPage({ params }: { params: Params }) {
   const product = await getProductById(params.id);
   if (!product) notFound();
 
-  const related = await getRelatedProducts(product.category, product.id, 4);
+  const related = await getRelatedProducts(product.category, product.id, 4, {
+    brand: product.brand,
+    subcategory: product.subcategory ?? undefined
+  });
   const slug = categorySlug(product.category);
 
   // If this is the Summer's Hottest Look Set, fetch the EDP gift product to auto-add it to cart.
@@ -130,7 +133,9 @@ export default async function ProductPage({ params }: { params: Params }) {
 
       {related.length > 0 ? (
         <section className="mt-20 border-t border-ink/10 pt-10">
-          <h2 className="font-serif text-2xl text-ink">You might also like</h2>
+          <h2 className="font-serif text-2xl text-ink">
+            {product.category === "Makeup" ? "Complete the look" : "You might also like"}
+          </h2>
           <div className="mt-8 grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
             {related.map((p, i) => (
               <ProductCard
@@ -145,7 +150,11 @@ export default async function ProductPage({ params }: { params: Params }) {
                   deliverable_lebanon: p.deliverable_lebanon,
                   product_url: p.product_url ?? "",
                   image_url: p.image_url ?? "",
-                  category: p.category
+                  category: p.category,
+                  subcategory: p.subcategory,
+                  light_shade_image_url: p.light_shade_image_url,
+                  is_bestseller: p.is_bestseller,
+                  created_at: p.created_at
                 }}
               />
             ))}

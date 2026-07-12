@@ -98,7 +98,9 @@ export default async function BrandPage({
               product_url: p.product_url,
               image_url: p.image_url,
               subcategory: p.subcategory,
-              light_shade_image_url: p.light_shade_image_url
+              light_shade_image_url: p.light_shade_image_url,
+              is_bestseller: p.is_bestseller,
+              created_at: p.created_at
             }}
           />
         ))}

@@ -88,7 +88,8 @@ export async function getBrandProducts(
 
   const rows = (await sql(
     `select id, brand, name, category, subcategory, price_gbp::float8 as price_gbp, price_usd::float8 as price_usd,
-            deliverable_lebanon, product_url, image_url, light_shade_image_url
+            deliverable_lebanon, product_url, image_url, light_shade_image_url,
+            is_bestseller, created_at::text as created_at
      from products
      where brand = $1
      order by ${orderBy}

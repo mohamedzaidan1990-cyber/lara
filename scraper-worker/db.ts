@@ -80,6 +80,7 @@ export async function ensureSchema(): Promise<void> {
     ALTER TABLE products ADD COLUMN IF NOT EXISTS subcategory text;
     ALTER TABLE products ADD COLUMN IF NOT EXISTS k_beauty boolean DEFAULT false;
     ALTER TABLE products ADD COLUMN IF NOT EXISTS price_locked boolean DEFAULT false;
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS created_at timestamp DEFAULT now();
 
     CREATE TABLE IF NOT EXISTS scrape_logs (
       id uuid DEFAULT gen_random_uuid() PRIMARY KEY,

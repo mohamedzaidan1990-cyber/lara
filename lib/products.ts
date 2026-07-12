@@ -66,29 +66,46 @@ export interface RelatedProduct {
   brand: string;
   name: string;
   category: ProductCategory;
+  subcategory: string | null;
   price_gbp: number;
   price_usd: number;
   deliverable_lebanon: boolean;
   product_url: string | null;
   image_url: string | null;
+  light_shade_image_url: string | null;
+  is_bestseller: boolean;
+  created_at: string | null;
 }
 
-// "You might also like" — random products from the same category, excluding the
-// current product.
+export interface RelatedProductsOptions {
+  brand?: string;
+  subcategory?: string | null;
+}
+
+// "You might also like" — products from the same category, prioritising same
+// brand then same subcategory, falling back to random.
 export async function getRelatedProducts(
   categoryName: ProductCategory,
   excludeId: string,
-  limit = 4
+  limit = 4,
+  opts: RelatedProductsOptions = {}
 ): Promise<RelatedProduct[]> {
   try {
     const sql = getSql();
+    const brand = opts.brand ?? null;
+    const subcategory = opts.subcategory ?? null;
     const rows = (await sql`
-      select id, brand, name, category,
+      select id, brand, name, category, subcategory,
              price_gbp::float8 as price_gbp, price_usd::float8 as price_usd,
-             deliverable_lebanon, product_url, image_url
+             deliverable_lebanon, product_url, image_url,
+             light_shade_image_url, is_bestseller,
+             created_at::text as created_at
       from products
       where category = ${categoryName} and id <> ${excludeId}
-      order by random()
+      order by
+        case when ${brand}::text is not null and brand = ${brand} then 0 else 1 end,
+        case when ${subcategory}::text is not null and subcategory = ${subcategory} then 0 else 1 end,
+        random()
       limit ${limit}
     `) as RelatedProduct[];
     return rows;

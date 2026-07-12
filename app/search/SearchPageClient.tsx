@@ -30,6 +30,7 @@ export default function SearchPageClient({ initialQuery }: { initialQuery: strin
   const [activeCategory, setActiveCategory] = useState("All");
   const [sort, setSort] = useState<SearchSort>("relevant");
   const [maxUsd, setMaxUsd] = useState<number | null>(null);
+  const [trending, setTrending] = useState<ProductCardData[] | null>(null);
 
   useEffect(() => {
     if (!initialQuery) return;
@@ -40,6 +41,14 @@ export default function SearchPageClient({ initialQuery }: { initialQuery: strin
     void runSearch(initialQuery);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialQuery]);
+
+  useEffect(() => {
+    if (results !== null && results.length === 0 && trending === null) {
+      void fetch("/api/trending")
+        .then((r) => r.json())
+        .then((d: { products: ProductCardData[] }) => setTrending(d.products ?? []));
+    }
+  }, [results, trending]);
 
   async function runSearch(q: string) {
     if (!q.trim()) return;
@@ -152,13 +161,26 @@ export default function SearchPageClient({ initialQuery }: { initialQuery: strin
           {loading && <BeeLoader fullScreen={false} />}
 
           {!loading && displayed !== null && displayed.length === 0 && (
-            <div className="flex flex-col items-center gap-4 rounded border border-ink/10 bg-ink/[0.02] p-12 text-center">
-              <BeeMascot variant="floating" />
-              <p className="text-sm text-ink/60">
-                {activeCategory !== "All" || maxUsd !== null
-                  ? "No products match these filters. Try adjusting your category or budget."
-                  : `No products matched "${initialQuery}". Try a different spelling or message us on Instagram.`}
-              </p>
+            <div>
+              <div className="flex flex-col items-center gap-4 rounded border border-ink/10 bg-ink/[0.02] p-12 text-center">
+                <BeeMascot variant="floating" />
+                <p className="text-sm text-ink/60">
+                  {activeCategory !== "All" || maxUsd !== null
+                    ? "No products match these filters. Try adjusting your category or budget."
+                    : `No products matched "${initialQuery}". Try a different spelling or message us on Instagram.`}
+                </p>
+              </div>
+              {activeCategory === "All" && maxUsd === null && trending && trending.length > 0 && (
+                <div className="mt-12">
+                  <h2 className="font-serif text-xl text-ink mb-1">Trending now</h2>
+                  <p className="text-xs uppercase tracking-[0.18em] text-ink/40 mb-6">Our most wanted picks</p>
+                  <div className="grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
+                    {trending.map((p, i) => (
+                      <ProductCard key={(p.product_url || p.name) + i} product={p} index={i} />
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

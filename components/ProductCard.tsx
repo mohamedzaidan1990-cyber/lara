@@ -23,6 +23,8 @@ export interface ProductCardData {
   category?: string;
   subcategory?: string | null;
   light_shade_image_url?: string | null;
+  is_bestseller?: boolean;
+  created_at?: string | null;
 }
 
 interface Props {
@@ -386,6 +388,7 @@ export default function ProductCard({ product, index = 0 }: Props) {
   const imgSrc = productImageSrc(product.light_shade_image_url ?? product.image_url);
   const showImage = Boolean(imgSrc) && !imgFailed;
   const promo = getPromo(product.id);
+  const isNew = !!product.created_at && Date.now() - new Date(product.created_at).getTime() < 30 * 24 * 60 * 60 * 1000;
 
   function addToCart() {
     addItem({
@@ -431,6 +434,14 @@ export default function ProductCard({ product, index = 0 }: Props) {
           <span className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-ink/85 px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-cream">
             <span className="h-1.5 w-1.5 rounded-full bg-cream/70" />
             Ask us
+          </span>
+        ) : product.is_bestseller ? (
+          <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-amber-400 px-3 py-1 text-[9px] font-bold uppercase tracking-[0.15em] text-amber-950 shadow">
+            ✦ Bestseller
+          </span>
+        ) : isNew ? (
+          <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-emerald-400 px-3 py-1 text-[9px] font-bold uppercase tracking-[0.15em] text-emerald-950 shadow">
+            ✦ New
           </span>
         ) : null}
 

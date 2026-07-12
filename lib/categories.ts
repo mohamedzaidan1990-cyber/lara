@@ -153,6 +153,8 @@ export interface ProductListRow {
   product_url: string;
   image_url: string;
   light_shade_image_url: string | null;
+  is_bestseller: boolean;
+  created_at: string | null;
 }
 
 export interface BrandCount {
@@ -288,7 +290,8 @@ export async function getCategoryProducts(
   if (sort === "price-asc") {
     rows = (await sql`
       select id, brand, name, category, subcategory, price_gbp::float8 as price_gbp, price_usd::float8 as price_usd,
-             deliverable_lebanon, product_url, image_url, light_shade_image_url
+             deliverable_lebanon, product_url, image_url, light_shade_image_url,
+             is_bestseller, created_at::text as created_at
       from products
       where category = ${categoryName} and (${brand}::text is null or brand = ${brand})
         and (${sub}::text is null or subcategory = ${sub})
@@ -299,7 +302,8 @@ export async function getCategoryProducts(
   } else if (sort === "price-desc") {
     rows = (await sql`
       select id, brand, name, category, subcategory, price_gbp::float8 as price_gbp, price_usd::float8 as price_usd,
-             deliverable_lebanon, product_url, image_url, light_shade_image_url
+             deliverable_lebanon, product_url, image_url, light_shade_image_url,
+             is_bestseller, created_at::text as created_at
       from products
       where category = ${categoryName} and (${brand}::text is null or brand = ${brand})
         and (${sub}::text is null or subcategory = ${sub})
@@ -310,7 +314,8 @@ export async function getCategoryProducts(
   } else if (sort === "newest") {
     rows = (await sql`
       select id, brand, name, category, subcategory, price_gbp::float8 as price_gbp, price_usd::float8 as price_usd,
-             deliverable_lebanon, product_url, image_url, light_shade_image_url
+             deliverable_lebanon, product_url, image_url, light_shade_image_url,
+             is_bestseller, created_at::text as created_at
       from products
       where category = ${categoryName} and (${brand}::text is null or brand = ${brand})
         and (${sub}::text is null or subcategory = ${sub})
@@ -321,7 +326,8 @@ export async function getCategoryProducts(
   } else {
     rows = (await sql`
       select id, brand, name, category, subcategory, price_gbp::float8 as price_gbp, price_usd::float8 as price_usd,
-             deliverable_lebanon, product_url, image_url, light_shade_image_url
+             deliverable_lebanon, product_url, image_url, light_shade_image_url,
+             is_bestseller, created_at::text as created_at
       from products
       where category = ${categoryName} and (${brand}::text is null or brand = ${brand})
         and (${sub}::text is null or subcategory = ${sub})
