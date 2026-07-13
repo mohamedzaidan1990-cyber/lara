@@ -234,6 +234,13 @@ export default function SiteHeader() {
                 <Search className="h-4 w-4" /> Search
               </button>
               <Link
+                href="/brand/huda-beauty"
+                onClick={() => setMobileOpen(false)}
+                className="block rounded-full px-3 py-2 text-xs font-bold uppercase tracking-[0.16em] text-accent hover:opacity-80"
+              >
+                Huda Beauty x Seasons by B
+              </Link>
+              <Link
                 href="/brands"
                 onClick={() => setMobileOpen(false)}
                 className="block rounded-full px-3 py-2 text-xs font-bold uppercase tracking-[0.16em] text-accent hover:opacity-80"
