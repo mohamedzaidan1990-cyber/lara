@@ -41,12 +41,12 @@ async function main(): Promise<void> {
   await ensureSchema();
   const sql = getSql();
 
-  const updated = await sql`
+  const updated = (await sql`
     update products
     set price_usd = 24, price_gbp = 18.96, scraped_at = now()
     where product_url = 'https://www.sephora.qa/brand/sephora-collection/#size-up-waterproof-mascara'
     returning name, price_usd
-  `;
+  `) as Array<{ name: string; price_usd: string }>;
   if (updated.length === 0) {
     console.error("No existing row found for the waterproof mascara — expected one.");
   } else {
