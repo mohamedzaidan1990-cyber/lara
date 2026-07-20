@@ -17,6 +17,7 @@ function CartButton({ className = "" }: { className?: string }) {
   return (
     <button
       type="button"
+      data-cart-target
       onClick={openCart}
       aria-label={`Open cart${mounted && count > 0 ? `, ${count} items` : ""}`}
       className={"relative inline-flex h-9 w-9 items-center justify-center text-ink transition-transform hover:scale-110 hover:text-accent " + className}
@@ -24,7 +25,8 @@ function CartButton({ className = "" }: { className?: string }) {
       <ShoppingBag className="h-5 w-5" />
       {mounted && count > 0 ? (
         <span
-          className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white"
+          key={count}
+          className="cart-badge-pop absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white"
           style={{ backgroundColor: "#e040a0" }}
         >
           {count}
@@ -40,8 +42,25 @@ export default function SiteHeader() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [hidden, setHidden] = useState(false);
+  const lastY = useRef(0);
   const shopRef = useRef<HTMLDivElement | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Hide the header scrolling down, bring it back scrolling up. Small deltas
+  // are ignored so it doesn't flicker on touch momentum wobble.
+  useEffect(() => {
+    function onScroll() {
+      const y = window.scrollY;
+      const delta = y - lastY.current;
+      if (y < 80) setHidden(false);
+      else if (delta > 6) setHidden(true);
+      else if (delta < -6) setHidden(false);
+      lastY.current = y;
+    }
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   function openSearch() {
     setSearchOpen(true);
@@ -78,7 +97,12 @@ export default function SiteHeader() {
   }, [shopOpen]);
 
   return (
-    <header className="sticky top-0 z-40 px-3 pt-3 sm:px-6 sm:pt-4">
+    <header
+      className={
+        "sticky top-0 z-40 px-3 pt-3 transition-transform duration-300 ease-out sm:px-6 sm:pt-4 " +
+        (hidden && !mobileOpen && !searchOpen ? "-translate-y-[130%]" : "translate-y-0")
+      }
+    >
       <div className="mx-auto flex max-w-7xl items-center justify-between rounded-full glass-pill px-5 py-3 shadow-soft sm:px-8">
         <Link href="/" className="flex items-center leading-none" onClick={() => setMobileOpen(false)}>
           {/* eslint-disable-next-line @next/next/no-img-element */}

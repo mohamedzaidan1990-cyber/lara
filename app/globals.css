@@ -313,6 +313,26 @@ h4,
   animation: promoGlow 6s ease-in-out infinite;
 }
 
+/* Cart badge pops when the item count changes. */
+@keyframes cartBadgePop {
+  0%   { transform: scale(0.6); }
+  45%  { transform: scale(1.45); }
+  100% { transform: scale(1); }
+}
+.cart-badge-pop {
+  animation: cartBadgePop 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Slow one-way drift on the hero film — plays once on load. */
+@keyframes heroKenburns {
+  from { transform: scale(1); }
+  to   { transform: scale(1.07); }
+}
+.hero-kenburns {
+  animation: heroKenburns 16s ease-out forwards;
+  will-change: transform;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .bee-wings,
   .bee-anim-floating,
@@ -321,7 +341,9 @@ h4,
   .gold-shimmer::after,
   .bespoke-pulse,
   .promo-bg-anim,
-  .promo-glow-anim {
+  .promo-glow-anim,
+  .cart-badge-pop,
+  .hero-kenburns {
     animation: none !important;
   }
 }

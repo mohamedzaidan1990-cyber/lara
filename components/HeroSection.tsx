@@ -20,7 +20,7 @@ export default function HeroSection() {
         <AutoVideo
           src="/hero-top.mp4"
           poster="/hero-top-poster.jpg"
-          wrapperClassName="absolute inset-0"
+          wrapperClassName="absolute inset-0 hero-kenburns"
           videoClassName="h-full w-full object-cover"
           buttonSide="right"
           loop={false}
@@ -43,13 +43,26 @@ export default function HeroSection() {
               <span aria-hidden>🐝</span> London → Lebanon in 14 days
             </span>
           </motion.div>
-          <motion.h1
-            variants={fade}
-            transition={{ duration: 0.6 }}
-            className="mt-5 font-serif text-[48px] font-bold leading-[1.05] text-ink sm:text-[56px]"
-          >
-            London&apos;s Finest, <span className="text-accent">Sweetly Delivered</span> To You
-          </motion.h1>
+          <h1 className="mt-5 font-serif text-[48px] font-bold leading-[1.05] text-ink sm:text-[56px]">
+            {[
+              { t: "London's" },
+              { t: "Finest," },
+              { t: "Sweetly", accent: true },
+              { t: "Delivered", accent: true },
+              { t: "To" },
+              { t: "You" }
+            ].map((w, i) => (
+              <motion.span
+                key={i}
+                initial={{ opacity: 0, y: 26 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.55, delay: 0.2 + i * 0.09, ease: [0.22, 1, 0.36, 1] }}
+                className={"mr-[0.26em] inline-block " + (w.accent ? "text-accent" : "")}
+              >
+                {w.t}
+              </motion.span>
+            ))}
+          </h1>
           <motion.div
             variants={fade}
             transition={{ duration: 0.6 }}

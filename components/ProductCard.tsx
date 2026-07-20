@@ -8,6 +8,7 @@ import { BeeSvg } from "./BeeMascot";
 import { useCart } from "@/lib/cart";
 import { getPromo } from "@/lib/promotions";
 import { isShadeRelevant } from "@/lib/shade-options";
+import { flyToCart } from "@/lib/fly-to-cart";
 
 export interface ProductCardData {
   // Present for catalogue products (links to the detail page). Live search
@@ -489,9 +490,11 @@ export default function ProductCard({ product, index = 0 }: Props) {
           ) : (
             <button
               type="button"
-              onClick={() => {
+              onClick={(e) => {
+                const flew = flyToCart(e.currentTarget.closest("article"));
                 addToCart();
-                openCart();
+                // Let the ghost land in the bag before the sidebar covers it.
+                setTimeout(openCart, flew ? 680 : 0);
               }}
               className="inline-flex flex-1 items-center justify-center whitespace-nowrap rounded-full bg-accent px-2 py-3 text-[11px] font-bold uppercase tracking-[0.08em] text-white shadow-lg transition-transform duration-300 hover:scale-[1.02] active:scale-95 sm:px-4 sm:text-xs sm:tracking-[0.14em]"
             >
