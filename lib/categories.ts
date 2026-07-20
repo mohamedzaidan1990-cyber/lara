@@ -22,7 +22,7 @@ export const CATEGORY_DEFS: readonly CategoryDef[] = [
     name: "Skincare",
     label: "Skincare",
     blurb: "Crèmes, serums and treatments — La Mer to Augustinus Bader.",
-    defaultImage: "https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=800&q=80"
+    defaultImage: "https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?w=800&q=80"
   },
   {
     slug: "fragrance",
@@ -57,7 +57,7 @@ export const CATEGORY_DEFS: readonly CategoryDef[] = [
     name: "Health & Nutrition",
     label: "Health & Nutrition",
     blurb: "Vitamins, supplements, superfoods and wellness essentials from the world's finest nutrition brands.",
-    defaultImage: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&q=80"
+    defaultImage: "/api/image-proxy?url=https%3A%2F%2Fimages.selfridges.com%2Fis%2Fimage%2Fselfridges%2F1151-3004874-TRUECOLLAGEN_M%3Fwid%3D800%26hei%3D800%26fmt%3Dwebp%26qlt%3D80"
   }
 ] as const;
 

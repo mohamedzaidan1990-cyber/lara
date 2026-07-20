@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { useCart, computeTotals } from "@/lib/cart";
@@ -39,6 +39,13 @@ export default function CheckoutClient({ whish }: { whish: string }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
+  const errorRef = useRef<HTMLParagraphElement | null>(null);
+
+  // The error banner sits above the fold; on phones the user is at the bottom
+  // when they tap the action button, so bring the message into view.
+  useEffect(() => {
+    if (error) errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [error]);
 
   function update<K extends keyof typeof form>(key: K, value: string) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -140,7 +147,7 @@ export default function CheckoutClient({ whish }: { whish: string }) {
       {step < 4 ? <Stepper step={step} /> : null}
 
       {error ? (
-        <p className="mt-6 rounded border border-accent/40 bg-accent/5 p-3 text-sm text-accent-700">{error}</p>
+        <p ref={errorRef} className="mt-6 rounded border border-accent/40 bg-accent/5 p-3 text-sm text-accent-700">{error}</p>
       ) : null}
 
       {step === 1 ? (
@@ -207,12 +214,12 @@ export default function CheckoutClient({ whish }: { whish: string }) {
         <section className="mt-8">
           <h1 className="font-serif text-3xl text-ink">Your details</h1>
           <div className="mt-6 space-y-4">
-            <Field label="Full name" value={form.full_name} onChange={(v) => update("full_name", v)} />
-            <Field label="Email" type="email" value={form.email} onChange={(v) => update("email", v)} />
-            <Field label="Lebanese phone number" value={form.phone} onChange={(v) => update("phone", v)} placeholder="03 000 000" />
+            <Field label="Full name" value={form.full_name} onChange={(v) => update("full_name", v)} autoComplete="name" />
+            <Field label="Email" type="email" value={form.email} onChange={(v) => update("email", v)} autoComplete="email" inputMode="email" />
+            <Field label="Lebanese phone number" type="tel" value={form.phone} onChange={(v) => update("phone", v)} placeholder="03 000 000" autoComplete="tel" inputMode="tel" />
             <div>
               <label className="label">Delivery address in Lebanon</label>
-              <textarea className="input min-h-24" value={form.address} onChange={(e) => update("address", e.target.value)} />
+              <textarea className="input min-h-24" autoComplete="street-address" value={form.address} onChange={(e) => update("address", e.target.value)} />
             </div>
             <div>
               <label className="label">Special notes (optional)</label>
@@ -313,11 +320,11 @@ function Stepper({ step }: { step: number }) {
   );
 }
 
-function Field({ label, value, onChange, type = "text", placeholder }: { label: string; value: string; onChange: (v: string) => void; type?: string; placeholder?: string }) {
+function Field({ label, value, onChange, type = "text", placeholder, autoComplete, inputMode }: { label: string; value: string; onChange: (v: string) => void; type?: string; placeholder?: string; autoComplete?: string; inputMode?: "email" | "tel" | "text" }) {
   return (
     <div>
       <label className="label">{label}</label>
-      <input type={type} value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} className="input" />
+      <input type={type} value={value} placeholder={placeholder} autoComplete={autoComplete} inputMode={inputMode} onChange={(e) => onChange(e.target.value)} className="input" />
     </div>
   );
 }
