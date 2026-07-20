@@ -112,12 +112,12 @@ async function main(): Promise<void> {
   let updated = 0;
   for (const p of UPDATES) {
     try {
-      const rows = await sql`
+      const rows = (await sql`
         update products
         set price_gbp = ${p.price_gbp}, price_usd = ${p.price_usd}, price_locked = true
         where product_url = ${p.product_url}
         returning id
-      `;
+      `) as Array<{ id: string }>;
       if (rows.length === 0) {
         console.warn(`  MISS  ${p.name} — no row matched ${p.product_url}`);
         continue;
