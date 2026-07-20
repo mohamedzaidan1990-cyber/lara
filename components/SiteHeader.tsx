@@ -104,16 +104,26 @@ export default function SiteHeader() {
       }
     >
       <div className="mx-auto flex max-w-7xl items-center justify-between rounded-full glass-pill px-5 py-3 shadow-soft sm:px-8">
-        <Link href="/" className="flex items-center leading-none" onClick={() => setMobileOpen(false)}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/logo.png"
-            alt="Seasons by B"
-            className="h-9 w-auto sm:h-11"
-            width={460}
-            height={188}
-          />
-        </Link>
+        <div className="flex items-center gap-1.5">
+          <Link href="/" className="flex items-center leading-none" onClick={() => setMobileOpen(false)}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/logo.png"
+              alt="Seasons by B"
+              className="h-9 w-auto sm:h-11"
+              width={460}
+              height={188}
+            />
+          </Link>
+          <button
+            type="button"
+            aria-label="Search"
+            onClick={openSearch}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-accent/20 text-ink transition-colors hover:text-accent sm:hidden"
+          >
+            <Search className="h-4 w-4" />
+          </button>
+        </div>
 
         <nav className="hidden items-center gap-6 text-xs font-bold uppercase tracking-[0.16em] text-ink/70 sm:flex">
           <div className="relative" ref={shopRef}>
