@@ -212,7 +212,7 @@ export default function BespokeChat({ embedded = false }: { embedded?: boolean }
       <AnimatePresence>
         {open ? (
           <motion.div
-            className="fixed bottom-0 left-0 z-[55] w-full sm:bottom-6 sm:left-6 sm:w-[380px]"
+            className="fixed bottom-0 right-0 z-[55] w-full sm:bottom-6 sm:right-6 sm:w-[380px]"
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 30 }}
@@ -230,10 +230,10 @@ export default function BespokeChat({ embedded = false }: { embedded?: boolean }
           type="button"
           onClick={() => setOpen(true)}
           aria-label="Chat with Béa"
-          className="bespoke-pulse fixed bottom-5 left-5 z-[55] flex h-[60px] w-[60px] items-center justify-center rounded-full shadow-soft sm:bottom-6 sm:left-6"
+          className="bespoke-pulse fixed bottom-4 right-4 z-[55] flex h-12 w-12 items-center justify-center rounded-full shadow-soft sm:bottom-6 sm:right-6 sm:h-[60px] sm:w-[60px]"
           style={{ backgroundColor: "#F4D360" }}
         >
-          <BeeSvg size={34} />
+          <BeeSvg size={30} />
         </button>
       ) : null}
     </>

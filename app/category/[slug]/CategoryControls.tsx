@@ -84,8 +84,8 @@ export default function CategoryControls({
   return (
     <div className="flex flex-col gap-4 w-full">
       {/* Budget filter */}
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[10px] uppercase tracking-[0.2em] text-ink/60 mr-1">Budget</span>
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
+        <span className="hidden text-[10px] uppercase tracking-[0.2em] text-ink/60 mr-1 sm:block">Budget</span>
         {BUDGETS.map((b) => (
           <button
             key={b.label}
@@ -93,7 +93,7 @@ export default function CategoryControls({
             disabled={pending}
             onClick={() => onBudgetChange(b.value)}
             className={
-              "rounded-full border px-4 py-1.5 text-xs font-medium uppercase tracking-[0.14em] transition-colors " +
+              "shrink-0 whitespace-nowrap rounded-full border px-4 py-1.5 text-xs font-medium uppercase tracking-[0.14em] transition-colors " +
               (currentMaxUsd === b.value
                 ? "border-accent bg-accent text-white"
                 : "border-ink/15 bg-white text-ink hover:border-accent hover:text-accent")
@@ -104,10 +104,10 @@ export default function CategoryControls({
         ))}
       </div>
       {/* Sort + brand + subcategory */}
-      <div className="flex flex-wrap items-center gap-4 text-sm text-ink/80">
+      <div className="flex items-center gap-2 text-sm text-ink/80 sm:flex-wrap sm:gap-4">
       {subcategories.length > 0 ? (
-        <div className="flex items-center gap-3">
-          <label htmlFor="sub" className="text-[10px] uppercase tracking-[0.2em] text-ink/60">
+        <div className="flex min-w-0 flex-1 items-center gap-3 sm:flex-none">
+          <label htmlFor="sub" className="hidden text-[10px] uppercase tracking-[0.2em] text-ink/60 sm:block">
             Type
           </label>
           <select
@@ -115,7 +115,8 @@ export default function CategoryControls({
             value={currentSubcategory ?? ""}
             onChange={onFilterChange("sub")}
             disabled={pending}
-            className="max-w-[200px] rounded-full border border-accent/20 bg-white px-5 py-2.5 text-xs font-bold uppercase tracking-[0.1em] text-ink focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+            aria-label="Type"
+            className="w-full min-w-0 rounded-full border border-accent/20 bg-white px-3 py-2.5 text-xs font-bold uppercase tracking-[0.1em] text-ink focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:w-auto sm:max-w-[200px] sm:px-5"
           >
             <option value="">All types</option>
             {subcategories.map((s) => (
@@ -128,8 +129,8 @@ export default function CategoryControls({
       ) : null}
 
       {brands.length > 0 ? (
-        <div className="flex items-center gap-3">
-          <label htmlFor="brand" className="text-[10px] uppercase tracking-[0.2em] text-ink/60">
+        <div className="flex min-w-0 flex-1 items-center gap-3 sm:flex-none">
+          <label htmlFor="brand" className="hidden text-[10px] uppercase tracking-[0.2em] text-ink/60 sm:block">
             Brand
           </label>
           <select
@@ -137,7 +138,8 @@ export default function CategoryControls({
             value={currentBrand ?? ""}
             onChange={onFilterChange("brand")}
             disabled={pending}
-            className="max-w-[200px] rounded-full border border-accent/20 bg-white px-5 py-2.5 text-xs font-bold uppercase tracking-[0.1em] text-ink focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+            aria-label="Brand"
+            className="w-full min-w-0 rounded-full border border-accent/20 bg-white px-3 py-2.5 text-xs font-bold uppercase tracking-[0.1em] text-ink focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:w-auto sm:max-w-[200px] sm:px-5"
           >
             <option value="">All brands</option>
             {brands.map((b) => (
@@ -149,8 +151,8 @@ export default function CategoryControls({
         </div>
       ) : null}
 
-      <div className="flex items-center gap-3">
-        <label htmlFor="sort" className="text-[10px] uppercase tracking-[0.2em] text-ink/60">
+      <div className="flex min-w-0 flex-1 items-center gap-3 sm:flex-none">
+        <label htmlFor="sort" className="hidden text-[10px] uppercase tracking-[0.2em] text-ink/60 sm:block">
           Sort
         </label>
         <select
@@ -158,7 +160,8 @@ export default function CategoryControls({
           value={current}
           onChange={onSortChange}
           disabled={pending}
-          className="rounded-full border border-accent/20 bg-white px-5 py-2.5 text-xs font-bold uppercase tracking-[0.1em] text-ink focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+          aria-label="Sort"
+          className="w-full min-w-0 rounded-full border border-accent/20 bg-white px-3 py-2.5 text-xs font-bold uppercase tracking-[0.1em] text-ink focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:w-auto sm:px-5"
         >
           {OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>

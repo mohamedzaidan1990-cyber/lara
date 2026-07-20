@@ -40,10 +40,10 @@ export default function HomeClient({ categories, brands }: Props) {
   return (
     <div className="flex flex-col">
 
-      {/* ── 1 MOBILE / 5 DESKTOP: Search ── */}
+      {/* ── 6 MOBILE / 5 DESKTOP: Search ── */}
       <section
         id="shop"
-        className="order-1 lg:order-5 mx-auto w-full max-w-7xl px-4 pt-6 pb-2 sm:px-6 lg:px-8 lg:pt-16 lg:pb-0"
+        className="order-6 lg:order-5 mx-auto w-full max-w-7xl px-4 pt-10 pb-2 sm:px-6 lg:px-8 lg:pt-16 lg:pb-0"
       >
         <div className="text-center">
           <p className="text-[11px] uppercase tracking-[0.32em] text-accent">Search the edit</p>
@@ -52,14 +52,10 @@ export default function HomeClient({ categories, brands }: Props) {
             <SearchAutocomplete query={query} setQuery={setQuery} onSubmit={onSubmit} />
           </div>
         </div>
-        <div className="mt-4 flex flex-wrap items-center justify-center gap-3 lg:hidden">
-          <Link href="#shop-categories" className="btn-primary">Shop Now</Link>
-          <a href={bespoke} target="_blank" rel="noreferrer" className="btn-outline">Request Bespoke</a>
-        </div>
       </section>
 
-      {/* ── 2 MOBILE / 6 DESKTOP: Brand directory ── */}
-      <section className="order-2 lg:order-6 mx-auto w-full max-w-7xl px-4 pt-8 pb-4 sm:px-6 lg:px-8">
+      {/* ── 7 MOBILE / 6 DESKTOP: Brand directory ── */}
+      <section className="order-7 lg:order-6 mx-auto w-full max-w-7xl px-4 pt-8 pb-4 sm:px-6 lg:px-8">
         <div className="rounded-[2rem] border border-white/60 bg-white/40 p-6 backdrop-blur-sm">
           <div className="mb-4 flex items-center justify-between">
             <div>
@@ -73,14 +69,14 @@ export default function HomeClient({ categories, brands }: Props) {
               Full directory →
             </Link>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex gap-2 overflow-x-auto pb-1 lg:flex-wrap lg:overflow-visible lg:pb-0">
             {letters.map((l) => (
               <button
                 key={l}
                 type="button"
                 onClick={() => setActiveLetter(activeLetter === l ? null : l)}
                 className={
-                  "h-9 w-9 rounded-full border text-sm font-bold transition-all " +
+                  "h-9 w-9 shrink-0 rounded-full border text-sm font-bold transition-all " +
                   (activeLetter === l
                     ? "border-accent bg-accent text-white"
                     : "border-ink/15 bg-white text-ink hover:border-accent hover:text-accent")
@@ -107,28 +103,28 @@ export default function HomeClient({ categories, brands }: Props) {
         </div>
       </section>
 
-      {/* ── 3 MOBILE / 2 DESKTOP: Promo ── */}
-      <div id="promo" className="order-3 lg:order-2">
+      {/* ── 2 MOBILE / 2 DESKTOP: Promo ── */}
+      <div id="promo" className="order-2 lg:order-2">
         <PromoSection />
       </div>
 
-      {/* ── 4 MOBILE / 1 DESKTOP: Hero ── */}
-      <div className="order-4 lg:order-1">
+      {/* ── 1 MOBILE / 1 DESKTOP: Hero ── */}
+      <div className="order-1 lg:order-1">
         <HeroSection />
       </div>
 
-      {/* ── 5 MOBILE / 3 DESKTOP: Huda Beauty banner ── */}
-      <div className="order-5 lg:order-3">
+      {/* ── 4 MOBILE / 3 DESKTOP: Huda Beauty banner ── */}
+      <div className="order-4 lg:order-3">
         <HudaBeautyBanner />
       </div>
 
-      {/* ── 6 MOBILE / 4 DESKTOP: Shade Finder banner ── */}
-      <div className="order-6 lg:order-4">
+      {/* ── 5 MOBILE / 4 DESKTOP: Shade Finder banner ── */}
+      <div className="order-5 lg:order-4">
         <ShadeFinderBanner />
       </div>
 
-      {/* ── 7 MOBILE+DESKTOP: Category cards ── */}
-      <div id="shop-categories" className="order-7 lg:order-7">
+      {/* ── 3 MOBILE / 7 DESKTOP: Category cards ── */}
+      <div id="shop-categories" className="order-3 lg:order-7">
         <CategoryCards categories={categories} />
         <KBeautyTeaser />
       </div>
@@ -278,6 +274,7 @@ function HeroVideo() {
       <div className="absolute -inset-6 rounded-[2.75rem] bg-accent/15 blur-3xl" aria-hidden />
       <AutoVideo
         src="/hero.mp4"
+        poster="/hero-poster.jpg"
         wrapperClassName="overflow-hidden rounded-[2rem] border-2 border-white shadow-pop"
         videoClassName="aspect-video w-full bg-cream object-cover"
         label="Seasons by B brand film"

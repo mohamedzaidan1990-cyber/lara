@@ -289,7 +289,7 @@ function ShareButton({
         aria-label="Share product"
         onClick={() => setOpen((v) => !v)}
         disabled={buildingStory}
-        className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-accent/25 bg-white text-ink/60 transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-accent/25 bg-white text-ink/60 transition-colors hover:border-accent hover:text-accent disabled:opacity-50 sm:h-10 sm:w-10"
       >
         {buildingStory ? (
           <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
@@ -482,7 +482,7 @@ export default function ProductCard({ product, index = 0 }: Props) {
           {product.id && product.light_shade_image_url && isShadeRelevant(product.subcategory ?? null, product.name) ? (
             <Link
               href={`/product/${product.id}#shade-picker-section`}
-              className="btn-primary flex-1 justify-center transition-transform hover:scale-[1.02]"
+              className="inline-flex flex-1 items-center justify-center whitespace-nowrap rounded-full bg-accent px-2 py-3 text-[11px] font-bold uppercase tracking-[0.08em] text-white shadow-lg transition-transform duration-300 hover:scale-[1.02] active:scale-95 sm:px-4 sm:text-xs sm:tracking-[0.14em]"
             >
               Select Shade
             </Link>
@@ -493,7 +493,7 @@ export default function ProductCard({ product, index = 0 }: Props) {
                 addToCart();
                 openCart();
               }}
-              className="btn-primary flex-1 justify-center transition-transform hover:scale-[1.02]"
+              className="inline-flex flex-1 items-center justify-center whitespace-nowrap rounded-full bg-accent px-2 py-3 text-[11px] font-bold uppercase tracking-[0.08em] text-white shadow-lg transition-transform duration-300 hover:scale-[1.02] active:scale-95 sm:px-4 sm:text-xs sm:tracking-[0.14em]"
             >
               Add to Cart
             </button>
