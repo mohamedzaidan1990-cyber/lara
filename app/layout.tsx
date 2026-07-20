@@ -85,10 +85,45 @@ export const viewport: Viewport = {
   maximumScale: 5
 };
 
+// Sitewide structured data: tells Google who the business is and enables the
+// sitelinks search box for brand queries ("seasons by b").
+const ORG_JSON_LD = {
+  "@context": "https://schema.org",
+  "@type": "OnlineStore",
+  name: "Seasons by B",
+  url: SITE_URL,
+  logo: `${SITE_URL}/logo.png`,
+  image: `${SITE_URL}/og-card.jpg`,
+  description: SITE_DESCRIPTION,
+  email: "hello@seasonsbyb.co.uk",
+  sameAs: ["https://instagram.com/seasons.by.b"],
+  areaServed: { "@type": "Country", name: "Lebanon" },
+};
+
+const WEBSITE_JSON_LD = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: "Seasons by B",
+  url: SITE_URL,
+  potentialAction: {
+    "@type": "SearchAction",
+    target: { "@type": "EntryPoint", urlTemplate: `${SITE_URL}/search?q={search_term_string}` },
+    "query-input": "required name=search_term_string",
+  },
+};
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${playfair.variable} ${dmSans.variable}`}>
       <body className="min-h-screen text-ink">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(ORG_JSON_LD) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(WEBSITE_JSON_LD) }}
+        />
         <CustomCursor />
         <TitleCycler />
         <SiteHeader />

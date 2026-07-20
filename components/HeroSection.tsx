@@ -10,7 +10,7 @@ const fade = {
   show: { opacity: 1, y: 0 }
 };
 
-export default function HeroSection() {
+export default function HeroSection({ orderCount = 0 }: { orderCount?: number }) {
   const bespoke = whatsappRequestLink();
 
   return (
@@ -88,6 +88,16 @@ export default function HeroSection() {
               Request Bespoke
             </a>
           </motion.div>
+          {orderCount > 0 ? (
+            <motion.p
+              variants={fade}
+              transition={{ duration: 0.6 }}
+              className="mt-6 inline-flex items-center gap-2 text-sm text-ink/70"
+            >
+              <span aria-hidden className="inline-flex h-2 w-2 rounded-full bg-accent" />
+              <strong className="text-ink">{orderCount}+ orders</strong> delivered to Lebanon — and counting
+            </motion.p>
+          ) : null}
         </motion.div>
       </div>
     </section>

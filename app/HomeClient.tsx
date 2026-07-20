@@ -15,9 +15,10 @@ import SearchAutocomplete from "@/components/SearchAutocomplete";
 interface Props {
   categories: CategoryStat[];
   brands: BrandDirectoryEntry[];
+  orderCount?: number;
 }
 
-export default function HomeClient({ categories, brands }: Props) {
+export default function HomeClient({ categories, brands, orderCount = 0 }: Props) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [activeLetter, setActiveLetter] = useState<string | null>(null);
@@ -110,7 +111,7 @@ export default function HomeClient({ categories, brands }: Props) {
 
       {/* ── 1 MOBILE / 1 DESKTOP: Hero ── */}
       <div className="order-1 lg:order-1">
-        <HeroSection />
+        <HeroSection orderCount={orderCount} />
       </div>
 
       {/* ── 4 MOBILE / 3 DESKTOP: Huda Beauty banner ── */}

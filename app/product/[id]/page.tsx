@@ -94,12 +94,30 @@ export default async function ProductPage({ params }: { params: Params }) {
     image: ogImage(product.image_url),
     offers: {
       "@type": "Offer",
-      priceCurrency: "GBP",
-      price: product.price_gbp.toFixed(2),
+      // USD — must match the price shown on the page for rich-result eligibility.
+      priceCurrency: "USD",
+      price: product.price_usd.toFixed(2),
       availability: "https://schema.org/InStock",
       url: `${SITE_URL}/product/${product.id}`,
       seller: { "@type": "Organization", name: "Seasons by B" },
     },
+  };
+
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
+      ...(slug
+        ? [{ "@type": "ListItem", position: 2, name: product.category, item: `${SITE_URL}/category/${slug}` }]
+        : []),
+      {
+        "@type": "ListItem",
+        position: slug ? 3 : 2,
+        name: `${product.brand} ${product.name}`,
+        item: `${SITE_URL}/product/${product.id}`,
+      },
+    ],
   };
 
   return (
@@ -107,6 +125,10 @@ export default async function ProductPage({ params }: { params: Params }) {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
       <div className="mb-3">
         <BackButton />

@@ -22,7 +22,7 @@ interface Confirmation {
   payment_method: PaymentMethod;
 }
 
-export default function CheckoutClient({ whish }: { whish: string }) {
+export default function CheckoutClient({ whish, orderCount = 0 }: { whish: string; orderCount?: number }) {
   const items = useCart((s) => s.items);
   const updateQuantity = useCart((s) => s.updateQuantity);
   const removeItem = useCart((s) => s.removeItem);
@@ -253,6 +253,12 @@ export default function CheckoutClient({ whish }: { whish: string }) {
       {step === 3 ? (
         <section className="mt-8">
           <h1 className="font-serif text-3xl text-ink">Payment</h1>
+          {orderCount > 0 ? (
+            <p className="mt-2 inline-flex items-center gap-2 text-sm text-ink/60">
+              <span aria-hidden className="inline-flex h-2 w-2 rounded-full bg-accent" />
+              Join <strong className="text-ink">{orderCount}+ customers</strong> who&apos;ve ordered from London with us
+            </p>
+          ) : null}
           <div className="mt-6 border border-ink/10 bg-cream p-5">
             <p className="text-[10px] uppercase tracking-[0.2em] text-ink/60">Order summary</p>
             <ul className="mt-3 space-y-1 text-sm text-ink">
