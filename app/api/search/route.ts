@@ -45,7 +45,7 @@ export async function POST(req: Request) {
        group by brand
        having (select bool_and(${brandHay} like '%' || t || '%')
                from unnest($1::text[]) as t)
-           or word_similarity($2, lower(brand)) > 0.45
+           or word_similarity($2, lower(brand)) > 0.3
        order by word_similarity($2, lower(brand)) desc, count desc
        limit 1`,
       [tokens, query.toLowerCase()]
