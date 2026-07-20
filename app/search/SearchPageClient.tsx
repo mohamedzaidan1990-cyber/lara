@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import ProductCard, { type ProductCardData } from "@/components/ProductCard";
 import SearchAutocomplete from "@/components/SearchAutocomplete";
@@ -12,6 +13,12 @@ interface SearchProduct extends ProductCardData {
 }
 
 type SearchSort = "relevant" | "price-asc" | "price-desc";
+
+interface BrandMatch {
+  brand: string;
+  slug: string;
+  count: number;
+}
 
 const CATEGORIES = ["All", "Makeup", "Skincare", "Fragrance", "Home Fragrance", "Haircare", "Beauty tools", "Health & Nutrition"];
 const BUDGETS: Array<{ label: string; value: number | null }> = [
@@ -31,6 +38,7 @@ export default function SearchPageClient({ initialQuery }: { initialQuery: strin
   const [sort, setSort] = useState<SearchSort>("relevant");
   const [maxUsd, setMaxUsd] = useState<number | null>(null);
   const [trending, setTrending] = useState<ProductCardData[] | null>(null);
+  const [brandMatch, setBrandMatch] = useState<BrandMatch | null>(null);
 
   useEffect(() => {
     if (!initialQuery) return;
@@ -59,8 +67,9 @@ export default function SearchPageClient({ initialQuery }: { initialQuery: strin
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: q, category: "All" }),
       });
-      const data = (await res.json()) as { products: SearchProduct[] };
+      const data = (await res.json()) as { products: SearchProduct[]; brand_match?: BrandMatch | null };
       setResults(data.products ?? []);
+      setBrandMatch(data.brand_match ?? null);
     } finally {
       setLoading(false);
     }
@@ -102,6 +111,27 @@ export default function SearchPageClient({ initialQuery }: { initialQuery: strin
               </span>
             )}
           </div>
+
+          {/* Direct link to the full brand page when the query names a brand —
+              search results are capped, the brand page never is. */}
+          {!loading && brandMatch && (
+            <Link
+              href={`/brand/${brandMatch.slug}`}
+              className="mb-6 flex items-center justify-between gap-4 rounded-[1.5rem] border border-accent/20 p-5 shadow-soft transition-all hover:-translate-y-0.5 hover:shadow-pop"
+              style={{ background: "linear-gradient(110deg, #ffe6f4 0%, #ffd6ee 100%)" }}
+            >
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.28em] text-accent">Brand page</p>
+                <p className="mt-1 font-serif text-xl text-ink">{brandMatch.brand}</p>
+                <p className="mt-0.5 text-xs text-ink/60">
+                  See the complete collection — all {brandMatch.count} products
+                </p>
+              </div>
+              <span className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-accent px-5 py-2.5 text-xs font-bold uppercase tracking-[0.14em] text-white shadow-lg">
+                View all →
+              </span>
+            </Link>
+          )}
 
           {/* Filters */}
           {!loading && results && results.length > 0 && (

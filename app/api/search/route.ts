@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSql } from "@/lib/db";
 import { normalizeQueryTokens, normalizedHaystackSql } from "@/lib/search";
+import { brandSlug } from "@/lib/brands";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -36,6 +37,23 @@ export async function POST(req: Request) {
   try {
     const sql = getSql();
 
+    // If the query is (close to) a brand name, surface that brand's page so
+    // the user can see the complete catalogue rather than capped search hits.
+    const brandRows = (await sql(
+      `select brand, count(*)::int as count
+       from products
+       group by brand
+       having (select bool_and(${brandHay} like '%' || t || '%')
+               from unnest($1::text[]) as t)
+           or word_similarity($2, lower(brand)) > 0.45
+       order by word_similarity($2, lower(brand)) desc, count desc
+       limit 1`,
+      [tokens, query.toLowerCase()]
+    )) as { brand: string; count: number }[];
+    const brandMatch = brandRows[0]
+      ? { brand: brandRows[0].brand, slug: brandSlug(brandRows[0].brand), count: brandRows[0].count }
+      : null;
+
     // Exact token match first
     const rows = (await sql(
       `select id, brand, name, category, subcategory,
@@ -49,12 +67,12 @@ export async function POST(req: Request) {
          (select count(*) from unnest($2::text[]) as t
           where ${brandHay} like '%' || t || '%') desc,
          brand asc, name asc
-       limit 60`,
+       limit 200`,
       [cat, tokens]
     )) as SearchRow[];
 
     if (rows.length > 0) {
-      return NextResponse.json({ products: rows });
+      return NextResponse.json({ products: rows, brand_match: brandMatch });
     }
 
     // Fuzzy fallback via pg_trgm for typos / close spellings
@@ -66,11 +84,11 @@ export async function POST(req: Request) {
        where ($1::text is null or category = $1)
          and word_similarity($2, lower(brand || ' ' || name)) > 0.15
        order by word_similarity($2, lower(brand || ' ' || name)) desc
-       limit 60`,
+       limit 200`,
       [cat, query.toLowerCase()]
     )) as SearchRow[];
 
-    return NextResponse.json({ products: fuzzy });
+    return NextResponse.json({ products: fuzzy, brand_match: brandMatch });
   } catch {
     return NextResponse.json({ products: [] });
   }
