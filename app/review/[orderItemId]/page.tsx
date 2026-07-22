@@ -27,6 +27,10 @@ export default async function ReviewPage({ params }: { params: Params }) {
       ) : null}
       {item.already_reviewed ? (
         <p className="mt-8 text-sm text-ink/70">You&apos;ve already reviewed this item — thank you!</p>
+      ) : !item.product_url ? (
+        <p className="mt-8 text-sm text-ink/70">
+          Reviews aren&apos;t available for this item right now — thanks for understanding!
+        </p>
       ) : (
         <ReviewForm orderItemId={item.id} />
       )}

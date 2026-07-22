@@ -86,9 +86,19 @@ export default async function ProductPage({ params }: { params: Params }) {
     } catch { /* non-fatal */ }
   }
 
-  const [reviews, ratingSummary] = product.product_url
-    ? await Promise.all([getProductReviews(product.product_url), getProductRatingSummary(product.product_url)])
-    : [[], null];
+  // Reviews depend on the product_reviews table, which is only created lazily by
+  // ensureSchema() elsewhere in the app. If that hasn't run yet (or on any other
+  // transient DB blip), fall back to no reviews rather than 500-ing the whole page.
+  let reviews: Awaited<ReturnType<typeof getProductReviews>> = [];
+  let ratingSummary: Awaited<ReturnType<typeof getProductRatingSummary>> = null;
+  if (product.product_url) {
+    try {
+      [reviews, ratingSummary] = await Promise.all([
+        getProductReviews(product.product_url),
+        getProductRatingSummary(product.product_url)
+      ]);
+    } catch { /* non-fatal */ }
+  }
 
   const jsonLd = {
     "@context": "https://schema.org",
