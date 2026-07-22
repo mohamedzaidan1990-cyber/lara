@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import ProductCard from "@/components/ProductCard";
 import { getProductById, getRelatedProducts } from "@/lib/products";
+import { getProductReviews, getProductRatingSummary } from "@/lib/reviews";
 import { getSql } from "@/lib/db";
 import { categorySlug } from "@/lib/categories";
 import ProductDetailClient from "./ProductDetailClient";
@@ -85,6 +86,10 @@ export default async function ProductPage({ params }: { params: Params }) {
     } catch { /* non-fatal */ }
   }
 
+  const [reviews, ratingSummary] = product.product_url
+    ? await Promise.all([getProductReviews(product.product_url), getProductRatingSummary(product.product_url)])
+    : [[], null];
+
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -92,6 +97,26 @@ export default async function ProductPage({ params }: { params: Params }) {
     brand: { "@type": "Brand", name: product.brand },
     description: product.description ?? `${product.brand} ${product.name} — ${product.category} sourced from London by Seasons by B.`,
     image: ogImage(product.image_url),
+    ...(ratingSummary
+      ? {
+          aggregateRating: {
+            "@type": "AggregateRating",
+            ratingValue: ratingSummary.ratingValue.toFixed(1),
+            reviewCount: ratingSummary.reviewCount
+          }
+        }
+      : {}),
+    ...(reviews.length > 0
+      ? {
+          review: reviews.slice(0, 5).map((r) => ({
+            "@type": "Review",
+            reviewRating: { "@type": "Rating", ratingValue: r.rating },
+            author: { "@type": "Person", name: r.reviewer_name },
+            ...(r.review_text ? { reviewBody: r.review_text } : {}),
+            datePublished: r.created_at
+          }))
+        }
+      : {}),
     offers: {
       "@type": "Offer",
       // USD — must match the price shown on the page for rich-result eligibility.
@@ -197,6 +222,35 @@ export default async function ProductPage({ params }: { params: Params }) {
       <div className="mt-8">
         <ProductDetailClient product={product} promoGift={promoGift} />
       </div>
+
+      <section className="mt-16 border-t border-ink/10 pt-10">
+        <h2 className="font-serif text-2xl text-ink">Reviews</h2>
+        {ratingSummary ? (
+          <p className="mt-2 text-sm text-ink/70">
+            <span className="text-gold">{"★".repeat(Math.round(ratingSummary.ratingValue))}</span>{" "}
+            {ratingSummary.ratingValue.toFixed(1)} out of 5 (
+            {ratingSummary.reviewCount} review{ratingSummary.reviewCount === 1 ? "" : "s"})
+          </p>
+        ) : (
+          <p className="mt-2 text-sm text-ink/60">No reviews yet.</p>
+        )}
+        {reviews.length > 0 ? (
+          <div className="mt-6 space-y-6">
+            {reviews.map((r) => (
+              <div key={r.id} className="border-t border-ink/10 pt-6 first:border-t-0 first:pt-0">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold text-ink">{r.reviewer_name}</p>
+                  <span className="text-sm text-gold">
+                    {"★".repeat(r.rating)}
+                    {"☆".repeat(5 - r.rating)}
+                  </span>
+                </div>
+                {r.review_text ? <p className="mt-2 text-sm text-ink/70">{r.review_text}</p> : null}
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </section>
 
       {related.length > 0 ? (
         <section className="mt-20 border-t border-ink/10 pt-10">
