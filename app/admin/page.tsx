@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { ensureSchema, getSql, type OrderWithCustomer, type ExpenseRow, type StockItemRow } from "@/lib/db";
 import { isAdmin } from "@/lib/auth";
+import { getAllReviewsForAdmin } from "@/lib/reviews";
 import AdminDashboard from "./AdminDashboard";
 
 export const dynamic = "force-dynamic";
@@ -56,5 +57,15 @@ export default async function AdminPage() {
     order by created_at desc
   `) as StockItemRow[];
 
-  return <AdminDashboard initialOrders={rows} initialBespoke={bespoke} initialExpenses={expenses} initialStock={stockItems} />;
+  const reviews = await getAllReviewsForAdmin();
+
+  return (
+    <AdminDashboard
+      initialOrders={rows}
+      initialBespoke={bespoke}
+      initialExpenses={expenses}
+      initialStock={stockItems}
+      initialReviews={reviews}
+    />
+  );
 }
