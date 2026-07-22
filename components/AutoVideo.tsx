@@ -16,6 +16,8 @@ interface Props {
   /** Loop the film. When false it plays through once and stops. */
   loop?: boolean;
   label?: string;
+  /** Render the mute/unmute button. Set false for pure background videos. */
+  showSoundToggle?: boolean;
 }
 
 const UNMUTE_EVENT = "autovideo-unmute";
@@ -33,7 +35,8 @@ export default function AutoVideo({
   soundOnInteract = false,
   buttonSide = "right",
   loop = true,
-  label = "Brand film"
+  label = "Brand film",
+  showSoundToggle = true
 }: Props) {
   const ref = useRef<HTMLVideoElement | null>(null);
   const [muted, setMuted] = useState(true);
@@ -137,8 +140,10 @@ export default function AutoVideo({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [soundOnInteract]);
 
+  const hasPosition = /(^|\s)(static|fixed|absolute|relative|sticky)(\s|$)/.test(wrapperClassName);
+
   return (
-    <div className={"relative " + wrapperClassName}>
+    <div className={(hasPosition ? "" : "relative ") + wrapperClassName}>
       <video
         ref={ref}
         className={videoClassName}
@@ -151,17 +156,19 @@ export default function AutoVideo({
         preload="auto"
         aria-label={label}
       />
-      <button
-        type="button"
-        onClick={toggle}
-        aria-label={muted ? "Turn sound on" : "Mute"}
-        className={
-          "absolute bottom-2.5 z-20 inline-flex h-7 w-7 items-center justify-center rounded-full bg-ink/35 text-white shadow-md backdrop-blur-sm transition hover:bg-ink/70 " +
-          (buttonSide === "left" ? "left-2.5" : "right-2.5")
-        }
-      >
-        {muted ? <MutedIcon /> : <SoundIcon />}
-      </button>
+      {showSoundToggle ? (
+        <button
+          type="button"
+          onClick={toggle}
+          aria-label={muted ? "Turn sound on" : "Mute"}
+          className={
+            "absolute bottom-2.5 z-20 inline-flex h-7 w-7 items-center justify-center rounded-full bg-ink/35 text-white shadow-md backdrop-blur-sm transition hover:bg-ink/70 " +
+            (buttonSide === "left" ? "left-2.5" : "right-2.5")
+          }
+        >
+          {muted ? <MutedIcon /> : <SoundIcon />}
+        </button>
+      ) : null}
     </div>
   );
 }
