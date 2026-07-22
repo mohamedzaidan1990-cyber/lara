@@ -100,6 +100,51 @@ export default async function ProductPage({ params }: { params: Params }) {
       availability: "https://schema.org/InStock",
       url: `${SITE_URL}/product/${product.id}`,
       seller: { "@type": "Organization", name: "Seasons by B" },
+      // Fragrance is final-sale (Selfridges no-returns policy on scent); everything
+      // else gets the 14-day window described on /info#returns.
+      hasMerchantReturnPolicy:
+        product.category === "Fragrance"
+          ? {
+              "@type": "MerchantReturnPolicy",
+              returnPolicyCategory: "https://schema.org/MerchantReturnNotPermitted",
+              applicableCountry: "LB",
+            }
+          : {
+              "@type": "MerchantReturnPolicy",
+              returnPolicyCategory: "https://schema.org/MerchantReturnFiniteReturnWindow",
+              merchantReturnDays: 14,
+              applicableCountry: "LB",
+              returnMethod: "https://schema.org/ReturnByMail",
+              returnFees: "https://schema.org/ReturnShippingFees",
+            },
+      // Matches /info#delivery: door-to-door in 10–14 working days, Lebanon only.
+      shippingDetails: {
+        "@type": "OfferShippingDetails",
+        shippingRate: {
+          "@type": "MonetaryAmount",
+          value: "5.00",
+          currency: "USD",
+        },
+        shippingDestination: {
+          "@type": "DefinedRegion",
+          addressCountry: "LB",
+        },
+        deliveryTime: {
+          "@type": "ShippingDeliveryTime",
+          handlingTime: {
+            "@type": "QuantitativeValue",
+            minValue: 0,
+            maxValue: 0,
+            unitCode: "DAY",
+          },
+          transitTime: {
+            "@type": "QuantitativeValue",
+            minValue: 10,
+            maxValue: 14,
+            unitCode: "DAY",
+          },
+        },
+      },
     },
   };
 
