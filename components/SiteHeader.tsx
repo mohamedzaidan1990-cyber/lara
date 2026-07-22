@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ShoppingBag, Search } from "lucide-react";
+import { ShoppingBag } from "lucide-react";
 import { CATEGORY_DEFS } from "@/lib/categories";
 import { useCart } from "@/lib/cart";
 import { INSTAGRAM_URL } from "@/lib/links";
+import SearchAutocomplete from "@/components/SearchAutocomplete";
 
 function CartButton({ className = "" }: { className?: string }) {
   const [mounted, setMounted] = useState(false);
@@ -40,12 +41,10 @@ export default function SiteHeader() {
   const router = useRouter();
   const [shopOpen, setShopOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [hidden, setHidden] = useState(false);
   const lastY = useRef(0);
   const shopRef = useRef<HTMLDivElement | null>(null);
-  const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   // Hide the header scrolling down, bring it back scrolling up. Small deltas
   // are ignored so it doesn't flicker on touch momentum wobble.
@@ -62,16 +61,9 @@ export default function SiteHeader() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  function openSearch() {
-    setSearchOpen(true);
-    setMobileOpen(false);
-    setTimeout(() => searchInputRef.current?.focus(), 50);
-  }
-
   function submitSearch(e: React.FormEvent) {
     e.preventDefault();
     if (!searchQuery.trim()) return;
-    setSearchOpen(false);
     router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
     setSearchQuery("");
   }
@@ -100,7 +92,7 @@ export default function SiteHeader() {
     <header
       className={
         "sticky top-0 z-40 px-3 pt-3 transition-transform duration-300 ease-out sm:px-6 sm:pt-4 " +
-        (hidden && !mobileOpen && !searchOpen ? "-translate-y-[130%]" : "translate-y-0")
+        (hidden && !mobileOpen ? "-translate-y-[130%]" : "translate-y-0")
       }
     >
       <div className="mx-auto flex max-w-7xl items-center justify-between rounded-full glass-pill px-5 py-3 shadow-soft sm:px-8">
@@ -115,14 +107,6 @@ export default function SiteHeader() {
               height={188}
             />
           </Link>
-          <button
-            type="button"
-            aria-label="Search"
-            onClick={openSearch}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-accent/20 text-ink transition-colors hover:text-accent sm:hidden"
-          >
-            <Search className="h-4 w-4" />
-          </button>
         </div>
 
         <nav className="hidden items-center gap-6 text-xs font-bold uppercase tracking-[0.16em] text-ink/70 sm:flex">
@@ -192,14 +176,9 @@ export default function SiteHeader() {
           >
             Instagram
           </a>
-          <button
-            type="button"
-            aria-label="Search"
-            onClick={openSearch}
-            className="inline-flex h-9 w-9 items-center justify-center text-ink transition-colors hover:text-accent"
-          >
-            <Search className="h-5 w-5" />
-          </button>
+          <div className="w-32 shrink-0 md:w-44 lg:w-56">
+            <SearchAutocomplete query={searchQuery} setQuery={setSearchQuery} onSubmit={submitSearch} size="compact" />
+          </div>
           <CartButton />
         </nav>
 
@@ -219,26 +198,9 @@ export default function SiteHeader() {
         </div>
       </div>
 
-      {searchOpen ? (
-        <div className="mx-3 mt-2 rounded-2xl glass-pill px-4 py-3 shadow-soft sm:mx-6">
-          <form onSubmit={submitSearch} className="flex items-center gap-2">
-            <Search className="h-4 w-4 shrink-0 text-ink/40" />
-            <input
-              ref={searchInputRef}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => e.key === "Escape" && setSearchOpen(false)}
-              placeholder="Search products and brands…"
-              className="flex-1 bg-transparent text-sm text-ink placeholder:text-ink/40 focus:outline-none"
-            />
-            <button
-              type="button"
-              onClick={() => setSearchOpen(false)}
-              className="text-xs uppercase tracking-[0.18em] text-ink/50 hover:text-accent"
-            >
-              Cancel
-            </button>
-          </form>
+      {!mobileOpen ? (
+        <div className="mx-3 mt-2 sm:hidden">
+          <SearchAutocomplete query={searchQuery} setQuery={setSearchQuery} onSubmit={submitSearch} size="compact" />
         </div>
       ) : null}
 
@@ -260,13 +222,6 @@ export default function SiteHeader() {
               ))}
             </ul>
             <div className="mt-3 border-t border-accent/10 pt-3">
-              <button
-                type="button"
-                onClick={openSearch}
-                className="flex w-full items-center gap-2 rounded-full px-3 py-2 text-xs font-bold uppercase tracking-[0.16em] text-ink hover:text-accent"
-              >
-                <Search className="h-4 w-4" /> Search
-              </button>
               <Link
                 href="/brand/huda-beauty"
                 onClick={() => setMobileOpen(false)}
