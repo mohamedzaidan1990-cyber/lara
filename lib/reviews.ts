@@ -128,6 +128,7 @@ export async function getAllReviewsForAdmin(): Promise<AdminReviewRow[]> {
 }
 
 export async function setReviewHidden(id: string, hidden: boolean): Promise<ProductReviewRow | null> {
+  if (!isUuid(id)) return null;
   const sql = getSql();
   const rows = (await sql`
     update product_reviews set hidden = ${hidden} where id = ${id}
