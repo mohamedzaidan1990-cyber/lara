@@ -14,24 +14,19 @@ export default function HeroSection({ orderCount = 0 }: { orderCount?: number })
   const bespoke = whatsappRequestLink();
 
   return (
-    <section className="relative flex flex-col lg:min-h-[88vh] lg:flex-row">
-      {/* Brand film side */}
-      <div className="relative h-[42vh] w-full overflow-hidden bg-cream lg:h-auto lg:min-h-[88vh] lg:w-[60%]">
-        <AutoVideo
-          src="/hero-top.mp4"
-          poster="/hero-top-poster.jpg"
-          wrapperClassName="absolute inset-0 hero-kenburns"
-          videoClassName="h-full w-full object-cover"
-          buttonSide="right"
-          loop={false}
-          label="Seasons by B brand film"
-        />
-        {/* soft fade so the film blends into the text side on desktop */}
-        <div className="pointer-events-none absolute inset-0 lg:bg-gradient-to-r lg:from-transparent lg:via-transparent lg:to-cream/70" />
-      </div>
+    <section className="relative flex min-h-[92vh] w-full items-end overflow-hidden bg-ink sm:items-center">
+      <AutoVideo
+        src="/hero-top.mp4"
+        poster="/hero-top-poster.jpg"
+        wrapperClassName="absolute inset-0 hero-kenburns"
+        videoClassName="h-full w-full object-cover"
+        showSoundToggle={false}
+        label="Seasons by B brand film"
+      />
+      {/* scrim so the headline stays legible over the footage */}
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink/80 via-ink/30 to-ink/10" />
 
-      {/* Text side */}
-      <div className="flex w-full items-center justify-center px-6 pt-0 pb-10 sm:px-10 lg:w-[40%] lg:py-0">
+      <div className="relative z-10 w-full px-6 pt-24 pb-12 sm:px-10 lg:px-16 lg:pb-20">
         <motion.div
           className="max-w-md"
           initial="hidden"
@@ -39,11 +34,11 @@ export default function HeroSection({ orderCount = 0 }: { orderCount?: number })
           transition={{ staggerChildren: 0.2, delayChildren: 0.1 }}
         >
           <motion.div variants={fade} transition={{ duration: 0.6 }}>
-            <span className="inline-flex items-center gap-2 rounded-full bg-accent/10 px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.18em] text-accent">
+            <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.18em] text-white backdrop-blur-sm">
               <span aria-hidden>🐝</span> London → Lebanon in 14 days
             </span>
           </motion.div>
-          <h1 className="mt-5 font-serif text-[48px] font-bold leading-[1.05] text-ink sm:text-[56px]">
+          <h1 className="mt-5 font-serif text-[48px] font-bold leading-[1.05] text-white sm:text-[56px]">
             {[
               { t: "London's" },
               { t: "Finest," },
@@ -72,7 +67,7 @@ export default function HeroSection({ orderCount = 0 }: { orderCount?: number })
           <motion.p
             variants={fade}
             transition={{ duration: 0.6 }}
-            className="mt-6 text-base leading-relaxed text-ink/70"
+            className="mt-6 text-base leading-relaxed text-white/80"
           >
             Luxury beauty, skincare and personal sourcing — curated in London, delivered to your door with a pop of joy in 10–14 days.
           </motion.p>
@@ -92,10 +87,10 @@ export default function HeroSection({ orderCount = 0 }: { orderCount?: number })
             <motion.p
               variants={fade}
               transition={{ duration: 0.6 }}
-              className="mt-6 inline-flex items-center gap-2 text-sm text-ink/70"
+              className="mt-6 inline-flex items-center gap-2 text-sm text-white/80"
             >
               <span aria-hidden className="inline-flex h-2 w-2 rounded-full bg-accent" />
-              <strong className="text-ink">{orderCount}+ orders</strong> delivered to Lebanon — and counting
+              <strong className="text-white">{orderCount}+ orders</strong> delivered to Lebanon — and counting
             </motion.p>
           ) : null}
         </motion.div>

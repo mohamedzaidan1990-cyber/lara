@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Search } from "lucide-react";
 import { BeeSvg } from "./BeeMascot";
 import type { BrandSuggestion, ProductSuggestion } from "@/app/api/search-suggestions/route";
 
@@ -9,6 +10,7 @@ interface Props {
   query: string;
   setQuery: (v: string) => void;
   onSubmit: (e: React.FormEvent) => void;
+  size?: "default" | "compact";
 }
 
 interface Suggestions {
@@ -22,7 +24,7 @@ type Row =
   | { kind: "product"; product: ProductSuggestion }
   | { kind: "search" };
 
-export default function SearchAutocomplete({ query, setQuery, onSubmit }: Props) {
+export default function SearchAutocomplete({ query, setQuery, onSubmit, size = "default" }: Props) {
   const router = useRouter();
   const [suggestions, setSuggestions] = useState<Suggestions>({ brands: [], products: [] });
   const [open, setOpen] = useState(false);
@@ -73,6 +75,7 @@ export default function SearchAutocomplete({ query, setQuery, onSubmit }: Props)
   ];
 
   const hasDropdown = open && rows.length > 0;
+  const compact = size === "compact";
 
   function selectBrand(b: BrandSuggestion) {
     setOpen(false);
@@ -111,13 +114,13 @@ export default function SearchAutocomplete({ query, setQuery, onSubmit }: Props)
   }
 
   return (
-    <div ref={containerRef} className="relative mx-auto max-w-2xl">
+    <div ref={containerRef} className={compact ? "relative w-full" : "relative mx-auto max-w-2xl"}>
       <form
         onSubmit={(e) => {
           setOpen(false);
           onSubmit(e);
         }}
-        className="flex items-stretch gap-0 shadow-soft"
+        className={compact ? "flex items-stretch gap-0" : "flex items-stretch gap-0 shadow-soft"}
       >
         <input
           value={query}
@@ -127,19 +130,39 @@ export default function SearchAutocomplete({ query, setQuery, onSubmit }: Props)
           }}
           onFocus={() => setOpen(true)}
           onKeyDown={onKeyDown}
-          placeholder="Search across every category — e.g. Charlotte Tilbury"
-          className="flex-1 border border-ink/15 bg-white px-5 py-4 text-base text-ink placeholder:text-ink/40 focus:border-accent focus:outline-none"
+          placeholder={compact ? "Search…" : "Search across every category — e.g. Charlotte Tilbury"}
+          className={
+            compact
+              ? "w-full min-w-0 rounded-l-full border border-ink/15 bg-white/90 px-4 py-2 text-sm text-ink placeholder:text-ink/40 focus:border-accent focus:outline-none"
+              : "flex-1 border border-ink/15 bg-white px-5 py-4 text-base text-ink placeholder:text-ink/40 focus:border-accent focus:outline-none"
+          }
           role="combobox"
           aria-expanded={hasDropdown}
           aria-autocomplete="list"
         />
-        <button type="submit" className="btn-primary px-8 transition-transform hover:scale-[1.02]">
-          Search
-        </button>
+        {compact ? (
+          <button
+            type="submit"
+            aria-label="Search"
+            className="inline-flex shrink-0 items-center justify-center rounded-r-full border border-l-0 border-ink/15 bg-accent px-3 text-white transition-transform hover:scale-[1.05]"
+          >
+            <Search className="h-4 w-4" />
+          </button>
+        ) : (
+          <button type="submit" className="btn-primary px-8 transition-transform hover:scale-[1.02]">
+            Search
+          </button>
+        )}
       </form>
 
       {hasDropdown ? (
-        <ul className="absolute left-0 right-0 z-30 mt-1 max-h-[420px] overflow-auto border border-ink/15 bg-white text-left shadow-soft">
+        <ul
+          className={
+            compact
+              ? "absolute left-0 right-0 z-30 mt-1 max-h-[360px] overflow-auto rounded-2xl border border-ink/15 bg-white text-left shadow-soft"
+              : "absolute left-0 right-0 z-30 mt-1 max-h-[420px] overflow-auto border border-ink/15 bg-white text-left shadow-soft"
+          }
+        >
           {suggestions.brands.length > 0 ? (
             <li className="px-4 pt-3 pb-1 text-[10px] uppercase tracking-[0.2em] text-ink/40">Brands</li>
           ) : null}
