@@ -324,7 +324,20 @@ export const SCHEMA_STATEMENTS = [
      'https://hudabeauty.com/cdn/shop/files/STRAWBERRY-LATTE-COLLECTION-BUNDLES_SUMMERS-HOTTEST-LOOK-PACKSHOT.webp',
      true,
      true
-   ) on conflict (product_url) do update set price_usd = 200, price_locked = true`
+   ) on conflict (product_url) do update set price_usd = 200, price_locked = true`,
+  // ----- Product reviews (verified-purchase, keyed by order_items.id) -----
+  `create table if not exists product_reviews (
+    id uuid default gen_random_uuid() primary key,
+    order_item_id uuid not null references order_items(id) on delete cascade,
+    product_url text not null,
+    rating int not null check (rating between 1 and 5),
+    review_text text,
+    reviewer_name text not null,
+    hidden boolean default false,
+    created_at timestamp default now(),
+    unique (order_item_id)
+  )`,
+  `create index if not exists product_reviews_product_url_idx on product_reviews (product_url)`
 ];
 
 export async function ensureSchema(): Promise<void> {
@@ -479,6 +492,17 @@ export interface OrderItemRow {
   price_gbp: string | number;
   price_usd: string | number;
   quantity: number;
+}
+
+export interface ProductReviewRow {
+  id: string;
+  order_item_id: string;
+  product_url: string;
+  rating: number;
+  review_text: string | null;
+  reviewer_name: string;
+  hidden: boolean;
+  created_at: string;
 }
 
 export type BespokeStatus = "new" | "contacted" | "fulfilled" | "declined";

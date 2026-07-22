@@ -4,6 +4,8 @@ import { isAdmin } from "@/lib/auth";
 import { sendPaymentConfirmation } from "@/lib/email";
 import { sendWhatsAppConfirmation, sendWhatsAppText } from "@/lib/whatsapp";
 
+const SITE_URL = "https://www.seasonsbyb.co.uk";
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -87,6 +89,9 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const row = joined[0];
   const firstName = (row?.full_name || "there").split(" ")[0];
 
+  const orderItems = (await sql`select id from order_items where order_id = ${id}`) as Array<{ id: string }>;
+  const reviewLinks = orderItems.map((it) => `${SITE_URL}/review/${it.id}`).join("\n");
+
   try {
     // Manual payment toggle (legacy) — only when not driven by invoice flow.
     if (nextPaid === true && !wasPaid && row?.customer_email) {
@@ -115,9 +120,12 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
           `Your order ${row.order_number} is on its way! 🐝 Tracking: ${tn}. Est. arrival: 10-14 working days.`
         );
       } else if (nextStatus === "delivered") {
+        const reviewPrompt = reviewLinks
+          ? `\n\nLoved it (or didn't)? Leave a quick review:\n${reviewLinks}`
+          : "";
         await sendWhatsAppText(
           row.phone,
-          `Your Seasons by B order ${row.order_number} has arrived! 🐝 We hope you love it. Please let us know if you need anything.`
+          `Your Seasons by B order ${row.order_number} has arrived! 🐝 We hope you love it. Please let us know if you need anything.${reviewPrompt}`
         );
       }
     }

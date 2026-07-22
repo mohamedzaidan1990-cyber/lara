@@ -10,16 +10,19 @@ import AdminAccountingTab from "@/components/AdminAccountingTab";
 import AdminAwaitingOrderTab from "@/components/AdminAwaitingOrderTab";
 import AdminStockTab from "@/components/AdminStockTab";
 import AdminClientsTab from "@/components/AdminClientsTab";
+import AdminReviewsTab from "@/components/AdminReviewsTab";
 import type { OrderWithCustomer, BespokeRequestRow, ExpenseRow, StockItemRow } from "@/lib/db";
+import type { AdminReviewRow } from "@/lib/reviews";
 
 interface Props {
   initialOrders: OrderWithCustomer[];
   initialBespoke?: BespokeRequestRow[];
   initialExpenses?: ExpenseRow[];
   initialStock?: StockItemRow[];
+  initialReviews?: AdminReviewRow[];
 }
 
-type Tab = "orders" | "awaiting" | "bespoke" | "accounting" | "stock" | "clients";
+type Tab = "orders" | "awaiting" | "bespoke" | "accounting" | "stock" | "clients" | "reviews";
 
 interface Group {
   key: string;
@@ -38,7 +41,13 @@ const GROUPS: Group[] = [
   { key: "delivered", label: "Delivered", color: "#277C43", match: (o) => o.status === "delivered" }
 ];
 
-export default function AdminDashboard({ initialOrders, initialBespoke = [], initialExpenses = [], initialStock = [] }: Props) {
+export default function AdminDashboard({
+  initialOrders,
+  initialBespoke = [],
+  initialExpenses = [],
+  initialStock = [],
+  initialReviews = []
+}: Props) {
   const router = useRouter();
   const [orders, setOrders] = useState(initialOrders);
   const [expenses, setExpenses] = useState<ExpenseRow[]>(initialExpenses);
@@ -122,10 +131,17 @@ export default function AdminDashboard({ initialOrders, initialBespoke = [], ini
         <TabButton active={tab === "accounting"} onClick={() => setTab("accounting")} label="Accounting" />
         <TabButton active={tab === "stock"} onClick={() => setTab("stock")} label="Stock" />
         <TabButton active={tab === "clients"} onClick={() => setTab("clients")} label={`Clients (${clientCount})`} />
+        <TabButton
+          active={tab === "reviews"}
+          onClick={() => setTab("reviews")}
+          label={`Reviews (${initialReviews.length})`}
+        />
       </div>
 
       {tab === "clients" ? (
         <AdminClientsTab orders={orders} />
+      ) : tab === "reviews" ? (
+        <AdminReviewsTab reviews={initialReviews} />
       ) : tab === "accounting" ? (
         <AdminAccountingTab orders={orders} expenses={expenses} onExpensesChange={setExpenses} stockItems={stockItems} />
       ) : tab === "stock" ? (
