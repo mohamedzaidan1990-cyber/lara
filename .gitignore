@@ -37,3 +37,4 @@ public/workbox-*.js.map
 public/fallback-*.js
 
 .vercel
+.superpowers/
