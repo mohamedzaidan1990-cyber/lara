@@ -140,8 +140,10 @@ export default function AutoVideo({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [soundOnInteract]);
 
+  const hasPosition = /(^|\s)(static|fixed|absolute|relative|sticky)(\s|$)/.test(wrapperClassName);
+
   return (
-    <div className={"relative " + wrapperClassName}>
+    <div className={(hasPosition ? "" : "relative ") + wrapperClassName}>
       <video
         ref={ref}
         className={videoClassName}
