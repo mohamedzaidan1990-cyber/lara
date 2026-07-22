@@ -64,19 +64,10 @@ export async function POST(req: Request) {
 
   const totalUsd = Number(order.total_usd ?? order.price_usd) || items.reduce((s, it) => s + it.price_usd * it.quantity, 0);
 
-  // Promo eligibility: buying the Huda Beauty × Seasons by B Kit.
-  const KIT_URL = "https://seasonsbyb.co.uk/kit/huda-x-snb-2026";
-  const hasSet = itemRows.some(
-    (r) => r.product_url === KIT_URL || r.name.toLowerCase().includes("huda beauty × seasons by b kit")
-  );
-  let promoEntry = !!order.promo_entry;
-  if (hasSet && !promoEntry) {
-    const countRows = (await sql`
-      select count(*)::int as n from orders
-      where promo_entry = true and payment_confirmed = true and status not in ('cancelled', 'refunded')
-    `) as Array<{ n: number }>;
-    if (Number(countRows[0]?.n ?? 0) < 10) promoEntry = true;
-  }
+  // The Huda Beauty x Seasons by B Kit promo has ended — no new order can
+  // earn an entry. This only carries over a flag already set on the order
+  // (i.e. the historical winners), it never sets it for the first time.
+  const promoEntry = !!order.promo_entry;
 
   const pdf = generateInvoice(
     {

@@ -8,7 +8,6 @@ import type { CategoryStat } from "@/lib/categories";
 import type { BrandDirectoryEntry } from "@/lib/brands";
 import { whatsappRequestLink } from "@/lib/links";
 import HeroSection from "@/components/HeroSection";
-import PromoSection from "@/components/PromoSection";
 import AutoVideo from "@/components/AutoVideo";
 import SearchAutocomplete from "@/components/SearchAutocomplete";
 
@@ -103,11 +102,6 @@ export default function HomeClient({ categories, brands, orderCount = 0 }: Props
           ) : null}
         </div>
       </section>
-
-      {/* ── 2 MOBILE / 2 DESKTOP: Promo ── */}
-      <div id="promo" className="order-2 lg:order-2">
-        <PromoSection />
-      </div>
 
       {/* ── 1 MOBILE / 1 DESKTOP: Hero ── */}
       <div className="order-1 lg:order-1">
