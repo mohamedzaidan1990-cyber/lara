@@ -43,12 +43,13 @@ export function generateStaticParams(): Array<{ slug: string }> {
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const def = getCategoryBySlug(params.slug);
   if (!def) return { title: "Category not found — Seasons by B" };
-  const title = `${def.label} — Seasons by B`;
+  const title = `Buy ${def.label} Online in Lebanon — Seasons by B`;
+  const description = `Buy ${def.label.toLowerCase()} online in Lebanon — ${def.blurb} Authentic products delivered from London in 10–14 days.`;
   return {
     title,
-    description: def.blurb,
+    description,
     alternates: { canonical: `https://www.seasonsbyb.co.uk/category/${params.slug}` },
-    openGraph: { title, description: def.blurb, url: `https://www.seasonsbyb.co.uk/category/${params.slug}`, siteName: "Seasons by B", type: "website" },
+    openGraph: { title, description, url: `https://www.seasonsbyb.co.uk/category/${params.slug}`, siteName: "Seasons by B", type: "website" },
   };
 }
 

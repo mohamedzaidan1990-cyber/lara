@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const info = await getBrandBySlug(params.slug);
   if (!info) return { title: "Brand not found — Seasons by B" };
-  const title = `${info.brand} — Seasons by B`;
+  const title = `${info.brand} Lebanon — Shop ${info.total} Products | Seasons by B`;
   const description = `Shop all ${info.total} ${info.brand} products, curated from London and delivered to Lebanon by Seasons by B.`;
   return {
     title,
