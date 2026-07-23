@@ -12,9 +12,9 @@ import { INSTAGRAM_URL, INSTAGRAM_HANDLE, CONTACT_EMAIL, CONTACT_EMAIL_URL } fro
 import "./globals.css";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.seasonsbyb.co.uk";
-const SITE_TITLE = "Seasons by B — London's Finest, Delivered to Your Door";
+const SITE_TITLE = "Seasons by B — Luxury Beauty from London, Delivered to Lebanon";
 const SITE_DESCRIPTION =
-  "Shop luxury beauty and skincare from London, delivered to your door. Personal shopping and bespoke sourcing for bags, rare finds and limited editions.";
+  "Shop authentic luxury beauty, makeup and skincare from London, delivered to your door in Lebanon in 10–14 days. Huda Beauty, Charlotte Tilbury, Dyson and 400+ brands.";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
