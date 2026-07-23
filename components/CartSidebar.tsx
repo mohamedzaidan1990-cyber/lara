@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useCart, computeTotals } from "@/lib/cart";
 import { productImageSrc } from "@/lib/images";
 import { BeeMascot } from "./BeeMascot";
+import { HUDA_BLUSH_PROMO, hudaSubtotal } from "@/lib/huda-blush-promo";
 
 function formatUsd(value: number): string {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value);
@@ -19,6 +20,9 @@ export default function CartSidebar() {
   const updateQuantity = useCart((s) => s.updateQuantity);
 
   const { totalItems, totalUSD } = computeTotals(items);
+  const hudaSpend = hudaSubtotal(items);
+  const hudaRemaining = HUDA_BLUSH_PROMO.thresholdUsd - hudaSpend;
+  const hasHudaGift = items.some((i) => i.id === HUDA_BLUSH_PROMO.cartItemId);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -75,11 +79,36 @@ export default function CartSidebar() {
             ) : (
               <>
                 <div className="flex-1 overflow-y-auto px-5 py-4">
+                  {/* Huda Beauty blush promo: progress nudge while under the
+                      threshold, confirmation once the free gift has landed. */}
+                  {hasHudaGift ? (
+                    <div className="mb-4 flex items-center gap-2 rounded-full border border-accent/20 bg-accent/[0.06] px-4 py-2.5 text-xs text-ink">
+                      <span aria-hidden>🎁</span>
+                      <span>
+                        <strong className="text-ink">Free blush unlocked!</strong> Shade selection via Instagram after order.
+                      </span>
+                    </div>
+                  ) : hudaSpend > 0 && hudaRemaining > 0 ? (
+                    <div className="mb-4 rounded-2xl border border-accent/20 bg-accent/[0.06] p-3.5">
+                      <p className="text-xs text-ink">
+                        <span aria-hidden>🎁</span> You&apos;re <strong className="text-accent">{formatUsd(hudaRemaining)}</strong> away
+                        from a free Huda Beauty blush
+                      </p>
+                      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-ink/10">
+                        <div
+                          className="h-full rounded-full bg-accent transition-all duration-500"
+                          style={{ width: `${Math.min(100, (hudaSpend / HUDA_BLUSH_PROMO.thresholdUsd) * 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  ) : null}
+
                   <ul className="space-y-4">
                     {items.map((item) => {
                       const src = productImageSrc(item.image_url);
+                      const isGift = !!item.is_promo_gift;
                       return (
-                        <li key={item.id} className="flex gap-3 border-b border-ink/10 pb-4">
+                        <li key={item.id} className={"flex gap-3 border-b border-ink/10 pb-4" + (isGift ? " rounded-lg bg-accent/[0.04] px-2" : "")}>
                           <div className="h-[60px] w-[60px] flex-shrink-0 overflow-hidden bg-ink/[0.04]">
                             {src ? (
                               // eslint-disable-next-line @next/next/no-img-element
@@ -91,37 +120,50 @@ export default function CartSidebar() {
                             )}
                           </div>
                           <div className="flex flex-1 flex-col">
-                            <p className="text-[10px] uppercase tracking-[0.2em] text-ink/55">{item.brand}</p>
-                            <p className="line-clamp-2 text-sm text-ink">{item.name}</p>
-                            <div className="mt-2 flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  aria-label="Decrease quantity"
-                                  onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                                  className="flex h-6 w-6 items-center justify-center border border-ink/20 text-ink hover:border-accent"
-                                >
-                                  −
-                                </button>
-                                <span className="min-w-5 text-center text-sm text-ink">{item.quantity}</span>
-                                <button
-                                  type="button"
-                                  aria-label="Increase quantity"
-                                  onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                                  className="flex h-6 w-6 items-center justify-center border border-ink/20 text-ink hover:border-accent"
-                                >
-                                  +
-                                </button>
-                              </div>
-                              <span className="font-serif text-sm text-ink">{formatUsd(item.price_usd * item.quantity)}</span>
+                            <div className="flex items-center gap-2">
+                              <p className="text-[10px] uppercase tracking-[0.2em] text-ink/55">{item.brand}</p>
+                              {isGift ? (
+                                <span className="rounded-full bg-accent px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.15em] text-white">
+                                  Free Gift
+                                </span>
+                              ) : null}
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => removeItem(item.id)}
-                              className="mt-2 self-start text-[10px] uppercase tracking-[0.18em] text-ink/40 hover:text-accent"
-                            >
-                              Remove
-                            </button>
+                            <p className="line-clamp-2 text-sm text-ink">{item.name}</p>
+                            {isGift ? (
+                              <p className="mt-2 font-serif text-sm text-accent">Free</p>
+                            ) : (
+                              <>
+                                <div className="mt-2 flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      type="button"
+                                      aria-label="Decrease quantity"
+                                      onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                                      className="flex h-6 w-6 items-center justify-center border border-ink/20 text-ink hover:border-accent"
+                                    >
+                                      −
+                                    </button>
+                                    <span className="min-w-5 text-center text-sm text-ink">{item.quantity}</span>
+                                    <button
+                                      type="button"
+                                      aria-label="Increase quantity"
+                                      onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                                      className="flex h-6 w-6 items-center justify-center border border-ink/20 text-ink hover:border-accent"
+                                    >
+                                      +
+                                    </button>
+                                  </div>
+                                  <span className="font-serif text-sm text-ink">{formatUsd(item.price_usd * item.quantity)}</span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => removeItem(item.id)}
+                                  className="mt-2 self-start text-[10px] uppercase tracking-[0.18em] text-ink/40 hover:text-accent"
+                                >
+                                  Remove
+                                </button>
+                              </>
+                            )}
                           </div>
                         </li>
                       );

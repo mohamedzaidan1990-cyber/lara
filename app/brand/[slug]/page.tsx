@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import ProductCard from "@/components/ProductCard";
+import HudaBlushPromo from "@/components/HudaBlushPromo";
 import { getBrandBySlug, getBrandProducts } from "@/lib/brands";
 import { categorySlug, parsePage, parseSort } from "@/lib/categories";
 
@@ -81,6 +82,8 @@ export default async function BrandPage({
             })}
           </div>
         ) : null}
+
+        {params.slug === "huda-beauty" ? <HudaBlushPromo variant="brand" /> : null}
       </header>
 
       <div className="mt-10 grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
