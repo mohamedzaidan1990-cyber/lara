@@ -109,8 +109,8 @@ export default function HomeClient({ categories, brands, orderCount = 0 }: Props
         <HeroSection orderCount={orderCount} />
       </div>
 
-      {/* ── 4 MOBILE / 3 DESKTOP: Huda Beauty banner ── */}
-      <div className="order-4 lg:order-3">
+      {/* ── 2 MOBILE / 3 DESKTOP: Huda Beauty banner ── */}
+      <div className="order-2 lg:order-3">
         <HudaBeautyBanner />
         <HudaBlushPromo variant="homepage" />
       </div>

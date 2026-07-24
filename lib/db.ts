@@ -311,20 +311,7 @@ export const SCHEMA_STATEMENTS = [
       'https://www.sephora.me/qa-en/p/butta-drop-milk-salted-caramel/765583',
       'https://cdn.shopify.com/s/files/1/0341/3458/9485/files/FS_FALL25_T2PRODUCT_ECOMM_BODY-MILK-SALTED-CARAMEL_1200X1500_72DPI.jpg?v=1754005575',
       true, true)
-   on conflict (product_url) do nothing`,
-  // ----- Huda Beauty × Seasons by B Kit — exclusive promo bundle (July 2026) -----
-  `insert into products (brand, name, category, price_gbp, price_usd, product_url, image_url, price_locked, deliverable_lebanon)
-   values (
-     'Huda Beauty',
-     'Huda Beauty × Seasons by B Kit',
-     'Makeup',
-     155,
-     200,
-     'https://seasonsbyb.co.uk/kit/huda-x-snb-2026',
-     'https://hudabeauty.com/cdn/shop/files/STRAWBERRY-LATTE-COLLECTION-BUNDLES_SUMMERS-HOTTEST-LOOK-PACKSHOT.webp',
-     true,
-     true
-   ) on conflict (product_url) do update set price_usd = 200, price_locked = true`
+   on conflict (product_url) do nothing`
 ];
 
 export async function ensureSchema(): Promise<void> {
