@@ -318,6 +318,13 @@ export const SCHEMA_STATEMENTS = [
      'https://hudabeauty.com/en-us/products/cheek-lip-duo-berries-and-cream-hb01557',
      'https://hudabeauty.com/cdn/shop/files/PDP-SECTION1-CHEEKLIPDUO-TILE1.webp?v=1761570576',
      true, true
+   ) on conflict (product_url) do nothing`,
+  `insert into products (brand, name, category, price_gbp, price_usd, product_url, image_url, price_locked, deliverable_lebanon)
+   values (
+     'Huda Beauty', 'The LipCealer Effect Kit', 'Makeup', 82, 105,
+     'https://hudabeauty.com/en-us/products/the-lipcealer-effect-kit-set_139',
+     'https://hudabeauty.com/cdn/shop/files/01--LIPSTAIN-REPUSH-KIT-01_7001919f-be66-4dd8-9119-aec95f7d218c.webp?v=1777550920',
+     true, true
    ) on conflict (product_url) do nothing`
 ];
 
