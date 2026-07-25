@@ -311,7 +311,14 @@ export const SCHEMA_STATEMENTS = [
       'https://www.sephora.me/qa-en/p/butta-drop-milk-salted-caramel/765583',
       'https://cdn.shopify.com/s/files/1/0341/3458/9485/files/FS_FALL25_T2PRODUCT_ECOMM_BODY-MILK-SALTED-CARAMEL_1200X1500_72DPI.jpg?v=1754005575',
       true, true)
-   on conflict (product_url) do nothing`
+   on conflict (product_url) do nothing`,
+  `insert into products (brand, name, category, price_gbp, price_usd, product_url, image_url, price_locked, deliverable_lebanon)
+   values (
+     'Huda Beauty', 'Cheek & Lip Duo Berries and Cream', 'Makeup', 39, 50,
+     'https://hudabeauty.com/en-us/products/cheek-lip-duo-berries-and-cream-hb01557',
+     'https://hudabeauty.com/cdn/shop/files/PDP-SECTION1-CHEEKLIPDUO-TILE1.webp?v=1761570576',
+     true, true
+   ) on conflict (product_url) do nothing`
 ];
 
 export async function ensureSchema(): Promise<void> {
