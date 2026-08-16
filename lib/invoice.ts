@@ -44,6 +44,8 @@ function fmtDate(d: string | Date): string {
 
 function paymentLabel(method?: string | null): string {
   if (method === "whish_link") return "Whish payment link";
+  if (method === "cod") return "Cash on Delivery";
+  if (method === "bank") return "Bank Transfer";
   return "Whish Transfer";
 }
 
@@ -165,6 +167,7 @@ export function generateInvoice(order: InvoiceOrder, customer: InvoiceCustomer, 
   const isFullyPaid = amountPaid >= order.total_usd && order.total_usd > 0;
   const isPartial = amountPaid > 0 && amountPaid < order.total_usd;
   const balanceDue = Math.max(0, order.total_usd - amountPaid);
+  const isCod = order.payment_method === "cod";
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
@@ -188,7 +191,13 @@ export function generateInvoice(order: InvoiceOrder, customer: InvoiceCustomer, 
     py += 6;
     doc.setFont("helvetica", "bold");
     doc.setTextColor(...GOLD);
-    doc.text("Please pay the remaining balance via Whish transfer to: 03055491", left, py);
+    doc.text(
+      isCod
+        ? "Please pay the remaining balance in cash to the delivery driver."
+        : "Please pay the remaining balance via Whish transfer to: 03055491",
+      left,
+      py
+    );
     doc.setFont("helvetica", "normal");
     doc.setTextColor(...MUTED);
   } else {
@@ -199,7 +208,11 @@ export function generateInvoice(order: InvoiceOrder, customer: InvoiceCustomer, 
       py += 6;
       doc.setFont("helvetica", "bold");
       doc.setTextColor(...GOLD);
-      doc.text("Please pay via Whish transfer to: 03055491", left, py);
+      doc.text(
+        isCod ? "Full balance due in cash to the delivery driver on arrival." : "Please pay via Whish transfer to: 03055491",
+        left,
+        py
+      );
       doc.setFont("helvetica", "normal");
       doc.setTextColor(...MUTED);
     }
