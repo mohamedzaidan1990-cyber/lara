@@ -25,6 +25,10 @@ export default function ShopByBrand({ topBrands, allBrands }: Props) {
   }, {});
   const letters = Object.keys(grouped).sort();
 
+  // Always show one letter's brands so the sheer length of the catalogue is
+  // visible, not just a row of letter buttons. Defaults to the first letter.
+  const shownLetter = activeLetter ?? letters[0] ?? null;
+
   // "324 brands" → "300+" — round DOWN to the nearest 50 so we never over-claim.
   // The catalogue always carries 300+ brands; if the directory query comes back
   // short (a transient DB failure returns []), fall back to 300 rather than
@@ -47,11 +51,17 @@ export default function ShopByBrand({ topBrands, allBrands }: Props) {
       >
         <div className="text-center">
           <p className="text-[11px] uppercase tracking-[0.32em] text-accent">Top Sellers</p>
-          <h2 className="mt-2 font-serif text-3xl text-ink">Shop by Brand</h2>
+          <h2 className="mt-2 font-serif text-3xl text-ink">
+            Shop <span className="text-accent">{brandFloor}+</span> Brands
+          </h2>
+          <p className="mt-2 text-xs font-bold uppercase tracking-[0.2em] text-ink/50">
+            Popular right now
+          </p>
         </div>
 
-        {/* Top-selling brand names — no images */}
-        <div className="mt-8 flex flex-wrap justify-center gap-2.5">
+        {/* Top-selling brand names (no images), followed by an explicit
+            "and many more" link so these never read as the full range. */}
+        <div className="mt-6 flex flex-wrap justify-center gap-2.5">
           {topBrands.map((b) => (
             <Link
               key={b.slug}
@@ -61,20 +71,21 @@ export default function ShopByBrand({ topBrands, allBrands }: Props) {
               {b.brand}
             </Link>
           ))}
+          <Link
+            href="/brands"
+            className="rounded-full border border-accent bg-accent/10 px-4 py-2 text-sm font-bold text-accent transition-all hover:-translate-y-0.5 hover:bg-accent hover:text-white"
+          >
+            + {brandFloor} more brands →
+          </Link>
         </div>
 
-        {/* Entry point to the full catalogue of brands */}
+        {/* Search + full A–Z directory */}
         <div className="mx-auto mt-10 max-w-2xl rounded-[2rem] border border-white/60 bg-white/40 p-6 backdrop-blur-sm sm:p-8">
-          <div className="text-center">
-            <p className="font-serif text-xl text-ink sm:text-2xl">
-              Shop from more than <span className="text-accent">{brandFloor}</span> brands
-            </p>
-            <p className="mt-1 text-xs uppercase tracking-[0.2em] text-ink/50">
-              Search for a brand, or browse A–Z
-            </p>
-          </div>
+          <p className="text-center text-xs uppercase tracking-[0.2em] text-ink/50">
+            Search for a brand, or browse A–Z
+          </p>
 
-          <div className="mt-5">
+          <div className="mt-4">
             <SearchAutocomplete query={query} setQuery={setQuery} onSubmit={onSubmit} />
           </div>
 
@@ -83,10 +94,10 @@ export default function ShopByBrand({ topBrands, allBrands }: Props) {
               <button
                 key={l}
                 type="button"
-                onClick={() => setActiveLetter(activeLetter === l ? null : l)}
+                onClick={() => setActiveLetter(l)}
                 className={
                   "h-9 w-9 shrink-0 rounded-full border text-sm font-bold transition-all " +
-                  (activeLetter === l
+                  (shownLetter === l
                     ? "border-accent bg-accent text-white"
                     : "border-ink/15 bg-white text-ink hover:border-accent hover:text-accent")
                 }
@@ -96,9 +107,9 @@ export default function ShopByBrand({ topBrands, allBrands }: Props) {
             ))}
           </div>
 
-          {activeLetter && grouped[activeLetter] ? (
+          {shownLetter && grouped[shownLetter] ? (
             <div className="mt-4 flex flex-wrap justify-center gap-2 border-t border-ink/10 pt-4">
-              {grouped[activeLetter].map((b) => (
+              {grouped[shownLetter].map((b) => (
                 <Link
                   key={b.brand}
                   href={`/brand/${b.slug}`}
