@@ -20,12 +20,12 @@ async function main() {
   const max = maxArg ? Number(maxArg.slice(6)) : 9;
   const sql = getSql();
   const rows = (await sql`
-    select brand, name, count(*)::int c
+    select min(brand) as brand, min(name) as name, count(*)::int c
     from products
     where not archived
-    group by lower(trim(brand)), lower(trim(name)), brand, name
+    group by lower(trim(brand)), lower(trim(name))
     having count(*) > 1
-    order by c desc, brand
+    order by c desc, min(brand)
   `) as { brand: string; name: string; c: number }[];
   console.log(`exact duplicate (brand,name) groups: ${rows.length} (baseline ${max})`);
   for (const r of rows) console.log(`  [${r.c}x] ${r.brand} — ${r.name}`);
