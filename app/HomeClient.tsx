@@ -9,7 +9,7 @@ import type { BrandDirectoryEntry } from "@/lib/brands";
 import type { TopBrand } from "@/lib/top-brands";
 import { whatsappRequestLink } from "@/lib/links";
 import HeroSection from "@/components/HeroSection";
-import BrandRail from "@/components/BrandRail";
+import ShopByBrand from "@/components/ShopByBrand";
 import SearchAutocomplete from "@/components/SearchAutocomplete";
 
 interface Props {
@@ -22,14 +22,6 @@ interface Props {
 export default function HomeClient({ categories, brands, topBrands, orderCount = 0 }: Props) {
   const router = useRouter();
   const [query, setQuery] = useState("");
-  const [activeLetter, setActiveLetter] = useState<string | null>(null);
-
-  const grouped = brands.reduce<Record<string, BrandDirectoryEntry[]>>((acc, b) => {
-    const l = b.brand[0]?.toUpperCase() ?? "#";
-    (acc[l] ||= []).push(b);
-    return acc;
-  }, {});
-  const letters = Object.keys(grouped).sort();
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -41,9 +33,7 @@ export default function HomeClient({ categories, brands, topBrands, orderCount =
     <div className="flex flex-col">
       <HeroSection orderCount={orderCount} />
 
-      <BrandRail brands={topBrands} />
-
-      <HudaBeautyBanner />
+      <ShopByBrand topBrands={topBrands} allBrands={brands} />
 
       <div id="shop-categories">
         <CategoryCards categories={categories} />
@@ -57,52 +47,6 @@ export default function HomeClient({ categories, brands, topBrands, orderCount =
           <div className="mt-6">
             <SearchAutocomplete query={query} setQuery={setQuery} onSubmit={onSubmit} />
           </div>
-        </div>
-      </section>
-
-      {/* A–Z brand directory — kept per requirements */}
-      <section className="mx-auto w-full max-w-7xl px-4 pb-4 pt-8 sm:px-6 lg:px-8">
-        <div className="rounded-[2rem] border border-white/60 bg-white/40 p-6 backdrop-blur-sm">
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.32em] text-accent">Browse by brand</p>
-              <h2 className="mt-1 font-serif text-xl text-ink">All Brands A–Z</h2>
-            </div>
-            <Link href="/brands" className="text-[11px] uppercase tracking-[0.2em] text-ink/60 transition-colors hover:text-accent">
-              Full directory →
-            </Link>
-          </div>
-          <div className="flex gap-2 overflow-x-auto pb-1 lg:flex-wrap lg:overflow-visible lg:pb-0">
-            {letters.map((l) => (
-              <button
-                key={l}
-                type="button"
-                onClick={() => setActiveLetter(activeLetter === l ? null : l)}
-                className={
-                  "h-9 w-9 shrink-0 rounded-full border text-sm font-bold transition-all " +
-                  (activeLetter === l
-                    ? "border-accent bg-accent text-white"
-                    : "border-ink/15 bg-white text-ink hover:border-accent hover:text-accent")
-                }
-              >
-                {l}
-              </button>
-            ))}
-          </div>
-          {activeLetter && grouped[activeLetter] ? (
-            <div className="mt-4 flex flex-wrap gap-2 border-t border-ink/10 pt-4">
-              {grouped[activeLetter].map((b) => (
-                <Link
-                  key={b.brand}
-                  href={`/brand/${b.slug}`}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-white px-3 py-1.5 text-xs font-bold text-ink transition-all hover:border-accent hover:text-accent"
-                >
-                  {b.brand}
-                  <span className="text-[10px] font-normal text-ink/40">{b.count}</span>
-                </Link>
-              ))}
-            </div>
-          ) : null}
         </div>
       </section>
 
@@ -252,45 +196,6 @@ function BespokeSection() {
   );
 }
 
-function HudaBeautyBanner() {
-  return (
-    <div className="mx-auto mt-6 max-w-7xl px-4 sm:px-6 lg:px-8">
-      <Link
-        href="/brand/huda-beauty"
-        className="group relative block overflow-hidden rounded-[2rem] border border-white/10 shadow-soft transition-all duration-300 hover:-translate-y-1 hover:shadow-pop"
-        style={{ background: "linear-gradient(110deg, #1a0412 0%, #3d0a28 45%, #1a0412 100%)" }}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="https://hudabeauty.com/cdn/shop/files/01-NEVER-TOO-MUCH-KIT_beacdb2c-e21d-4fcb-a492-a626103f2ca5.webp?v=1777873077"
-          alt=""
-          aria-hidden
-          className="pointer-events-none absolute right-0 top-0 h-full w-1/2 object-cover opacity-30 transition-opacity duration-500 group-hover:opacity-40"
-          style={{ maskImage: "linear-gradient(to left, black 40%, transparent 100%)" }}
-        />
-        <div className="relative flex flex-col items-start justify-between gap-6 p-8 sm:flex-row sm:items-center">
-          <div>
-            <p className="text-[10px] uppercase tracking-[0.36em]" style={{ color: "#e040a0", textShadow: "0 0 10px rgba(224,64,160,0.7)" }}>
-              Now on Seasons
-            </p>
-            <h3 className="mt-2 font-serif text-2xl sm:text-3xl" style={{ color: "#f06ec0", textShadow: "0 0 8px rgba(224,64,160,0.5)" }}>
-              Huda Beauty Collection
-            </h3>
-            <p className="mt-2 max-w-sm text-sm" style={{ color: "#d458a8" }}>
-              Fragrances, makeup, kits and more — sourced from London, delivered to your door in Lebanon.
-            </p>
-          </div>
-          <span
-            className="inline-flex shrink-0 items-center gap-2 rounded-full px-6 py-3 text-xs font-bold uppercase tracking-[0.16em] text-white shadow-lg transition-all group-hover:scale-[1.05]"
-            style={{ background: "#e040a0", boxShadow: "0 4px 18px rgba(224,64,160,0.5)" }}
-          >
-            Shop Huda Beauty →
-          </span>
-        </div>
-      </Link>
-    </div>
-  );
-}
 
 function WhySeasons() {
   const items = [

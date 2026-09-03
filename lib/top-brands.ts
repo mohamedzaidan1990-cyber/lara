@@ -5,12 +5,11 @@ import { brandSlug } from "./brands";
 export interface TopBrand {
   brand: string;
   slug: string;
-  imageUrl: string;
   unitsSold: number;
 }
 
-// Shown when sales data is too thin to fill the rail. Ordered by long-run
-// prominence; images resolved from the catalogue at query time.
+// Used to top up the list when sales data is thin. Ordered by long-run
+// prominence; only names (no images) are needed now.
 const FALLBACK_BRANDS = [
   "Huda Beauty",
   "Charlotte Tilbury",
@@ -18,10 +17,16 @@ const FALLBACK_BRANDS = [
   "Benefit Cosmetics",
   "Fenty Beauty",
   "Sol De Janeiro",
+  "Kayali",
+  "NARS",
+  "Drunk Elephant",
+  "The Ordinary",
+  "Pixi",
+  "Sephora Collection",
 ];
 
 export const getTopBrands = unstable_cache(
-  async (limit = 6): Promise<TopBrand[]> => computeTopBrands(limit),
+  async (limit = 12): Promise<TopBrand[]> => computeTopBrands(limit),
   ["top-brands"],
   { revalidate: 3600, tags: ["top-brands"] }
 );
@@ -47,68 +52,34 @@ async function computeTopBrands(limit: number): Promise<TopBrand[]> {
         where s.orders >= 5            -- filter one-off / concentrated bulk buys
         group by p.brand, s.units, s.bkey
       )
-      select r.brand, r.units as "unitsSold",
-             coalesce(
-               (select p2.image_url from products p2
-                 where lower(trim(p2.brand)) = lower(trim(r.brand)) and not p2.archived
-                   and coalesce(p2.image_url, '') <> ''
-                 order by coalesce(p2.is_bestseller, false) desc,
-                          p2.popularity asc nulls last,
-                          p2.scraped_at desc
-                 limit 1),
-               ''
-             ) as "imageUrl"
+      select r.brand, r.units as "unitsSold"
       from ranked r
       where r.rn = 1
       order by r.units desc, r.brand asc
       limit ${limit}
-    `) as Array<{ brand: string; unitsSold: number; imageUrl: string }>;
+    `) as Array<{ brand: string; unitsSold: number }>;
 
-    const withImages = rows.filter((r) => r.imageUrl);
-    const result = withImages.map((r) => ({
+    const result: TopBrand[] = rows.map((r) => ({
       brand: r.brand,
       slug: brandSlug(r.brand),
-      imageUrl: r.imageUrl,
       unitsSold: r.unitsSold,
     }));
 
     if (result.length >= limit) return result.slice(0, limit);
-    return await padFromFallback(result, limit, sql);
+    return padFromFallback(result, limit);
   } catch {
-    // Transient failure of the heavy sales query: fall back to the curated
-    // list (images resolved from the catalogue) rather than an empty rail,
-    // which would silently drop the whole "Shop by Brand" section.
-    try {
-      return await padFromFallback([], limit, getSql());
-    } catch {
-      return [];
-    }
+    // Transient failure of the sales query: fall back to the curated list
+    // rather than an empty section.
+    return padFromFallback([], limit);
   }
 }
 
-async function padFromFallback(
-  have: TopBrand[],
-  limit: number,
-  sql: ReturnType<typeof getSql>
-): Promise<TopBrand[]> {
+function padFromFallback(have: TopBrand[], limit: number): TopBrand[] {
   const haveKeys = new Set(have.map((b) => b.brand.toLowerCase()));
   for (const name of FALLBACK_BRANDS) {
     if (have.length >= limit) break;
     if (haveKeys.has(name.toLowerCase())) continue;
-    const img = (await sql`
-      select image_url from products
-      where lower(trim(brand)) = lower(trim(${name})) and not archived and coalesce(image_url,'') <> ''
-      order by coalesce(is_bestseller,false) desc, popularity asc nulls last
-      limit 1
-    `) as Array<{ image_url: string }>;
-    if (img[0]?.image_url) {
-      have.push({
-        brand: name,
-        slug: brandSlug(name),
-        imageUrl: img[0].image_url,
-        unitsSold: 0,
-      });
-    }
+    have.push({ brand: name, slug: brandSlug(name), unitsSold: 0 });
   }
   return have.slice(0, limit);
 }
