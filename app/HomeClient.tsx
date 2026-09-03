@@ -10,7 +10,6 @@ import { whatsappRequestLink } from "@/lib/links";
 import HeroSection from "@/components/HeroSection";
 import AutoVideo from "@/components/AutoVideo";
 import SearchAutocomplete from "@/components/SearchAutocomplete";
-import HudaBlushPromo from "@/components/HudaBlushPromo";
 
 interface Props {
   categories: CategoryStat[];
@@ -112,7 +111,6 @@ export default function HomeClient({ categories, brands, orderCount = 0 }: Props
       {/* ── 2 MOBILE / 3 DESKTOP: Huda Beauty banner ── */}
       <div className="order-2 lg:order-3">
         <HudaBeautyBanner />
-        <HudaBlushPromo variant="homepage" />
       </div>
 
       {/* ── 5 MOBILE / 4 DESKTOP: Shade Finder banner ── */}
