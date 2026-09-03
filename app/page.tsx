@@ -10,7 +10,7 @@ export default async function HomePage() {
   const [categoryStats, brands, topBrands, orderCount] = await Promise.all([
     getCategoryStats(),
     getBrandsForDirectory(),
-    getTopBrands(6),
+    getTopBrands(12),
     getPublicOrderCount(),
   ]);
   return (
