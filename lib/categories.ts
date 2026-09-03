@@ -15,42 +15,42 @@ export const CATEGORY_DEFS: readonly CategoryDef[] = [
     name: "Makeup",
     label: "Makeup",
     blurb: "Lipsticks, foundations and palettes from the world's most coveted houses.",
-    defaultImage: "https://images.unsplash.com/photo-1512496015851-a90fb38ba796?w=800&q=80"
+    defaultImage: "/category-makeup.jpg"
   },
   {
     slug: "skincare",
     name: "Skincare",
     label: "Skincare",
     blurb: "Crèmes, serums and treatments — La Mer to Augustinus Bader.",
-    defaultImage: "https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?w=800&q=80"
+    defaultImage: "/category-skincare.jpg"
   },
   {
     slug: "fragrance",
     name: "Fragrance",
     label: "Fragrance",
     blurb: "Signature scents and niche perfumery — now shipping to your door.",
-    defaultImage: "https://images.unsplash.com/photo-1541643600914-78b084683601?w=800&q=80"
+    defaultImage: "/category-fragrance.jpg"
   },
   {
     slug: "home-fragrance",
     name: "Home Fragrance",
     label: "Home Fragrance",
     blurb: "Scented candles, diffusers and room sprays from the great perfume houses.",
-    defaultImage: "https://images.unsplash.com/photo-1602874801007-bd458bb1b8b6?w=800&q=80"
+    defaultImage: "/category-home-fragrance.jpg"
   },
   {
     slug: "haircare",
     name: "Haircare",
     label: "Haircare",
     blurb: "Olaplex, Kérastase, Oribe — salon-grade care for every routine.",
-    defaultImage: "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=800&q=80"
+    defaultImage: "/category-haircare.jpg"
   },
   {
     slug: "beauty-tools",
     name: "Beauty tools",
     label: "Beauty tools",
     blurb: "Dyson Airwrap, GHD, Foreo, NuFace — the devices everyone wants.",
-    defaultImage: "https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=800&q=80"
+    defaultImage: "/category-beauty-tools.jpg"
   }
 ] as const;
 
