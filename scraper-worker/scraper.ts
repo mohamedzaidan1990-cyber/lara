@@ -37,10 +37,10 @@ function getDispatcher(): ProxyAgent | undefined {
   return cachedDispatcher;
 }
 
-// Beauty-only plus Selfridges food/health-nutrition. (Bags/Accessories have no
-// reachable source and are intentionally excluded so runs stay focused on
-// deliverable products.)
-export const SCRAPE_CATEGORIES = ["Makeup", "Skincare", "Haircare", "Beauty tools", "Fragrance", "Health & Nutrition"] as const;
+// Beauty-only. (Bags/Accessories have no reachable source and are intentionally
+// excluded so runs stay focused on deliverable products. Health & Nutrition was
+// retired — the storefront no longer sells it.)
+export const SCRAPE_CATEGORIES = ["Makeup", "Skincare", "Haircare", "Beauty tools", "Fragrance"] as const;
 
 // Cap on how many sub-category pages to crawl per top category (keeps run time
 // bounded; categories expose ~29-32 sub-pages today).
@@ -1050,12 +1050,6 @@ const SELFRIDGES_LISTINGS: Record<string, string[]> = {
   // Selfridges ships fragrance to Lebanon, so perfumes are now crawled and
   // routed into the Fragrance category (flat 20% markup). Empty/unknown slugs
   // are skipped gracefully.
-  // Selfridges foodhall → health & nutrition section (verified live slugs).
-  "Health & Nutrition": [
-    "foodhall/health-nutrition",
-    "foodhall/health-nutrition/vitamins-supplements",
-    "foodhall/health-nutrition/sports-nutrition-protein"
-  ],
   Fragrance: [
     "beauty/fragrance",
     "beauty/fragrance/womens-perfume",
@@ -1741,16 +1735,6 @@ const SUBCATEGORY_RULES: Record<string, Array<[RegExp, string]>> = {
     [/candle/, "Candles"],
     [/diffuser/, "Diffusers"],
     [/room spray|pillow|linen/, "Room Sprays"]
-  ],
-  "Health & Nutrition": [
-    [/\bvitamin\b|supplement|capsule|\btablet\b|\bpill\b|\bmineral\b|magnesium|zinc|iron|omega|biotin|collagen|hyaluronic|coenzyme|co-?q/, "Vitamins & Supplements"],
-    [/protein|whey|creatine|\bbcaa\b|amino|pre-?workout|sports nutrition|energy gel|electrolyte/, "Protein & Sports"],
-    [/probiotic|prebiotic|\bgut\b|digestive|microbiome|enzyme/, "Gut Health"],
-    [/superfood|greens|spirulina|chlorella|wheatgrass|adaptogen|mushroom|maca|ashwagandha/, "Superfoods"],
-    [/snack|energy bar|\bbar\b|biscuit|cracker|\bnut\b|seed|trail mix|granola/, "Healthy Snacks"],
-    [/tincture|botanical|herbal|remedy|extract|\belixir\b|\btonic\b|naturopath/, "Natural Remedies"],
-    [/drink|juice|smoothie|shake|\bpowder\b|blend|shots?\b/, "Nutrition Drinks"],
-    [/beauty from within|ingestible|glow|anti-ageing|anti-aging|antioxidant/, "Beauty From Within"]
   ]
 };
 

@@ -48,6 +48,20 @@ export async function POST(req: Request) {
 
     if (!productUrl || !name || priceGbp === null) continue;
 
+    // Dedupe guard — see scraper-worker/db.ts. Skip when this brand+name
+    // already exists under a different URL.
+    const dupe = (await sql`
+      select 1 from products
+      where lower(trim(brand)) = lower(trim(${brand}))
+        and lower(trim(name))  = lower(trim(${name}))
+        and product_url is distinct from ${productUrl}
+      limit 1
+    `) as unknown[];
+    if (dupe.length > 0) {
+      console.warn("[save-products] dedupe-guard skip:", brand, "—", name);
+      continue;
+    }
+
     // Recompute USD server-side so a tampered client can't set arbitrary prices.
     const priceUsd = await convertGbpToUsd(priceGbp);
     const deliverable = p.deliverable_lebanon !== false;

@@ -124,7 +124,7 @@ export async function ensureSchema(): Promise<void> {
 
 const VALID_CATEGORIES = new Set([
   "Makeup", "Skincare", "Fragrance", "Home Fragrance",
-  "Haircare", "Beauty tools", "Health & Nutrition"
+  "Haircare", "Beauty tools"
 ]);
 
 export async function upsertProducts(products: ScrapedProductRow[]): Promise<number> {
@@ -146,6 +146,23 @@ export async function upsertProducts(products: ScrapedProductRow[]): Promise<num
     // Skip brands that Selfridges cannot deliver to Lebanon.
     if (EXCLUDED_BRANDS.has(p.brand.toLowerCase())) continue;
 
+    // Dedupe guard: the same product is often reachable under several
+    // product_urls (en-gb / en-qa / en-us, Selfridges vs Sephora). If a row
+    // with this brand+name already exists under a different URL, skip — don't
+    // create a twin. (An exact product_url match still updates via ON CONFLICT.)
+    const dupe = await client.query(
+      `select 1 from products
+        where lower(trim(brand)) = lower(trim($1))
+          and lower(trim(name))  = lower(trim($2))
+          and product_url is distinct from $3
+        limit 1`,
+      [p.brand, p.name, p.product_url]
+    );
+    if (dupe.rowCount && dupe.rowCount > 0) {
+      console.warn(`[db] dedupe-guard skip: ${p.brand} — ${p.name}`);
+      continue;
+    }
+
     // Morphe individual brushes: GBP × 1.45 + $5 (no exchange-rate conversion).
     // Brush sets, kits, bundles, collections keep the standard pricing.
     const priceUsd = isMorpheIndividualBrush(p.brand, p.name)
@@ -164,7 +181,7 @@ export async function upsertProducts(products: ScrapedProductRow[]): Promise<num
            -- Only accept the incoming category if it is a known valid value;
            -- fall back to the stored value so a bad re-scrape never clobbers a
            -- category we manually corrected.
-           category = case when excluded.category = ANY(ARRAY['Makeup','Skincare','Fragrance','Home Fragrance','Haircare','Beauty tools','Health & Nutrition'])
+           category = case when excluded.category = ANY(ARRAY['Makeup','Skincare','Fragrance','Home Fragrance','Haircare','Beauty tools'])
                            then excluded.category
                            else products.category end,
            price_gbp = case when products.price_locked then products.price_gbp else excluded.price_gbp end,
