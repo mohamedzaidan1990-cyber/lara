@@ -327,11 +327,14 @@ export const SCHEMA_STATEMENTS = [
      true, true
    ) on conflict (product_url) do nothing`,
   // ----- Retire the Health & Nutrition (vitamins) category from the storefront.
-  // Rows are archived, never deleted — fully reversible with
+  // DDL only — the one-time backfill
+  //   update products set archived = true where category = 'Health & Nutrition'
+  // was applied out-of-band (single Neon DB). It is deliberately NOT listed here:
+  // ensureSchema() runs on many per-request paths, so a backfill statement would
+  // silently re-archive rows and undo the documented reversal
   //   update products set archived = false where category = 'Health & Nutrition'
   `alter table products add column if not exists archived boolean not null default false`,
-  `create index if not exists products_archived_idx on products (archived)`,
-  `update products set archived = true where category = 'Health & Nutrition' and archived = false`
+  `create index if not exists products_archived_idx on products (archived)`
 ];
 
 export async function ensureSchema(): Promise<void> {

@@ -94,6 +94,13 @@ export interface SubcategoryCount {
   count: number;
 }
 
+// NOTE: the category-scoped query helpers below (getCategorySubcategories,
+// getCategoryBrands, getPopularBrands, getCategoryStats, getCategoryProducts)
+// are intentionally NOT filtered on `archived`: "Health & Nutrition" is no
+// longer a resolvable category and no other category currently has archived
+// rows. A future task that archives rows within a still-live category must add
+// `and not archived` to these queries.
+
 // Distinct subcategories within a category, for the filter dropdown. "Other"
 // sorts last so the real groups lead.
 export async function getCategorySubcategories(categoryName: ProductCategory): Promise<SubcategoryCount[]> {
@@ -248,6 +255,8 @@ export interface CategoryProductsOptions {
   seed?: string;
 }
 
+// Queries here are not filtered on `archived` — see the note above
+// getCategorySubcategories.
 export async function getCategoryProducts(
   categoryName: ProductCategory,
   sort: CategorySort,
