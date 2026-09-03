@@ -50,7 +50,7 @@ export const CATEGORY_DEFS: readonly CategoryDef[] = [
     name: "Beauty tools",
     label: "Beauty tools",
     blurb: "Dyson Airwrap, GHD, Foreo, NuFace — the devices everyone wants.",
-    defaultImage: "https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=800&q=80"
+    defaultImage: "/category-beauty-tools.jpg"
   }
 ] as const;
 
