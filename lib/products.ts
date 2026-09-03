@@ -50,7 +50,7 @@ export async function getProductById(id: string): Promise<ProductDetail | null> 
              deliverable_lebanon, product_url, image_url, images,
              light_shade_image_url, description
       from products
-      where id = ${id}
+      where id = ${id} and not archived
       limit 1
     `) as ProductDetailRow[];
     const row = rows[0];
@@ -101,7 +101,7 @@ export async function getRelatedProducts(
              light_shade_image_url, is_bestseller,
              created_at::text as created_at
       from products
-      where category = ${categoryName} and id <> ${excludeId}
+      where category = ${categoryName} and id <> ${excludeId} and not archived
       order by
         case when ${brand}::text is not null and brand = ${brand} then 0 else 1 end,
         case when ${subcategory}::text is not null and subcategory = ${subcategory} then 0 else 1 end,

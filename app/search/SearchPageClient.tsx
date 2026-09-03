@@ -20,7 +20,7 @@ interface BrandMatch {
   count: number;
 }
 
-const CATEGORIES = ["All", "Makeup", "Skincare", "Fragrance", "Home Fragrance", "Haircare", "Beauty tools", "Health & Nutrition"];
+const CATEGORIES = ["All", "Makeup", "Skincare", "Fragrance", "Home Fragrance", "Haircare", "Beauty tools"];
 const BUDGETS: Array<{ label: string; value: number | null }> = [
   { label: "All prices", value: null },
   { label: "Under $25", value: 25 },

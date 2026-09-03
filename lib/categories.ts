@@ -51,13 +51,6 @@ export const CATEGORY_DEFS: readonly CategoryDef[] = [
     label: "Beauty tools",
     blurb: "Dyson Airwrap, GHD, Foreo, NuFace — the devices everyone wants.",
     defaultImage: "https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=800&q=80"
-  },
-  {
-    slug: "health-nutrition",
-    name: "Health & Nutrition",
-    label: "Health & Nutrition",
-    blurb: "Vitamins, supplements, superfoods and wellness essentials from the world's finest nutrition brands.",
-    defaultImage: "/api/image-proxy?url=https%3A%2F%2Fimages.selfridges.com%2Fis%2Fimage%2Fselfridges%2F1151-3004874-TRUECOLLAGEN_M%3Fwid%3D800%26hei%3D800%26fmt%3Dwebp%26qlt%3D80"
   }
 ] as const;
 
@@ -100,6 +93,20 @@ export interface SubcategoryCount {
   subcategory: string;
   count: number;
 }
+
+// NOTE: the category-scoped query helpers below (getCategorySubcategories,
+// getCategoryBrands, getPopularBrands, getCategoryStats, getCategoryProducts)
+// are intentionally NOT filtered on `archived`: "Health & Nutrition" is no
+// longer a resolvable category and no other category currently has archived
+// rows. A future task that archives rows within a still-live category must add
+// `and not archived` to these queries.
+//
+// The same caveat applies to `lib/kbeauty.ts`, `app/api/shade-finder/route.ts`
+// and `app/api/product-shades/route.ts`, which also read `products` without the
+// `archived` predicate — safe today (shade-finder is scoped to
+// `category = 'Makeup'`, product-shades is id-scoped, kbeauty keys on
+// `k_beauty = true`), but a future archival within a live category must revisit
+// them too.
 
 // Distinct subcategories within a category, for the filter dropdown. "Other"
 // sorts last so the real groups lead.
@@ -255,6 +262,8 @@ export interface CategoryProductsOptions {
   seed?: string;
 }
 
+// Queries here are not filtered on `archived` — see the note above
+// getCategorySubcategories.
 export async function getCategoryProducts(
   categoryName: ProductCategory,
   sort: CategorySort,

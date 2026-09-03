@@ -42,6 +42,7 @@ export async function POST(req: Request) {
     const brandRows = (await sql(
       `select brand, count(*)::int as count
        from products
+       where not archived
        group by brand
        having (select bool_and(${brandHay} like '%' || t || '%')
                from unnest($1::text[]) as t)
@@ -61,6 +62,7 @@ export async function POST(req: Request) {
               deliverable_lebanon, product_url, image_url, light_shade_image_url
        from products
        where ($1::text is null or category = $1)
+         and not archived
          and (select bool_and(${hay} like '%' || t || '%')
               from unnest($2::text[]) as t)
        order by
@@ -82,6 +84,7 @@ export async function POST(req: Request) {
               deliverable_lebanon, product_url, image_url, light_shade_image_url
        from products
        where ($1::text is null or category = $1)
+         and not archived
          and word_similarity($2, lower(brand || ' ' || name)) > 0.15
        order by word_similarity($2, lower(brand || ' ' || name)) desc
        limit 200`,

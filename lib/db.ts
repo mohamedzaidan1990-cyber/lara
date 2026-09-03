@@ -325,7 +325,19 @@ export const SCHEMA_STATEMENTS = [
      'https://hudabeauty.com/en-us/products/the-lipcealer-effect-kit-set_139',
      'https://hudabeauty.com/cdn/shop/files/01--LIPSTAIN-REPUSH-KIT-01_7001919f-be66-4dd8-9119-aec95f7d218c.webp?v=1777550920',
      true, true
-   ) on conflict (product_url) do nothing`
+   ) on conflict (product_url) do nothing`,
+  // ----- Retire the Health & Nutrition (vitamins) category from the storefront.
+  // DDL only — the one-time backfill
+  //   update products set archived = true where category = 'Health & Nutrition'
+  // was applied out-of-band (single Neon DB). It is deliberately NOT listed here:
+  // ensureSchema() runs on many per-request paths, so a backfill statement would
+  // silently re-archive rows and undo the documented reversal
+  //   update products set archived = false where category = 'Health & Nutrition'
+  `alter table products add column if not exists archived boolean not null default false`,
+  `create index if not exists products_archived_idx on products (archived)`,
+  // Speeds the dedupe guard (scraper + admin import) and the top-brands image
+  // lookups, both of which filter on lower(trim(brand)) / lower(trim(name)).
+  `create index if not exists products_brand_name_norm_idx on products (lower(trim(brand)), lower(trim(name)))`,
 ];
 
 export async function ensureSchema(): Promise<void> {

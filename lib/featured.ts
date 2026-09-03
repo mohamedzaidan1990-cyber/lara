@@ -9,8 +9,7 @@ export type Category =
   | "Bags"
   | "Haircare"
   | "Accessories"
-  | "Beauty tools"
-  | "Health & Nutrition";
+  | "Beauty tools";
 
 export type ProductCategory = Exclude<Category, "All">;
 
@@ -101,7 +100,7 @@ export async function getFallbackProducts(): Promise<FeaturedProduct[]> {
   return withPrices(FALLBACK_DATA);
 }
 
-export const CATEGORIES: readonly Category[] = ["All", "Makeup", "Skincare", "Fragrance", "Home Fragrance", "Haircare", "Beauty tools", "Health & Nutrition"] as const;
+export const CATEGORIES: readonly Category[] = ["All", "Makeup", "Skincare", "Fragrance", "Home Fragrance", "Haircare", "Beauty tools"] as const;
 
 export const PRODUCT_CATEGORIES: readonly ProductCategory[] = [
   "Makeup",
@@ -109,6 +108,5 @@ export const PRODUCT_CATEGORIES: readonly ProductCategory[] = [
   "Fragrance",
   "Home Fragrance",
   "Haircare",
-  "Beauty tools",
-  "Health & Nutrition"
+  "Beauty tools"
 ] as const;

@@ -56,7 +56,13 @@ export const useCart = create<CartState>()(
     {
       name: "snb-cart",
       // Only persist the items — not the open/closed UI state.
-      partialize: (state) => ({ items: state.items })
+      partialize: (state) => ({ items: state.items }),
+      // One-time cleanup: the retired "free Huda blush" promo injected a line
+      // with this id. Drop it on load so no one checks out with a phantom gift.
+      onRehydrateStorage: () => (state) => {
+        if (!state) return;
+        state.items = state.items.filter((i) => i.id !== "promo-huda-blush-gift");
+      }
     }
   )
 );

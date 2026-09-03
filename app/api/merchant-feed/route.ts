@@ -33,7 +33,7 @@ export async function GET() {
     const rows = (await sql`
       select id, brand, name, category, price_usd::float8 as price_usd, image_url
       from products
-      where deliverable_lebanon = true and image_url is not null
+      where deliverable_lebanon = true and image_url is not null and not archived
       order by brand, name
     `) as Row[];
 

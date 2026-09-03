@@ -6,28 +6,27 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import type { CategoryStat } from "@/lib/categories";
 import type { BrandDirectoryEntry } from "@/lib/brands";
+import type { TopBrand } from "@/lib/top-brands";
 import { whatsappRequestLink } from "@/lib/links";
 import HeroSection from "@/components/HeroSection";
-import AutoVideo from "@/components/AutoVideo";
+import BrandRail from "@/components/BrandRail";
 import SearchAutocomplete from "@/components/SearchAutocomplete";
-import HudaBlushPromo from "@/components/HudaBlushPromo";
 
 interface Props {
   categories: CategoryStat[];
   brands: BrandDirectoryEntry[];
+  topBrands: TopBrand[];
   orderCount?: number;
 }
 
-export default function HomeClient({ categories, brands, orderCount = 0 }: Props) {
+export default function HomeClient({ categories, brands, topBrands, orderCount = 0 }: Props) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [activeLetter, setActiveLetter] = useState<string | null>(null);
-  const bespoke = whatsappRequestLink();
 
   const grouped = brands.reduce<Record<string, BrandDirectoryEntry[]>>((acc, b) => {
     const l = b.brand[0]?.toUpperCase() ?? "#";
-    if (!acc[l]) acc[l] = [];
-    acc[l].push(b);
+    (acc[l] ||= []).push(b);
     return acc;
   }, {});
   const letters = Object.keys(grouped).sort();
@@ -40,12 +39,18 @@ export default function HomeClient({ categories, brands, orderCount = 0 }: Props
 
   return (
     <div className="flex flex-col">
+      <HeroSection orderCount={orderCount} />
 
-      {/* ── 6 MOBILE / 5 DESKTOP: Search ── */}
-      <section
-        id="shop"
-        className="order-6 lg:order-5 mx-auto w-full max-w-7xl px-4 pt-10 pb-2 sm:px-6 lg:px-8 lg:pt-16 lg:pb-0"
-      >
+      <BrandRail brands={topBrands} />
+
+      <HudaBeautyBanner />
+
+      <div id="shop-categories">
+        <CategoryCards categories={categories} />
+      </div>
+
+      {/* On-page search — kept per requirements */}
+      <section id="shop" className="mx-auto w-full max-w-7xl px-4 pb-2 pt-6 sm:px-6 lg:px-8">
         <div className="text-center">
           <p className="text-[11px] uppercase tracking-[0.32em] text-accent">Search the edit</p>
           <h2 className="mt-2 font-serif text-3xl text-ink">What are you looking for?</h2>
@@ -55,18 +60,15 @@ export default function HomeClient({ categories, brands, orderCount = 0 }: Props
         </div>
       </section>
 
-      {/* ── 7 MOBILE / 6 DESKTOP: Brand directory ── */}
-      <section className="order-7 lg:order-6 mx-auto w-full max-w-7xl px-4 pt-8 pb-4 sm:px-6 lg:px-8">
+      {/* A–Z brand directory — kept per requirements */}
+      <section className="mx-auto w-full max-w-7xl px-4 pb-4 pt-8 sm:px-6 lg:px-8">
         <div className="rounded-[2rem] border border-white/60 bg-white/40 p-6 backdrop-blur-sm">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <p className="text-[11px] uppercase tracking-[0.32em] text-accent">Browse by brand</p>
               <h2 className="mt-1 font-serif text-xl text-ink">All Brands A–Z</h2>
             </div>
-            <Link
-              href="/brands"
-              className="text-[11px] uppercase tracking-[0.2em] text-ink/60 hover:text-accent transition-colors"
-            >
+            <Link href="/brands" className="text-[11px] uppercase tracking-[0.2em] text-ink/60 transition-colors hover:text-accent">
               Full directory →
             </Link>
           </div>
@@ -104,35 +106,11 @@ export default function HomeClient({ categories, brands, orderCount = 0 }: Props
         </div>
       </section>
 
-      {/* ── 1 MOBILE / 1 DESKTOP: Hero ── */}
-      <div className="order-1 lg:order-1">
-        <HeroSection orderCount={orderCount} />
-      </div>
+      <ShadeFinderBanner />
 
-      {/* ── 2 MOBILE / 3 DESKTOP: Huda Beauty banner ── */}
-      <div className="order-2 lg:order-3">
-        <HudaBeautyBanner />
-        <HudaBlushPromo variant="homepage" />
-      </div>
+      <BespokeSection />
 
-      {/* ── 5 MOBILE / 4 DESKTOP: Shade Finder banner ── */}
-      <div className="order-5 lg:order-4">
-        <ShadeFinderBanner />
-      </div>
-
-      {/* ── 3 MOBILE / 7 DESKTOP: Category cards ── */}
-      <div id="shop-categories" className="order-3 lg:order-7">
-        <CategoryCards categories={categories} />
-        <KBeautyTeaser />
-      </div>
-
-      <div className="order-8">
-        <BespokeSection />
-      </div>
-
-      <div className="order-9">
-        <WhySeasons />
-      </div>
+      <WhySeasons />
     </div>
   );
 }
@@ -259,24 +237,18 @@ function BespokeSection() {
           </div>
         </motion.div>
 
-        <HeroVideo />
+        <div className="relative mx-auto w-full max-w-lg">
+          <div className="absolute -inset-6 rounded-[2.75rem] bg-accent/15 blur-3xl" aria-hidden />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/hero-home.jpg"
+            alt="Seasons by B"
+            loading="lazy"
+            className="relative aspect-[4/5] w-full rounded-[2rem] border-2 border-white object-cover shadow-pop"
+          />
+        </div>
       </div>
     </section>
-  );
-}
-
-function HeroVideo() {
-  return (
-    <div className="relative mx-auto w-full max-w-lg">
-      <div className="absolute -inset-6 rounded-[2.75rem] bg-accent/15 blur-3xl" aria-hidden />
-      <AutoVideo
-        src="/hero.mp4"
-        poster="/hero-poster.jpg"
-        wrapperClassName="overflow-hidden rounded-[2rem] border-2 border-white shadow-pop"
-        videoClassName="aspect-video w-full bg-cream object-cover"
-        label="Seasons by B brand film"
-      />
-    </div>
   );
 }
 
@@ -317,38 +289,6 @@ function HudaBeautyBanner() {
         </div>
       </Link>
     </div>
-  );
-}
-
-function KBeautyTeaser() {
-  return (
-    <section className="mx-auto max-w-7xl px-4 pb-6 sm:px-6 lg:px-8">
-      <Link
-        href="/k-beauty"
-        className="group relative block overflow-hidden rounded-[2rem] border border-white/60 shadow-soft transition-all duration-300 hover:-translate-y-1 hover:shadow-pop"
-        style={{
-          background: "linear-gradient(135deg, #ffe0ef 0%, #f97db8 45%, #c94f92 80%, #8a2560 100%)"
-        }}
-      >
-        <span aria-hidden className="pointer-events-none absolute right-6 top-4 text-6xl opacity-20">🌸</span>
-        <span aria-hidden className="pointer-events-none absolute right-20 bottom-4 text-3xl opacity-15">🌸</span>
-        <div className="relative flex flex-col items-start justify-between gap-6 p-8 sm:flex-row sm:items-center">
-          <div>
-            <p className="text-[10px] uppercase tracking-[0.36em] text-white/70">New on Seasons</p>
-            <h3 className="mt-2 font-serif text-2xl text-white sm:text-3xl">
-              K-뷰티 — Korean Beauty
-            </h3>
-            <p className="mt-2 max-w-sm text-sm text-white/80">
-              COSRX, Laneige, Dr. Jart+, Beauty of Joseon and more — sourced from Selfridges,
-              delivered to Lebanon.
-            </p>
-          </div>
-          <span className="inline-flex shrink-0 items-center gap-2 rounded-full bg-white px-6 py-3 text-xs font-bold uppercase tracking-[0.16em] text-accent shadow-lg transition-transform group-hover:scale-[1.05]">
-            Explore K-Beauty 🌸
-          </span>
-        </div>
-      </Link>
-    </section>
   );
 }
 
