@@ -15,21 +15,21 @@ export const CATEGORY_DEFS: readonly CategoryDef[] = [
     name: "Makeup",
     label: "Makeup",
     blurb: "Lipsticks, foundations and palettes from the world's most coveted houses.",
-    defaultImage: "https://images.unsplash.com/photo-1512496015851-a90fb38ba796?w=800&q=80"
+    defaultImage: "/category-makeup.jpg"
   },
   {
     slug: "skincare",
     name: "Skincare",
     label: "Skincare",
     blurb: "Crèmes, serums and treatments — La Mer to Augustinus Bader.",
-    defaultImage: "https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?w=800&q=80"
+    defaultImage: "/category-skincare.jpg"
   },
   {
     slug: "fragrance",
     name: "Fragrance",
     label: "Fragrance",
     blurb: "Signature scents and niche perfumery — now shipping to your door.",
-    defaultImage: "https://images.unsplash.com/photo-1541643600914-78b084683601?w=800&q=80"
+    defaultImage: "/category-fragrance.jpg"
   },
   {
     slug: "home-fragrance",
