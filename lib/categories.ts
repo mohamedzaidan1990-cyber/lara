@@ -43,7 +43,7 @@ export const CATEGORY_DEFS: readonly CategoryDef[] = [
     name: "Haircare",
     label: "Haircare",
     blurb: "Olaplex, Kérastase, Oribe — salon-grade care for every routine.",
-    defaultImage: "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=800&q=80"
+    defaultImage: "/category-haircare.jpg"
   },
   {
     slug: "beauty-tools",
