@@ -25,8 +25,11 @@ export default function ShopByBrand({ topBrands, allBrands }: Props) {
   }, {});
   const letters = Object.keys(grouped).sort();
 
-  // "324 brands" → "300+" — never over-claim.
-  const brandFloor = Math.max(50, Math.floor(allBrands.length / 50) * 50);
+  // "324 brands" → "300+" — round DOWN to the nearest 50 so we never over-claim.
+  // The catalogue always carries 300+ brands; if the directory query comes back
+  // short (a transient DB failure returns []), fall back to 300 rather than
+  // showing a misleadingly small figure.
+  const brandFloor = allBrands.length >= 100 ? Math.floor(allBrands.length / 50) * 50 : 300;
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
