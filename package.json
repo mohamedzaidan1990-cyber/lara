@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "dupe-check": "ts-node scripts/dupe-check.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.9.5",
