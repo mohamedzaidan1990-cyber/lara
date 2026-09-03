@@ -21,6 +21,8 @@ import CategoryControls from "./CategoryControls";
 // Bags & accessories were retired as browse categories — they're bespoke-only
 // now. Redirect any old/external links to the bespoke landing page.
 const REDIRECT_TO_BESPOKE = new Set(["bags", "accessories"]);
+// Health & Nutrition was retired from the storefront (Sept 2026).
+const REDIRECT_TO_HOME = new Set(["health-nutrition"]);
 
 interface Params {
   slug: string;
@@ -61,6 +63,7 @@ export default async function CategoryPage({
   searchParams: SearchParams;
 }) {
   if (REDIRECT_TO_BESPOKE.has(params.slug)) redirect("/bespoke");
+  if (REDIRECT_TO_HOME.has(params.slug)) redirect("/");
 
   const def = getCategoryBySlug(params.slug);
   if (!def) notFound();

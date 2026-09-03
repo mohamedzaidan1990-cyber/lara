@@ -325,7 +325,13 @@ export const SCHEMA_STATEMENTS = [
      'https://hudabeauty.com/en-us/products/the-lipcealer-effect-kit-set_139',
      'https://hudabeauty.com/cdn/shop/files/01--LIPSTAIN-REPUSH-KIT-01_7001919f-be66-4dd8-9119-aec95f7d218c.webp?v=1777550920',
      true, true
-   ) on conflict (product_url) do nothing`
+   ) on conflict (product_url) do nothing`,
+  // ----- Retire the Health & Nutrition (vitamins) category from the storefront.
+  // Rows are archived, never deleted — fully reversible with
+  //   update products set archived = false where category = 'Health & Nutrition'
+  `alter table products add column if not exists archived boolean not null default false`,
+  `create index if not exists products_archived_idx on products (archived)`,
+  `update products set archived = true where category = 'Health & Nutrition' and archived = false`
 ];
 
 export async function ensureSchema(): Promise<void> {

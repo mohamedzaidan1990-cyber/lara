@@ -11,9 +11,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const sql = getSql();
 
   const [productsRaw, brandsRaw, categoriesRaw] = await Promise.all([
-    sql`SELECT id, scraped_at FROM products ORDER BY scraped_at DESC NULLS LAST`,
-    sql`SELECT DISTINCT brand FROM products WHERE brand IS NOT NULL ORDER BY brand`,
-    sql`SELECT DISTINCT category FROM products WHERE category IS NOT NULL`,
+    sql`SELECT id, scraped_at FROM products WHERE NOT archived ORDER BY scraped_at DESC NULLS LAST`,
+    sql`SELECT DISTINCT brand FROM products WHERE brand IS NOT NULL AND NOT archived ORDER BY brand`,
+    sql`SELECT DISTINCT category FROM products WHERE category IS NOT NULL AND NOT archived`,
   ]);
   const products  = productsRaw   as Array<{ id: string; scraped_at: string | null }>;
   const brands    = brandsRaw     as Array<{ brand: string }>;

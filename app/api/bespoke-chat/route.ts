@@ -220,6 +220,7 @@ async function searchCatalog(text: string, maxUsd: number | null): Promise<Catal
       `select id, brand, name, price_usd::float8 as price_usd
        from products
        where ${hits} >= $2
+         and not archived
          and ($3::float8 is null or (price_usd is not null and price_usd <= $3))
          and coalesce(image_url, '') <> ''
        order by (${hits} + ${brandHits}) desc, deliverable_lebanon desc nulls last, price_usd asc nulls last
@@ -241,6 +242,7 @@ async function searchCatalog(text: string, maxUsd: number | null): Promise<Catal
       `select id, brand, name, price_usd::float8 as price_usd
        from products
        where category = $1
+         and not archived
          and ($2::float8 is null or (price_usd is not null and price_usd <= $2))
          and coalesce(image_url, '') <> ''
          and not (id = any($3::uuid[]))

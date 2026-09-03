@@ -37,7 +37,7 @@ export async function getBrandBySlug(slug: string): Promise<BrandInfo | null> {
     const rows = (await sql(
       `select brand, category, count(*)::int as count
        from products
-       where ${BRAND_SLUG_SQL} = $1
+       where ${BRAND_SLUG_SQL} = $1 and not archived
        group by brand, category
        order by count desc`,
       [slug]
@@ -72,7 +72,7 @@ export async function getBrandProducts(
   const offset = (safePage - 1) * PAGE_SIZE;
 
   const totalRows = (await sql`
-    select count(*)::int as n from products where brand = ${brand}
+    select count(*)::int as n from products where brand = ${brand} and not archived
   `) as Array<{ n: number }>;
   const total = totalRows[0]?.n ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -91,7 +91,7 @@ export async function getBrandProducts(
             deliverable_lebanon, product_url, image_url, light_shade_image_url,
             is_bestseller, created_at::text as created_at
      from products
-     where brand = $1
+     where brand = $1 and not archived
      order by ${orderBy}
      limit ${PAGE_SIZE} offset ${offset}`,
     params
@@ -112,7 +112,7 @@ export async function getBrandsForDirectory(): Promise<BrandDirectoryEntry[]> {
     const rows = (await sql`
       SELECT brand, count(*)::int as count
       FROM products
-      WHERE brand IS NOT NULL
+      WHERE brand IS NOT NULL AND NOT archived
       GROUP BY brand
       ORDER BY brand ASC
     `) as Array<{ brand: string; count: number }>;

@@ -42,7 +42,8 @@ export async function GET(req: Request) {
     const brandRows = (await sql(
       `select brand, count(*)::int as n
        from products
-       where (select bool_and(${brandHay} like '%' || t || '%')
+       where not archived
+         and (select bool_and(${brandHay} like '%' || t || '%')
               from unnest($1::text[]) as t)
        group by brand
        order by n desc
@@ -61,7 +62,8 @@ export async function GET(req: Request) {
     const products = (await sql(
       `select id, name, brand
        from products
-       where (select bool_and(${hay} like '%' || t || '%')
+       where not archived
+         and (select bool_and(${hay} like '%' || t || '%')
               from unnest($1::text[]) as t)
        order by brand asc, name asc
        limit 10`,

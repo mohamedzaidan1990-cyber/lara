@@ -12,7 +12,7 @@ export async function GET() {
              deliverable_lebanon, product_url, image_url, light_shade_image_url,
              is_bestseller, created_at::text as created_at
       from products
-      where is_bestseller = true
+      where is_bestseller = true and not archived
       order by coalesce(popularity, 9999) asc, random()
       limit 8
     `;
