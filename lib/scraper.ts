@@ -112,8 +112,11 @@ async function persistProducts(products: ScrapedProduct[]): Promise<void> {
   try {
     const sql = getSql();
     for (const p of products) {
+      if (!p.product_url) continue;
       // Dedupe guard — see scraper-worker/db.ts. Skip when this brand+name
       // already exists under a different URL, so we don't create a twin row.
+      // (A null incoming URL would make `is distinct from NULL` match every
+      // non-null row, so guard it out first — parity with the other sites.)
       const dupe = (await sql`
         select 1 from products
         where lower(trim(brand)) = lower(trim(${p.brand}))

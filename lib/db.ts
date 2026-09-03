@@ -334,7 +334,10 @@ export const SCHEMA_STATEMENTS = [
   // silently re-archive rows and undo the documented reversal
   //   update products set archived = false where category = 'Health & Nutrition'
   `alter table products add column if not exists archived boolean not null default false`,
-  `create index if not exists products_archived_idx on products (archived)`
+  `create index if not exists products_archived_idx on products (archived)`,
+  // Speeds the dedupe guard (scraper + admin import) and the top-brands image
+  // lookups, both of which filter on lower(trim(brand)) / lower(trim(name)).
+  `create index if not exists products_brand_name_norm_idx on products (lower(trim(brand)), lower(trim(name)))`,
 ];
 
 export async function ensureSchema(): Promise<void> {

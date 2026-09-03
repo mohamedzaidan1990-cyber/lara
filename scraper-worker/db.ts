@@ -137,7 +137,7 @@ export async function upsertProducts(products: ScrapedProductRow[]): Promise<num
     if (!p.brand || !p.name || p.brand.length > 180 || p.name.length > 200 || /[<>{}]/.test(p.brand + p.name)) {
       continue;
     }
-    // Reject any row whose category is not in the 7 known categories — prevents
+    // Reject any row whose category is not in the 6 known categories — prevents
     // Selfridges nav/facet objects (e.g. "Face", "Lips") from entering the DB.
     if (!VALID_CATEGORIES.has(p.category)) {
       console.warn(`[db] skipping invalid category "${p.category}": ${p.brand} — ${p.name}`);

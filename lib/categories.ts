@@ -100,6 +100,13 @@ export interface SubcategoryCount {
 // longer a resolvable category and no other category currently has archived
 // rows. A future task that archives rows within a still-live category must add
 // `and not archived` to these queries.
+//
+// The same caveat applies to `lib/kbeauty.ts`, `app/api/shade-finder/route.ts`
+// and `app/api/product-shades/route.ts`, which also read `products` without the
+// `archived` predicate — safe today (shade-finder is scoped to
+// `category = 'Makeup'`, product-shades is id-scoped, kbeauty keys on
+// `k_beauty = true`), but a future archival within a live category must revisit
+// them too.
 
 // Distinct subcategories within a category, for the filter dropdown. "Other"
 // sorts last so the real groups lead.

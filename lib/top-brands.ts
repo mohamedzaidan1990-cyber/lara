@@ -1,3 +1,4 @@
+import { unstable_cache } from "next/cache";
 import { getSql } from "./db";
 import { brandSlug } from "./brands";
 
@@ -19,7 +20,13 @@ const FALLBACK_BRANDS = [
   "Sol De Janeiro",
 ];
 
-export async function getTopBrands(limit = 6): Promise<TopBrand[]> {
+export const getTopBrands = unstable_cache(
+  async (limit = 6): Promise<TopBrand[]> => computeTopBrands(limit),
+  ["top-brands"],
+  { revalidate: 3600, tags: ["top-brands"] }
+);
+
+async function computeTopBrands(limit: number): Promise<TopBrand[]> {
   try {
     const sql = getSql();
     const rows = (await sql`
@@ -68,7 +75,14 @@ export async function getTopBrands(limit = 6): Promise<TopBrand[]> {
     if (result.length >= limit) return result.slice(0, limit);
     return await padFromFallback(result, limit, sql);
   } catch {
-    return [];
+    // Transient failure of the heavy sales query: fall back to the curated
+    // list (images resolved from the catalogue) rather than an empty rail,
+    // which would silently drop the whole "Shop by Brand" section.
+    try {
+      return await padFromFallback([], limit, getSql());
+    } catch {
+      return [];
+    }
   }
 }
 
