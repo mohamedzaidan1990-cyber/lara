@@ -28,11 +28,24 @@ interface Group {
   match: (o: OrderWithCustomer) => boolean;
 }
 
+// Multi-item order where some (but not all) items have reached Lebanon, so the
+// arrived portion can be handed over now and the rest delivered later.
+// Negative "Loyalty Discount" lines are ignored — they never physically arrive.
+function isReadyForPartialDelivery(o: OrderWithCustomer): boolean {
+  if (!o.payment_confirmed) return false;
+  if (["delivered", "cancelled", "refunded"].includes(o.status)) return false;
+  const items = (o.items ?? []).filter((i) => Number(i.price_usd) >= 0);
+  if (items.length < 2) return false;
+  const inLebanon = items.filter((i) => i.in_lebanon).length;
+  return inLebanon > 0 && inLebanon < items.length;
+}
+
 const GROUPS: Group[] = [
   { key: "pending", label: "Pending Payment", color: "#C0392B", match: (o) => !o.payment_confirmed && o.status === "pending" },
   { key: "payment_confirmed", label: "Payment Confirmed", color: "#E08B45", match: (o) => o.status === "payment_confirmed" },
   { key: "ordered_selfridges", label: "Ordered", color: "#3A6EA5", match: (o) => o.status === "ordered_selfridges" || o.status === "fulfilled_from_stock" },
   { key: "ready_to_deliver", label: "Ready to Deliver", color: "#16A34A", match: (o) => o.status === "ready_to_deliver" },
+  { key: "ready_partial", label: "Ready for Partial Delivery", color: "#0D9488", match: isReadyForPartialDelivery },
   { key: "partially_delivered", label: "Partially Delivered", color: "#D97706", match: (o) => o.status === "partially_delivered" },
   { key: "shipped", label: "Shipped", color: "#7A4FB0", match: (o) => o.status === "shipped" || o.status === "in_lebanon" },
   { key: "delivered", label: "Delivered", color: "#277C43", match: (o) => o.status === "delivered" }
