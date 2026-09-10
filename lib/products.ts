@@ -82,6 +82,29 @@ export interface RelatedProductsOptions {
   subcategory?: string | null;
 }
 
+// Load specific catalogue products by id, in the order the ids were given.
+// Missing or archived ids are silently dropped. Shaped for <ProductCard>.
+export async function getProductsByIds(ids: string[]): Promise<RelatedProduct[]> {
+  const valid = ids.filter((id) => /^[0-9a-fA-F-]{36}$/.test(id));
+  if (valid.length === 0) return [];
+  try {
+    const sql = getSql();
+    const rows = (await sql`
+      select id, brand, name, category, subcategory,
+             price_gbp::float8 as price_gbp, price_usd::float8 as price_usd,
+             deliverable_lebanon, product_url, image_url,
+             light_shade_image_url, is_bestseller,
+             created_at::text as created_at
+      from products
+      where id = any(${valid}::uuid[]) and not archived
+    `) as RelatedProduct[];
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    return valid.map((id) => byId.get(id)).filter((r): r is RelatedProduct => Boolean(r));
+  } catch {
+    return [];
+  }
+}
+
 // "You might also like" — products from the same category, prioritising same
 // brand then same subcategory, falling back to random.
 export async function getRelatedProducts(

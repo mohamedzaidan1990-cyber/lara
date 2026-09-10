@@ -7,19 +7,27 @@ import { motion } from "framer-motion";
 import type { CategoryStat } from "@/lib/categories";
 import type { BrandDirectoryEntry } from "@/lib/brands";
 import type { TopBrand } from "@/lib/top-brands";
+import type { RelatedProduct } from "@/lib/products";
 import { whatsappRequestLink } from "@/lib/links";
 import HeroSection from "@/components/HeroSection";
 import ShopByBrand from "@/components/ShopByBrand";
 import SearchAutocomplete from "@/components/SearchAutocomplete";
+import ProductCard from "@/components/ProductCard";
+
+export interface HomePromoBlock {
+  title: string;
+  products: RelatedProduct[];
+}
 
 interface Props {
   categories: CategoryStat[];
   brands: BrandDirectoryEntry[];
   topBrands: TopBrand[];
   orderCount?: number;
+  homePromos?: HomePromoBlock[];
 }
 
-export default function HomeClient({ categories, brands, topBrands, orderCount = 0 }: Props) {
+export default function HomeClient({ categories, brands, topBrands, orderCount = 0, homePromos = [] }: Props) {
   const router = useRouter();
   const [query, setQuery] = useState("");
 
@@ -32,6 +40,10 @@ export default function HomeClient({ categories, brands, topBrands, orderCount =
   return (
     <div className="flex flex-col">
       <HeroSection orderCount={orderCount} />
+
+      {homePromos.map((promo) => (
+        <HomePromoSection key={promo.title} title={promo.title} products={promo.products} />
+      ))}
 
       <ShopByBrand topBrands={topBrands} allBrands={brands} />
 
@@ -56,6 +68,41 @@ export default function HomeClient({ categories, brands, topBrands, orderCount =
 
       <WhySeasons />
     </div>
+  );
+}
+
+function HomePromoSection({ title, products }: HomePromoBlock) {
+  if (products.length === 0) return null;
+  return (
+    <section className="mx-auto w-full max-w-7xl px-4 pt-14 sm:px-6 lg:px-8">
+      <div className="mb-8">
+        <p className="text-[11px] uppercase tracking-[0.32em] text-accent">On offer now</p>
+        <h2 className="mt-2 font-serif text-3xl text-ink">{title}</h2>
+      </div>
+      <div className="grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
+        {products.map((p, i) => (
+          <ProductCard
+            key={p.id}
+            index={i}
+            product={{
+              id: p.id,
+              brand: p.brand,
+              name: p.name,
+              price_gbp: p.price_gbp,
+              price_usd: p.price_usd,
+              deliverable_lebanon: p.deliverable_lebanon,
+              product_url: p.product_url ?? "",
+              image_url: p.image_url ?? "",
+              category: p.category,
+              subcategory: p.subcategory,
+              light_shade_image_url: p.light_shade_image_url,
+              is_bestseller: p.is_bestseller,
+              created_at: p.created_at
+            }}
+          />
+        ))}
+      </div>
+    </section>
   );
 }
 
