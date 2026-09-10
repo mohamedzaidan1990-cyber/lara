@@ -59,19 +59,19 @@ interface Row {
 const ROWS: Row[] = [
   // ---- Gisou Honey Infused Lip Oils — Gloss Hour Edition (minis, 8ml) — $25 ea
   { key: "gisou-lip-oil-raspberry-swirl", brand: "Gisou", name: "Honey Infused Lip Oil 8ml — Raspberry Swirl (Gloss Hour Edition)", category: "Makeup", promoUsd: 25,
-    product_url: "https://seasonsbyb.co.uk/p/mix-and-match/gisou-lip-oil-raspberry-swirl", image_url: "/gisou-lip-oil-gloss-hour.jpg" },
+    product_url: "https://seasonsbyb.co.uk/p/mix-and-match/gisou-lip-oil-raspberry-swirl", image_url: "/gisou-lip-oil-raspberry-swirl.jpg" },
   { key: "gisou-lip-oil-bee-llini-peach", brand: "Gisou", name: "Honey Infused Lip Oil 8ml — Bee-llini Peach (Gloss Hour Edition)", category: "Makeup", promoUsd: 25,
-    product_url: "https://seasonsbyb.co.uk/p/mix-and-match/gisou-lip-oil-bee-llini-peach", image_url: "/gisou-lip-oil-gloss-hour.jpg" },
+    product_url: "https://seasonsbyb.co.uk/p/mix-and-match/gisou-lip-oil-bee-llini-peach", image_url: "/gisou-lip-oil-bee-llini-peach.jpg" },
   { key: "gisou-lip-oil-glazed-plum", brand: "Gisou", name: "Honey Infused Lip Oil 8ml — Glazed Plum (Gloss Hour Edition)", category: "Makeup", promoUsd: 25,
-    product_url: "https://seasonsbyb.co.uk/p/mix-and-match/gisou-lip-oil-glazed-plum", image_url: "/gisou-lip-oil-gloss-hour.jpg" },
+    product_url: "https://seasonsbyb.co.uk/p/mix-and-match/gisou-lip-oil-glazed-plum", image_url: "/gisou-lip-oil-glazed-plum.jpg" },
 
   // ---- Gisou Honey Infused Hair Perfume Minis — Mirsalehi Bee Garden (15ml) — $30 ea
   { key: "gisou-hair-perfume-wildflower-honey", brand: "Gisou", name: "Honey Infused Hair Perfume 15ml — Wildflower Honey (Bee Garden Mini)", category: "Fragrance", promoUsd: 30,
-    product_url: "https://seasonsbyb.co.uk/p/mix-and-match/gisou-hair-perfume-wildflower-honey", image_url: "/gisou-hair-perfume-minis-bee-garden.jpg" },
+    product_url: "https://seasonsbyb.co.uk/p/mix-and-match/gisou-hair-perfume-wildflower-honey", image_url: "/gisou-hair-perfume-wildflower-honey.jpg" },
   { key: "gisou-hair-perfume-wild-rose", brand: "Gisou", name: "Honey Infused Hair Perfume 15ml — Wild Rose (Bee Garden Mini)", category: "Fragrance", promoUsd: 30,
-    product_url: "https://seasonsbyb.co.uk/p/mix-and-match/gisou-hair-perfume-wild-rose", image_url: "/gisou-hair-perfume-minis-bee-garden.jpg" },
+    product_url: "https://seasonsbyb.co.uk/p/mix-and-match/gisou-hair-perfume-wild-rose", image_url: "/gisou-hair-perfume-wild-rose.jpg" },
   { key: "gisou-hair-perfume-lavender-berry", brand: "Gisou", name: "Honey Infused Hair Perfume 15ml — Lavender Berry (Bee Garden Mini)", category: "Fragrance", promoUsd: 30,
-    product_url: "https://seasonsbyb.co.uk/p/mix-and-match/gisou-hair-perfume-lavender-berry", image_url: "/gisou-hair-perfume-minis-bee-garden.jpg" },
+    product_url: "https://seasonsbyb.co.uk/p/mix-and-match/gisou-hair-perfume-lavender-berry", image_url: "/gisou-hair-perfume-lavender-berry.jpg" },
 
   // ---- Existing rows, repriced to promo ----
   { key: "milk-jelly-lip-kit", existingId: "3fcf4a82-45a5-4cc2-9f0e-000000000000", brand: "Milk Makeup", name: "The Jelly Lip Kit - Lip Stain & Lip Oil Duo", category: "Makeup", promoUsd: 30,
