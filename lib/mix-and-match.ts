@@ -32,6 +32,7 @@ const MIX_AND_MATCH: Record<string, MixAndMatchEntry> = {
   "9341a859-26f7-4bd1-8a68-18859ef56e41": { promoUsd: 25, promoGbp: 19.23, retailUsd: 50, retailGbp: 38.46 }, // sol-danca-mistica
   "a169ca6b-5e9c-4272-bae4-8af38c361a81": { promoUsd: 25, promoGbp: 19.23, retailUsd: 50, retailGbp: 38.46 }, // sephora-blush-trio-candy-lover
   "df4c9110-3baf-48e1-b527-09e4b1c682d7": { promoUsd: 30, promoGbp: 23.08, retailUsd: 60, retailGbp: 46.15 }, // sephora-x-waad-shaat
+  "7002c330-0bca-40b1-899f-01f44ef9ef2e": { promoUsd: 30, promoGbp: 23.08, retailUsd: 60, retailGbp: 46.15 }, // sephora-x-talia-fawaz
   "6bd05d04-0d90-4b51-8e06-8a90317c6998": { promoUsd: 25, promoGbp: 19.23, retailUsd: 50, retailGbp: 38.46 }, // fenty-mini-killawatt-wattabrat
   "7273f117-dfcc-49a8-97f3-85f7fa420012": { promoUsd: 25, promoGbp: 19.23, retailUsd: 50, retailGbp: 38.46 }, // tarte-maracuja-juicy-lip-plump-pink
   "61b3408f-5d07-43f3-80b4-1c9a04b12d97": { promoUsd: 40, promoGbp: 30.77, retailUsd: 80, retailGbp: 61.54 }, // fenty-match-stix-duo-mocha-i-scream
