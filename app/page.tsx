@@ -20,6 +20,7 @@ export default async function HomePage() {
   const byId = new Map(promoProducts.map((p) => [p.id, p]));
   const homePromos = HOME_PROMOS.map((promo) => ({
     title: promo.title,
+    note: promo.note,
     products: promo.productIds.map((id) => byId.get(id)).filter((p): p is NonNullable<typeof p> => Boolean(p)),
   })).filter((promo) => promo.products.length > 0);
 
