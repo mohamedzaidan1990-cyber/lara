@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { useCart, computeTotals } from "@/lib/cart";
+import { useCart, computeCartPricing } from "@/lib/cart";
 import { productImageSrc } from "@/lib/images";
 import { BeeMascot } from "@/components/BeeMascot";
 import { WHATSAPP_URL } from "@/lib/links";
@@ -27,7 +27,8 @@ export default function CheckoutClient({ whish, orderCount = 0 }: { whish: strin
   const updateQuantity = useCart((s) => s.updateQuantity);
   const removeItem = useCart((s) => s.removeItem);
   const clearCart = useCart((s) => s.clearCart);
-  const { totalItems, totalUSD } = computeTotals(items);
+  const pricing = computeCartPricing(items);
+  const { totalItems, totalUSD, bundle } = pricing;
   const hasFragrance = items.some((i) => i.category === "Fragrance");
   const hasPromoGift = items.some((i) => i.is_promo_gift);
   const hasEdpGift = items.some((i) => i.is_promo_gift && i.product_url?.includes("easy-bake-intense-eau-de-parfum"));
@@ -95,15 +96,17 @@ export default function CheckoutClient({ whish, orderCount = 0 }: { whish: strin
             email: form.email.trim(),
             phone: form.phone,
             address: form.address,
-            notes: form.notes
+            notes:
+              form.notes +
+              (bundle?.active ? `${form.notes ? "\n" : ""}[Mix & Match: any-4 promo applied]` : "")
           },
-          items: items.map((i) => ({
+          items: pricing.items.map((i) => ({
             brand: i.brand,
             name: i.name,
             product_url: i.product_url,
             image_url: i.image_url,
-            price_gbp: i.price_gbp,
-            price_usd: i.price_usd,
+            price_gbp: i.effective_gbp,
+            price_usd: i.effective_usd,
             quantity: i.quantity
           })),
           payment_method: paymentMethod,
@@ -154,7 +157,7 @@ export default function CheckoutClient({ whish, orderCount = 0 }: { whish: strin
         <section className="mt-8">
           <h1 className="font-serif text-3xl text-ink">Review your cart</h1>
           <ul className="mt-6 divide-y divide-ink/10 border-y border-ink/10">
-            {items.map((item) => {
+            {pricing.items.map((item) => {
               const src = productImageSrc(item.image_url);
               const isGift = !!item.is_promo_gift;
               return (
@@ -183,12 +186,40 @@ export default function CheckoutClient({ whish, orderCount = 0 }: { whish: strin
                     )}
                   </div>
                   <div className="font-serif text-ink">
-                    {isGift ? <span className="text-accent font-medium">Free</span> : formatUsd(item.price_usd * item.quantity)}
+                    {isGift ? (
+                      <span className="text-accent font-medium">Free</span>
+                    ) : (
+                      <>
+                        {item.promo_applied ? (
+                          <span className="mr-1.5 text-xs font-normal text-ink/35 line-through">
+                            {formatUsd((item.retail_price_usd ?? item.price_usd) * item.quantity)}
+                          </span>
+                        ) : null}
+                        {formatUsd(item.effective_usd * item.quantity)}
+                        {item.promo_group && !item.promo_applied ? (
+                          <span className="mt-0.5 block text-[10px] font-sans text-accent">
+                            → {formatUsd((item.promo_price_usd ?? item.effective_usd) * item.quantity)} with any 4
+                          </span>
+                        ) : null}
+                      </>
+                    )}
                   </div>
                 </li>
               );
             })}
           </ul>
+          {bundle ? (
+            <p
+              className={
+                "mt-4 rounded-lg px-3 py-2 text-sm " +
+                (bundle.active ? "bg-emerald-50 font-medium text-emerald-800" : "bg-accent/[0.06] text-accent")
+              }
+            >
+              {bundle.active
+                ? `✓ Mix & Match applied — you're saving ${formatUsd(bundle.savingUsd)}`
+                : `Add ${bundle.unitsToGo} more Mix & Match item${bundle.unitsToGo === 1 ? "" : "s"} to unlock the promo prices.`}
+            </p>
+          ) : null}
           <div className="mt-5 flex items-center justify-between">
             <span className="text-sm uppercase tracking-[0.18em] text-ink/60">Total ({totalItems})</span>
             <span className="font-serif text-2xl text-ink">{formatUsd(totalUSD)}</span>
@@ -262,13 +293,21 @@ export default function CheckoutClient({ whish, orderCount = 0 }: { whish: strin
           <div className="mt-6 border border-ink/10 bg-cream p-5">
             <p className="text-[10px] uppercase tracking-[0.2em] text-ink/60">Order summary</p>
             <ul className="mt-3 space-y-1 text-sm text-ink">
-              {items.map((i) => (
+              {pricing.items.map((i) => (
                 <li key={i.id} className="flex justify-between">
                   <span>{i.brand} — {i.name}{i.quantity > 1 ? ` ×${i.quantity}` : ""}{i.is_promo_gift ? " 🎁" : ""}</span>
-                  <span className={i.is_promo_gift ? "text-accent font-medium" : ""}>{i.is_promo_gift ? "Free" : formatUsd(i.price_usd * i.quantity)}</span>
+                  <span className={i.is_promo_gift ? "text-accent font-medium" : ""}>{i.is_promo_gift ? "Free" : formatUsd(i.effective_usd * i.quantity)}</span>
                 </li>
               ))}
             </ul>
+            {bundle && !bundle.active ? (
+              <p className="mt-2 text-xs text-accent">
+                Add {bundle.unitsToGo} more Mix &amp; Match item{bundle.unitsToGo === 1 ? "" : "s"} to unlock the promo prices.
+              </p>
+            ) : null}
+            {bundle && bundle.active ? (
+              <p className="mt-2 text-xs font-medium text-emerald-700">✓ Mix &amp; Match promo applied.</p>
+            ) : null}
             <div className="mt-3 flex justify-between border-t border-ink/10 pt-3 font-serif text-lg text-ink">
               <span>Total</span>
               <span>{formatUsd(totalUSD)}</span>

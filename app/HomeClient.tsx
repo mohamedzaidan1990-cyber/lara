@@ -17,6 +17,11 @@ import ProductCard from "@/components/ProductCard";
 export interface HomePromoBlock {
   title: string;
   products: RelatedProduct[];
+  note?: string;
+}
+
+function slugify(s: string): string {
+  return s.toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 }
 
 interface Props {
@@ -42,7 +47,7 @@ export default function HomeClient({ categories, brands, topBrands, orderCount =
       <HeroSection orderCount={orderCount} />
 
       {homePromos.map((promo) => (
-        <HomePromoSection key={promo.title} title={promo.title} products={promo.products} />
+        <HomePromoSection key={promo.title} title={promo.title} products={promo.products} note={promo.note} />
       ))}
 
       <ShopByBrand topBrands={topBrands} allBrands={brands} />
@@ -71,13 +76,14 @@ export default function HomeClient({ categories, brands, topBrands, orderCount =
   );
 }
 
-function HomePromoSection({ title, products }: HomePromoBlock) {
+function HomePromoSection({ title, products, note }: HomePromoBlock) {
   if (products.length === 0) return null;
   return (
-    <section className="mx-auto w-full max-w-7xl px-4 pt-14 sm:px-6 lg:px-8">
+    <section id={slugify(title)} className="mx-auto w-full max-w-7xl scroll-mt-24 px-4 pt-14 sm:px-6 lg:px-8">
       <div className="mb-8">
         <p className="text-[11px] uppercase tracking-[0.32em] text-accent">On offer now</p>
         <h2 className="mt-2 font-serif text-3xl text-ink">{title}</h2>
+        {note ? <p className="mt-3 max-w-2xl text-sm leading-relaxed text-ink/70">{note}</p> : null}
       </div>
       <div className="grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
         {products.map((p, i) => (

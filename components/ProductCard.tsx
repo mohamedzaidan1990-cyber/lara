@@ -7,6 +7,7 @@ import { productImageSrc } from "@/lib/images";
 import { BeeSvg } from "./BeeMascot";
 import { useCart } from "@/lib/cart";
 import { getPromo } from "@/lib/promotions";
+import { getMixAndMatch, MIX_AND_MATCH_GROUP } from "@/lib/mix-and-match";
 import { isShadeRelevant } from "@/lib/shade-options";
 import { flyToCart } from "@/lib/fly-to-cart";
 
@@ -392,15 +393,27 @@ export default function ProductCard({ product, index = 0 }: Props) {
   const isNew = !!product.created_at && Date.now() - new Date(product.created_at).getTime() < 30 * 24 * 60 * 60 * 1000;
 
   function addToCart() {
+    const mm = getMixAndMatch(product.id);
     addItem({
       id: product.product_url || `${product.brand}|${product.name}`,
       brand: product.brand,
       name: product.name,
-      price_usd: product.price_usd,
-      price_gbp: product.price_gbp,
+      // Mix & Match lines default to retail; computeCartPricing drops them to
+      // promo once 4+ are in the basket.
+      price_usd: mm ? mm.retailUsd : product.price_usd,
+      price_gbp: mm ? mm.retailGbp : product.price_gbp,
       image_url: product.image_url,
       product_url: product.product_url,
-      category: product.category ?? ""
+      category: product.category ?? "",
+      ...(mm
+        ? {
+            promo_group: MIX_AND_MATCH_GROUP,
+            promo_price_usd: mm.promoUsd,
+            promo_price_gbp: mm.promoGbp,
+            retail_price_usd: mm.retailUsd,
+            retail_price_gbp: mm.retailGbp
+          }
+        : {})
     });
     setAdded(true);
     setTimeout(() => setAdded(false), 1600);

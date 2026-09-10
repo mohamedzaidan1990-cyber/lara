@@ -7,6 +7,7 @@ import { productImageSrc } from "@/lib/images";
 import { useCart } from "@/lib/cart";
 import { whatsappRequestLink } from "@/lib/links";
 import { getPromo } from "@/lib/promotions";
+import { getMixAndMatch, MIX_AND_MATCH_GROUP } from "@/lib/mix-and-match";
 import { BeeSvg } from "@/components/BeeMascot";
 import type { ProductDetail } from "@/lib/products";
 import {
@@ -180,6 +181,7 @@ export default function ProductDetailClient({ product, promoGift }: Props) {
     : Boolean(activeSrc) && !imgFailed[activeImage];
   const activeIsVideo = !variantImage && isVideoSrc(gallery[activeImage]);
   const promo = getPromo(product.id);
+  const mixAndMatch = getMixAndMatch(product.id);
 
   // Complexion products get the optional Shade Finder prompt; anything
   // shade/colour-relevant gets the shade picker.
@@ -209,17 +211,29 @@ export default function ProductDetailClient({ product, promoGift }: Props) {
       return;
     }
     const baseId = product.product_url || product.id || `${product.brand}|${product.name}`;
+    const mm = getMixAndMatch(product.id);
     addItem({
       // Distinct cart lines per shade, so two shades of one product don't merge.
       id: selectedShade ? `${baseId}#${selectedShade}` : baseId,
       brand: product.brand,
       name: selectedShade ? `${product.name} — ${shadeLabel}: ${selectedShade}` : product.name,
-      price_usd: product.price_usd,
-      price_gbp: product.price_gbp,
+      // Mix & Match lines default to retail; computeCartPricing drops them to
+      // promo once 4+ are in the basket.
+      price_usd: mm ? mm.retailUsd : product.price_usd,
+      price_gbp: mm ? mm.retailGbp : product.price_gbp,
       image_url: product.image_url ?? "",
       product_url: product.product_url ?? "",
       category: product.category ?? "",
-      quantity: qty
+      quantity: qty,
+      ...(mm
+        ? {
+            promo_group: MIX_AND_MATCH_GROUP,
+            promo_price_usd: mm.promoUsd,
+            promo_price_gbp: mm.promoGbp,
+            retail_price_usd: mm.retailUsd,
+            retail_price_gbp: mm.retailGbp
+          }
+        : {})
     });
 
     // Auto-add the promo EDP gift when buying the Summer's Hottest Look Set.
@@ -374,6 +388,13 @@ export default function ProductDetailClient({ product, promoGift }: Props) {
             </>
           ) : null}
         </div>
+        {mixAndMatch ? (
+          <p className="mt-2 max-w-prose text-xs leading-relaxed text-ink/60">
+            <strong className="text-ink/80">Mix &amp; Match price.</strong> Add any 4 items from the{" "}
+            <Link href="/#mix-and-match-any-4" className="underline hover:text-accent">Mix &amp; Match edit</Link> to your cart and
+            each drops to this price. With fewer than 4, this item is {formatUsd(mixAndMatch.retailUsd)}.
+          </p>
+        ) : null}
 
         <p className="mt-5 max-w-prose text-sm leading-relaxed text-ink/70">{description}</p>
 
