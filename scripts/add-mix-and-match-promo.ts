@@ -161,6 +161,9 @@ async function main(): Promise<void> {
   }
 
   // ---- Emit config blocks ----
+  // NOTE: retail is emitted here as 2x promo. The six Gisou minis were later
+  // set to a flat $40 retail by hand in lib/mix-and-match.ts + lib/promotions.ts
+  // (per user instruction) — those files, not this emit, are the source of truth.
   console.log("\n\n// ===== lib/mix-and-match.ts — MIX_AND_MATCH entries =====");
   for (const x of results) {
     const retailUsd = x.promoUsd * 2;
