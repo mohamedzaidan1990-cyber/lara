@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { productImageSrc } from "@/lib/images";
 import { useCart } from "@/lib/cart";
 import { whatsappRequestLink } from "@/lib/links";
+import { getPromo } from "@/lib/promotions";
 import { BeeSvg } from "@/components/BeeMascot";
 import type { ProductDetail } from "@/lib/products";
 import {
@@ -22,6 +23,10 @@ function formatUsd(value: number): string {
     maximumFractionDigits: 0
   }).format(value);
 }
+
+// Gallery entries ending in a video extension are rendered as a <video>.
+const isVideoSrc = (src: string | undefined | null): boolean =>
+  typeof src === "string" && /\.(mp4|webm|mov)(\?|$)/i.test(src);
 
 interface PromoGift {
   id: string;
@@ -173,6 +178,8 @@ export default function ProductDetailClient({ product, promoGift }: Props) {
   const showActive = variantImage
     ? Boolean(activeSrc) && !variantImgFailed
     : Boolean(activeSrc) && !imgFailed[activeImage];
+  const activeIsVideo = !variantImage && isVideoSrc(gallery[activeImage]);
+  const promo = getPromo(product.id);
 
   // Complexion products get the optional Shade Finder prompt; anything
   // shade/colour-relevant gets the shade picker.
@@ -261,7 +268,16 @@ export default function ProductDetailClient({ product, promoGift }: Props) {
           }}
           onMouseLeave={() => setZoom(null)}
         >
-          {showActive ? (
+          {activeIsVideo ? (
+            <video
+              key={activeSrc}
+              src={activeSrc}
+              className="h-full w-full bg-black object-cover"
+              controls
+              playsInline
+              preload="metadata"
+            />
+          ) : showActive ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={activeSrc}
@@ -321,7 +337,14 @@ export default function ProductDetailClient({ product, promoGift }: Props) {
                   }
                   aria-label={`View image ${i + 1}`}
                 >
-                  {thumb && !imgFailed[i] ? (
+                  {isVideoSrc(src) ? (
+                    <>
+                      <video src={thumb} className="h-full w-full object-cover" muted playsInline preload="metadata" />
+                      <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-lg text-white/90 drop-shadow">
+                        ▶
+                      </span>
+                    </>
+                  ) : thumb && !imgFailed[i] ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={thumb} alt="" className="h-full w-full object-cover" />
                   ) : (
@@ -340,7 +363,17 @@ export default function ProductDetailClient({ product, promoGift }: Props) {
       <div className="flex flex-col">
         <p className="text-[11px] uppercase tracking-[0.32em] text-accent">{product.brand}</p>
         <h1 className="mt-2 font-serif text-3xl leading-tight text-ink sm:text-4xl">{product.name}</h1>
-        <p className="mt-4 font-serif text-3xl text-ink">{formatUsd(product.price_usd)}</p>
+        <div className="mt-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <span className="font-serif text-3xl text-ink">{formatUsd(product.price_usd)}</span>
+          {promo ? (
+            <>
+              <span className="font-serif text-xl text-ink/40 line-through">{formatUsd(promo.compareAtUsd)}</span>
+              <span className="rounded-full bg-accent px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.15em] text-white">
+                {promo.label}
+              </span>
+            </>
+          ) : null}
+        </div>
 
         <p className="mt-5 max-w-prose text-sm leading-relaxed text-ink/70">{description}</p>
 
