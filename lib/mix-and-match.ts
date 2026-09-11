@@ -25,9 +25,6 @@ const MIX_AND_MATCH: Record<string, MixAndMatchEntry> = {
   "8bd9871e-a3bf-405e-b168-704ffd197698": { promoUsd: 25, promoGbp: 19.23, retailUsd: 40, retailGbp: 30.77 }, // gisou-lip-oil-raspberry-swirl
   "4e3afa47-bd5f-40eb-9ee1-e2844241d337": { promoUsd: 25, promoGbp: 19.23, retailUsd: 40, retailGbp: 30.77 }, // gisou-lip-oil-bee-llini-peach
   "6bfe5abb-43d7-4693-bfe7-3c8ff692b741": { promoUsd: 25, promoGbp: 19.23, retailUsd: 40, retailGbp: 30.77 }, // gisou-lip-oil-glazed-plum
-  "77d5e642-ca1a-48ab-ada4-f00d73af58fe": { promoUsd: 30, promoGbp: 23.08, retailUsd: 40, retailGbp: 30.77 }, // gisou-hair-perfume-wildflower-honey
-  "a08f1d2e-95e9-43fa-ae8c-d6ae0051e6e4": { promoUsd: 30, promoGbp: 23.08, retailUsd: 40, retailGbp: 30.77 }, // gisou-hair-perfume-wild-rose
-  "dce6744e-53f8-4baa-98bf-275f2d623b36": { promoUsd: 30, promoGbp: 23.08, retailUsd: 40, retailGbp: 30.77 }, // gisou-hair-perfume-lavender-berry
   "3fcf4a82-d12c-47af-922d-1072a455d87b": { promoUsd: 30, promoGbp: 23.08, retailUsd: 60, retailGbp: 46.15 }, // milk-jelly-lip-kit
   "2deb4629-4155-4f59-9dd6-c4fe032a3277": { promoUsd: 25, promoGbp: 19.23, retailUsd: 50, retailGbp: 38.46 }, // rare-beauty-find-comfort-mist
   "9341a859-26f7-4bd1-8a68-18859ef56e41": { promoUsd: 25, promoGbp: 19.23, retailUsd: 50, retailGbp: 38.46 }, // sol-danca-mistica
