@@ -9,19 +9,39 @@ import type { BrandDirectoryEntry } from "@/lib/brands";
 import type { TopBrand } from "@/lib/top-brands";
 import type { RelatedProduct } from "@/lib/products";
 import { whatsappRequestLink } from "@/lib/links";
+import { productImageSrc } from "@/lib/images";
 import HeroSection from "@/components/HeroSection";
 import ShopByBrand from "@/components/ShopByBrand";
 import SearchAutocomplete from "@/components/SearchAutocomplete";
-import ProductCard from "@/components/ProductCard";
+import ProductCard, { type ProductCardData } from "@/components/ProductCard";
 
 export interface HomePromoBlock {
+  slug: string;
   title: string;
   products: RelatedProduct[];
   note?: string;
 }
 
-function slugify(s: string): string {
-  return s.toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+function formatUsd(value: number): string {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value);
+}
+
+function toProductCardData(p: RelatedProduct): ProductCardData {
+  return {
+    id: p.id,
+    brand: p.brand,
+    name: p.name,
+    price_gbp: p.price_gbp,
+    price_usd: p.price_usd,
+    deliverable_lebanon: p.deliverable_lebanon,
+    product_url: p.product_url ?? "",
+    image_url: p.image_url ?? "",
+    category: p.category,
+    subcategory: p.subcategory,
+    light_shade_image_url: p.light_shade_image_url,
+    is_bestseller: p.is_bestseller,
+    created_at: p.created_at
+  };
 }
 
 interface Props {
@@ -46,9 +66,7 @@ export default function HomeClient({ categories, brands, topBrands, orderCount =
     <div className="flex flex-col">
       <HeroSection orderCount={orderCount} />
 
-      {homePromos.map((promo) => (
-        <HomePromoSection key={promo.title} title={promo.title} products={promo.products} note={promo.note} />
-      ))}
+      <PromotionsSection promos={homePromos} />
 
       <ShopByBrand topBrands={topBrands} allBrands={brands} />
 
@@ -76,39 +94,90 @@ export default function HomeClient({ categories, brands, topBrands, orderCount =
   );
 }
 
-function HomePromoSection({ title, products, note }: HomePromoBlock) {
-  if (products.length === 0) return null;
+// Every promo sits in one shared row: a single-product promo (e.g. Kiehl's)
+// renders as a normal ProductCard; a multi-product promo (e.g. Mix & Match)
+// collapses into one "folder" tile linking to /promo/<slug>, instead of
+// dumping every item onto the homepage.
+function PromotionsSection({ promos }: { promos: HomePromoBlock[] }) {
+  if (promos.length === 0) return null;
   return (
-    <section id={slugify(title)} className="mx-auto w-full max-w-7xl scroll-mt-24 px-4 pt-14 sm:px-6 lg:px-8">
+    <section className="mx-auto w-full max-w-7xl px-4 pt-14 sm:px-6 lg:px-8">
       <div className="mb-8">
         <p className="text-[11px] uppercase tracking-[0.32em] text-accent">On offer now</p>
-        <h2 className="mt-2 font-serif text-3xl text-ink">{title}</h2>
-        {note ? <p className="mt-3 max-w-2xl text-sm leading-relaxed text-ink/70">{note}</p> : null}
+        <h2 className="mt-2 font-serif text-3xl text-ink">Current Promotions</h2>
       </div>
       <div className="grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
-        {products.map((p, i) => (
-          <ProductCard
-            key={p.id}
-            index={i}
-            product={{
-              id: p.id,
-              brand: p.brand,
-              name: p.name,
-              price_gbp: p.price_gbp,
-              price_usd: p.price_usd,
-              deliverable_lebanon: p.deliverable_lebanon,
-              product_url: p.product_url ?? "",
-              image_url: p.image_url ?? "",
-              category: p.category,
-              subcategory: p.subcategory,
-              light_shade_image_url: p.light_shade_image_url,
-              is_bestseller: p.is_bestseller,
-              created_at: p.created_at
-            }}
-          />
-        ))}
+        {promos.map((promo, i) =>
+          promo.products.length === 1 ? (
+            <ProductCard key={promo.slug} index={i} product={toProductCardData(promo.products[0])} />
+          ) : (
+            <PromoFolderCard key={promo.slug} index={i} promo={promo} />
+          )
+        )}
       </div>
     </section>
+  );
+}
+
+function PromoFolderCard({ promo, index }: { promo: HomePromoBlock; index: number }) {
+  const href = `/promo/${promo.slug}`;
+  const thumbs = promo.products.slice(0, 4);
+  const prices = promo.products.map((p) => p.price_usd);
+  const low = Math.min(...prices);
+  const high = Math.max(...prices);
+  const priceLabel = low === high ? formatUsd(low) : `${formatUsd(low)} – ${formatUsd(high)}`;
+
+  return (
+    <motion.article
+      className="candy-card group flex flex-col border border-white/60 bg-white/60 p-4 shadow-soft"
+      initial={{ opacity: 0, y: 16 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-40px" }}
+      transition={{ duration: 0.45, delay: Math.min(index, 8) * 0.05, ease: [0.22, 1, 0.36, 1] }}
+    >
+      <Link href={href} className="relative block aspect-[3/4] w-full overflow-hidden rounded-[1.5rem] bg-surface-container">
+        <div className="grid h-full w-full grid-cols-2 grid-rows-2 gap-[2px]">
+          {Array.from({ length: 4 }).map((_, i) => {
+            const p = thumbs[i];
+            const src = p ? productImageSrc(p.light_shade_image_url ?? p.image_url) : "";
+            return (
+              <div key={p?.id ?? `blank-${i}`} className="relative overflow-hidden bg-ink/[0.04]">
+                {src ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={src}
+                    alt=""
+                    className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.04]"
+                    loading="lazy"
+                  />
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+        <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-accent px-3 py-1 text-[9px] font-bold uppercase tracking-[0.15em] text-white shadow">
+          ✦ {promo.products.length} items
+        </span>
+      </Link>
+
+      <div className="mt-4 flex flex-1 flex-col px-1">
+        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-ink/50">Bundle offer</p>
+        <Link href={href} className="mt-1.5 line-clamp-2 text-sm font-medium text-ink transition-colors hover:text-accent">
+          {promo.title}
+        </Link>
+        {promo.note ? <p className="mt-1.5 line-clamp-2 text-xs text-ink/60">{promo.note}</p> : null}
+        <p className="mt-3 font-serif text-xl font-bold text-accent">{priceLabel}</p>
+
+        <div className="mt-4 flex items-center gap-2">
+          <Link
+            href={href}
+            className="inline-flex flex-1 items-center justify-center whitespace-nowrap rounded-full bg-accent px-2 py-3 text-[11px] font-bold uppercase tracking-[0.08em] text-white shadow-lg transition-transform duration-300 hover:scale-[1.02] active:scale-95 sm:px-4 sm:text-xs sm:tracking-[0.14em]"
+          >
+            Shop the Edit →
+          </Link>
+        </div>
+      </div>
+    </motion.article>
   );
 }
 

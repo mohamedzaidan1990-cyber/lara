@@ -165,7 +165,7 @@ export default function CartSidebar() {
                       </p>
                     ) : (
                       <Link
-                        href="/#mix-and-match-any-4"
+                        href="/promo/mix-and-match-any-4"
                         onClick={closeCart}
                         className="mb-3 block rounded-lg bg-accent/[0.06] px-3 py-2 text-xs font-medium text-accent hover:bg-accent/10"
                       >

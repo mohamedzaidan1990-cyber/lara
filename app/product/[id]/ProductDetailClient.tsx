@@ -391,7 +391,7 @@ export default function ProductDetailClient({ product, promoGift }: Props) {
         {mixAndMatch ? (
           <p className="mt-2 max-w-prose text-xs leading-relaxed text-ink/60">
             <strong className="text-ink/80">Mix &amp; Match price.</strong> Add any 4 items from the{" "}
-            <Link href="/#mix-and-match-any-4" className="underline hover:text-accent">Mix &amp; Match edit</Link> to your cart and
+            <Link href="/promo/mix-and-match-any-4" className="underline hover:text-accent">Mix &amp; Match edit</Link> to your cart and
             each drops to this price. With fewer than 4, this item is {formatUsd(mixAndMatch.retailUsd)}.
           </p>
         ) : null}

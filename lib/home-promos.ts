@@ -1,12 +1,15 @@
-// Named promotion blocks shown on the homepage, directly under the hero, in
-// this order. Each block renders its own titled section with a ProductCard
-// grid; blocks whose products are all missing/archived are skipped.
+// Named promotion blocks. A block with exactly one product renders as a
+// normal product card on the homepage. A block with more than one product
+// renders as a single "folder" tile (image collage + price range) that links
+// to /promo/<slug>, which lists every item in the edit — instead of dumping
+// every product card onto the homepage.
 //
-// To add a promotion: append an entry with a title and the product uuid(s).
+// To add a promotion: append an entry with a slug, title and product uuid(s).
 // The uuid(s) MUST exist in `products`. Pair with a lib/promotions.ts entry
 // on the same id(s) if you want the strikethrough compare-at price + badge.
 
 export interface HomePromo {
+  slug: string;
   title: string;
   productIds: string[];
   // Optional line shown under the title (explains the offer).
@@ -15,10 +18,12 @@ export interface HomePromo {
 
 export const HOME_PROMOS: HomePromo[] = [
   {
+    slug: "kiehls-limited-time-offer",
     title: "Kiehl's Limited Time Offer",
     productIds: ["c39655d2-3dfd-4268-a3ec-ff59bec6699d"]
   },
   {
+    slug: "mix-and-match-any-4",
     title: "Mix & Match — Any 4",
     note:
       "Buy any 4 from this edit — mix & match across brands — and pay these prices. With fewer than 4, each is charged at its regular price.",
@@ -39,3 +44,7 @@ export const HOME_PROMOS: HomePromo[] = [
     ]
   }
 ];
+
+export function getHomePromoBySlug(slug: string): HomePromo | null {
+  return HOME_PROMOS.find((p) => p.slug === slug) ?? null;
+}
