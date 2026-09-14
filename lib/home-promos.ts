@@ -39,7 +39,6 @@ export const HOME_PROMOS: HomePromo[] = [
       "7002c330-0bca-40b1-899f-01f44ef9ef2e",
       "6bd05d04-0d90-4b51-8e06-8a90317c6998",
       "7273f117-dfcc-49a8-97f3-85f7fa420012",
-      "61b3408f-5d07-43f3-80b4-1c9a04b12d97",
       "ee7b9949-30fb-4e53-b5de-7537ec062def"
     ]
   }

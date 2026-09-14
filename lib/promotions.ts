@@ -24,7 +24,6 @@ const PROMOS: Record<string, Promo> = {
   "7002c330-0bca-40b1-899f-01f44ef9ef2e": { compareAtUsd: 60, label: "Any 4 for this price" }, // sephora-x-talia-fawaz
   "6bd05d04-0d90-4b51-8e06-8a90317c6998": { compareAtUsd: 50, label: "Any 4 for this price" }, // fenty-mini-killawatt-wattabrat
   "7273f117-dfcc-49a8-97f3-85f7fa420012": { compareAtUsd: 50, label: "Any 4 for this price" }, // tarte-maracuja-juicy-lip-plump-pink
-  "61b3408f-5d07-43f3-80b4-1c9a04b12d97": { compareAtUsd: 80, label: "Any 4 for this price" }, // fenty-match-stix-duo-mocha-i-scream
   "ee7b9949-30fb-4e53-b5de-7537ec062def": { compareAtUsd: 50, label: "Any 4 for this price" }  // huda-faux-filler-extra-shine-she-fire
 };
 
