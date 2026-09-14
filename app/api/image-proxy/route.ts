@@ -39,6 +39,7 @@ const ALLOWED_HOSTS = [
   "k18hair.com",
   "kyliecosmetics.com",
   "soldejaneiro.com",
+  "sephora.com",
   // Korean beauty brand CDNs (products sourced via Selfridges but may link
   // to brand-owned image hosts):
   "cosrx.com",
@@ -77,6 +78,9 @@ function refererFor(hostname: string): string {
   }
   if (hostname.includes("johnlewis")) {
     return "https://www.johnlewis.com/";
+  }
+  if (hostname.endsWith("sephora.com")) {
+    return "https://www.sephora.com/";
   }
   return "https://www.spacenk.com/";
 }
