@@ -80,6 +80,7 @@ export default function HolidayPopup() {
           >
             <HolidayPoster
               variant="popup"
+              note="Limited stock. Order now."
               cta={
                 <Link href={HOLIDAY_PATH} onClick={close} className={HOLIDAY_CTA_CLASS}>
                   See the gifts
