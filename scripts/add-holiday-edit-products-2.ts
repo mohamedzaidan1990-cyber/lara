@@ -55,7 +55,7 @@ const PRODUCTS: ProductSeed[] = [
     "brand": "Sephora Collection",
     "name": "Too Hot to Miss 5 Makeup Top Picks",
     "category": "Makeup",
-    "price_usd": 48,
+    "price_usd": 84,
     "product_url": "https://www.sephora.me/qa-en/p/too-hot-to-miss-5-makeup-top-picks/P1000215857",
     "image_url": "/sephora-collection-too-hot-to-miss-5-makeup-top-picks.jpg",
     "description": "5 trendy makeup essentials in a glittery pouch: Size Up mascara in Brown, Fluff & Fix brow setting wax, a blush, a makeup setting spray and a gloss balm."
