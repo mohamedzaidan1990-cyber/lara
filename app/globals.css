@@ -343,7 +343,39 @@ h4,
   .promo-bg-anim,
   .promo-glow-anim,
   .cart-badge-pop,
-  .hero-kenburns {
+  .hero-kenburns,
+  .holiday-twinkle {
     animation: none !important;
   }
+}
+
+/* ===== Holiday Edit (poster twinkle + popup countdown) ===== */
+@keyframes holidayTwinkle {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.8) rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15) rotate(20deg);
+  }
+}
+.holiday-twinkle {
+  animation: holidayTwinkle 3.2s ease-in-out infinite;
+}
+/* Duration is set inline (must match SHOW_FOR_MS in HolidayPopup). It is a
+   functional timer, so it is deliberately NOT disabled for reduced motion. */
+@keyframes holidayCountdown {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+.holiday-countdown {
+  animation-name: holidayCountdown;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
 }

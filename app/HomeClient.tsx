@@ -14,6 +14,8 @@ import HeroSection from "@/components/HeroSection";
 import ShopByBrand from "@/components/ShopByBrand";
 import SearchAutocomplete from "@/components/SearchAutocomplete";
 import ProductCard, { type ProductCardData } from "@/components/ProductCard";
+import HolidayPopup from "@/components/HolidayPopup";
+import HolidaySection from "@/components/HolidaySection";
 
 export interface HomePromoBlock {
   slug: string;
@@ -50,9 +52,17 @@ interface Props {
   topBrands: TopBrand[];
   orderCount?: number;
   homePromos?: HomePromoBlock[];
+  holidayProducts?: RelatedProduct[];
 }
 
-export default function HomeClient({ categories, brands, topBrands, orderCount = 0, homePromos = [] }: Props) {
+export default function HomeClient({
+  categories,
+  brands,
+  topBrands,
+  orderCount = 0,
+  homePromos = [],
+  holidayProducts = []
+}: Props) {
   const router = useRouter();
   const [query, setQuery] = useState("");
 
@@ -65,6 +75,9 @@ export default function HomeClient({ categories, brands, topBrands, orderCount =
   return (
     <div className="flex flex-col">
       <HeroSection orderCount={orderCount} />
+
+      <HolidayPopup />
+      <HolidaySection products={holidayProducts.map(toProductCardData)} />
 
       <PromotionsSection promos={homePromos} />
 

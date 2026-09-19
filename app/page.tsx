@@ -5,16 +5,18 @@ import { getPublicOrderCount } from "@/lib/order-stats";
 import { getTopBrands } from "@/lib/top-brands";
 import { getProductsByIds } from "@/lib/products";
 import { HOME_PROMOS } from "@/lib/home-promos";
+import { HOLIDAY_PRODUCT_IDS } from "@/lib/holiday-collection";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [categoryStats, brands, topBrands, orderCount, promoProducts] = await Promise.all([
+  const [categoryStats, brands, topBrands, orderCount, promoProducts, holidayProducts] = await Promise.all([
     getCategoryStats(),
     getBrandsForDirectory(),
     getTopBrands(12),
     getPublicOrderCount(),
     getProductsByIds(HOME_PROMOS.flatMap((p) => p.productIds)),
+    getProductsByIds(HOLIDAY_PRODUCT_IDS),
   ]);
 
   const byId = new Map(promoProducts.map((p) => [p.id, p]));
@@ -32,6 +34,7 @@ export default async function HomePage() {
       topBrands={topBrands}
       orderCount={orderCount}
       homePromos={homePromos}
+      holidayProducts={holidayProducts}
     />
   );
 }
