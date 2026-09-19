@@ -57,5 +57,5 @@ export const HOLIDAY_PRODUCT_IDS: string[] = [
   "fb67fe55-8b44-47fa-aaad-5af75f9a71c3", // Connect Pore
   "69f09181-f635-4958-a8f8-ff8d41932212", // Benebingo
   // Yves Saint Laurent
-  "1bb27831-a748-4633-abfb-0ed710ae156f" // Lash Clash Duo Ramadan Gift Set
+  "1bb27831-a748-4633-abfb-0ed710ae156f" // Lash Clash Duo Gift Set
 ];

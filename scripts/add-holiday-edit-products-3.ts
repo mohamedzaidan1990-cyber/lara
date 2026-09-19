@@ -1,7 +1,7 @@
 /**
  * Holiday Edit — batch 3: 2 more gift sets from Sephora Middle East (Qatar),
  * at the USD prices set by the user: Sephora Favorites "The Clean Routine"
- * ($72) and Yves Saint Laurent "Lash Clash Duo Ramadan Gift Set" ($92).
+ * ($72) and Yves Saint Laurent "Lash Clash Duo Gift Set" ($92).
  * Follows scripts/add-holiday-edit-products.ts (batch 1) and -2.ts (batch 2).
  *
  * - price_gbp is a derived reference value (usd / 1.3).
@@ -60,7 +60,7 @@ const PRODUCTS: ProductSeed[] = [
   },
   {
     "brand": "Yves Saint Laurent",
-    "name": "Lash Clash Duo Ramadan Gift Set",
+    "name": "Lash Clash Duo Gift Set",
     "category": "Makeup",
     "price_usd": 92,
     "product_url": "https://www.sephora.me/qa-en/p/lash-clash-duo-ramadan-gift-set/P10063664",
