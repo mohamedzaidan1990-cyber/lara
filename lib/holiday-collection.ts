@@ -7,6 +7,8 @@
 // instead of a product grid.
 
 export const HOLIDAY_SECTION_ID = "holiday-special";
+// Dedicated page listing every holiday set (the popup and homepage link here).
+export const HOLIDAY_PATH = "/holiday";
 
 export const HOLIDAY_TITLE = "The Holiday Edit";
 export const HOLIDAY_SUBTITLE = "Gift sets and stocking fillers for everyone on your list.";

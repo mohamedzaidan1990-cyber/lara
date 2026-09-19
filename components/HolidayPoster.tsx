@@ -24,11 +24,18 @@ interface Props {
   cta?: ReactNode;
   // id for the heading, so a wrapping <section> can label itself with it.
   headingId?: string;
+  // Heading element for the title. Defaults to h2 (banner) / p (popup); the
+  // dedicated /holiday page passes "h1".
+  headingAs?: "h1" | "h2" | "p";
 }
 
-export default function HolidayPoster({ variant, note, cta, headingId }: Props) {
+// Gold pill button used for the poster's call-to-action.
+export const HOLIDAY_CTA_CLASS =
+  "inline-flex items-center justify-center whitespace-nowrap rounded-full bg-[#e9c46a] px-7 py-3.5 text-sm font-bold text-ink shadow-lg transition-transform duration-300 hover:scale-[1.03] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white active:scale-95";
+
+export default function HolidayPoster({ variant, note, cta, headingId, headingAs }: Props) {
   const isPopup = variant === "popup";
-  const Heading = isPopup ? "p" : "h2";
+  const Heading = headingAs ?? (isPopup ? "p" : "h2");
 
   return (
     <div

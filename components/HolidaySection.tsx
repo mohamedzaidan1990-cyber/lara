@@ -1,11 +1,16 @@
-import HolidayPoster from "@/components/HolidayPoster";
-import ProductCard, { type ProductCardData } from "@/components/ProductCard";
-import { HOLIDAY_SECTION_ID } from "@/lib/holiday-collection";
+import Link from "next/link";
+import HolidayGrid from "@/components/HolidayGrid";
+import HolidayPoster, { HOLIDAY_CTA_CLASS } from "@/components/HolidayPoster";
+import type { ProductCardData } from "@/components/ProductCard";
+import { HOLIDAY_PATH, HOLIDAY_SECTION_ID } from "@/lib/holiday-collection";
 import { whatsappRequestLink } from "@/lib/links";
 
-// Homepage "Holidays Special" block: the poster as the section header, then
-// the gifts and sets. With no products yet it shows a teaser instead of an
-// empty grid.
+// How many sets the homepage previews before sending people to /holiday.
+const PREVIEW_COUNT = 4;
+
+// Homepage "Holidays Special" block: the poster, a short preview of the gift
+// sets and a link to the full /holiday page. With no products yet it shows a
+// teaser instead.
 export default function HolidaySection({ products }: { products: ProductCardData[] }) {
   const hasProducts = products.length > 0;
 
@@ -20,13 +25,12 @@ export default function HolidaySection({ products }: { products: ProductCardData
         headingId="holiday-heading"
         note={hasProducts ? "Delivered to Lebanon in 10–14 working days." : "The gifts are being wrapped. Check back soon."}
         cta={
-          hasProducts ? undefined : (
-            <a
-              href={whatsappRequestLink()}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center justify-center whitespace-nowrap rounded-full bg-[#e9c46a] px-7 py-3.5 text-sm font-bold text-ink shadow-lg transition-transform duration-300 hover:scale-[1.03] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white active:scale-95"
-            >
+          hasProducts ? (
+            <Link href={HOLIDAY_PATH} className={HOLIDAY_CTA_CLASS}>
+              Shop the Holiday Edit
+            </Link>
+          ) : (
+            <a href={whatsappRequestLink()} target="_blank" rel="noreferrer" className={HOLIDAY_CTA_CLASS}>
               Message us for gift ideas
             </a>
           )
@@ -34,11 +38,16 @@ export default function HolidaySection({ products }: { products: ProductCardData
       />
 
       {hasProducts ? (
-        <div className="mt-10 grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
-          {products.map((product, i) => (
-            <ProductCard key={product.id ?? `${product.brand}-${product.name}`} index={i} product={product} />
-          ))}
-        </div>
+        <>
+          <div className="mt-10">
+            <HolidayGrid products={products.slice(0, PREVIEW_COUNT)} />
+          </div>
+          <div className="mt-8 text-center">
+            <Link href={HOLIDAY_PATH} className="btn-outline">
+              View all {products.length} gift sets
+            </Link>
+          </div>
+        </>
       ) : null}
     </section>
   );

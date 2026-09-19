@@ -13,7 +13,8 @@ import { productImageSrc } from "@/lib/images";
 import HeroSection from "@/components/HeroSection";
 import ShopByBrand from "@/components/ShopByBrand";
 import SearchAutocomplete from "@/components/SearchAutocomplete";
-import ProductCard, { type ProductCardData } from "@/components/ProductCard";
+import ProductCard from "@/components/ProductCard";
+import { toProductCardData } from "@/lib/product-card-data";
 import HolidayPopup from "@/components/HolidayPopup";
 import HolidaySection from "@/components/HolidaySection";
 
@@ -26,24 +27,6 @@ export interface HomePromoBlock {
 
 function formatUsd(value: number): string {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value);
-}
-
-function toProductCardData(p: RelatedProduct): ProductCardData {
-  return {
-    id: p.id,
-    brand: p.brand,
-    name: p.name,
-    price_gbp: p.price_gbp,
-    price_usd: p.price_usd,
-    deliverable_lebanon: p.deliverable_lebanon,
-    product_url: p.product_url ?? "",
-    image_url: p.image_url ?? "",
-    category: p.category,
-    subcategory: p.subcategory,
-    light_shade_image_url: p.light_shade_image_url,
-    is_bestseller: p.is_bestseller,
-    created_at: p.created_at
-  };
 }
 
 interface Props {

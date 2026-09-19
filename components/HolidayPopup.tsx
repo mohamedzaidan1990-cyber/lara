@@ -1,10 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import HolidayPoster from "@/components/HolidayPoster";
-import { HOLIDAY_SECTION_ID, HOLIDAY_TITLE } from "@/lib/holiday-collection";
+import HolidayPoster, { HOLIDAY_CTA_CLASS } from "@/components/HolidayPoster";
+import { HOLIDAY_PATH, HOLIDAY_TITLE } from "@/lib/holiday-collection";
 
 const SHOW_FOR_MS = 7000;
 // Let the page fade in first so the popup doesn't fight it.
@@ -49,14 +50,6 @@ export default function HolidayPopup() {
     return () => window.removeEventListener("keydown", onKey);
   }, [open, close]);
 
-  function goToSection(e: React.MouseEvent<HTMLAnchorElement>) {
-    e.preventDefault();
-    close();
-    document
-      .getElementById(HOLIDAY_SECTION_ID)
-      ?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
-  }
-
   if (!mounted) return null;
 
   return createPortal(
@@ -88,13 +81,9 @@ export default function HolidayPopup() {
             <HolidayPoster
               variant="popup"
               cta={
-                <a
-                  href={`#${HOLIDAY_SECTION_ID}`}
-                  onClick={goToSection}
-                  className="inline-flex items-center justify-center whitespace-nowrap rounded-full bg-[#e9c46a] px-7 py-3.5 text-sm font-bold text-ink shadow-lg transition-transform duration-300 hover:scale-[1.03] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white active:scale-95"
-                >
+                <Link href={HOLIDAY_PATH} onClick={close} className={HOLIDAY_CTA_CLASS}>
                   See the gifts
-                </a>
+                </Link>
               }
             />
 
