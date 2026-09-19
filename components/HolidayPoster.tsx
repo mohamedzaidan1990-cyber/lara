@@ -152,10 +152,10 @@ function GiftTag({ isPopup }: { isPopup: boolean }) {
         style={{ clipPath: TAG_CLIP, WebkitMaskImage: TAG_HOLE_MASK, maskImage: TAG_HOLE_MASK }}
       >
         <p className={display.className + " text-[13px] italic text-ink/55"}>To:</p>
-        <p className={display.className + " text-2xl font-semibold italic leading-tight"}>someone lucky</p>
+        <p className={display.className + " text-2xl font-semibold italic leading-tight"}>someone special</p>
         <div className="my-4 border-t border-dashed border-[#c9a24b]" />
         <p className={display.className + " text-[13px] italic text-ink/55"}>From:</p>
-        <p className={display.className + " text-xl font-semibold italic leading-tight text-accent-600"}>Seasons by B</p>
+        <p className={display.className + " text-xl font-semibold italic leading-tight text-accent-600"}>you</p>
       </div>
     </div>
   );

@@ -9,6 +9,6 @@
 export const HOLIDAY_SECTION_ID = "holiday-special";
 
 export const HOLIDAY_TITLE = "The Holiday Edit";
-export const HOLIDAY_SUBTITLE = "Gift sets and stocking fillers, chosen in London for everyone on your list.";
+export const HOLIDAY_SUBTITLE = "Gift sets and stocking fillers for everyone on your list.";
 
 export const HOLIDAY_PRODUCT_IDS: string[] = [];
