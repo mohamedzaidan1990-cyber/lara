@@ -37,6 +37,8 @@ export const HOLIDAY_PRODUCT_IDS: string[] = [
   "f648b443-86a6-4880-9a1d-17f8730dc7e3", // The Selfcare Edit 8 Skincare Masks from Head to Toe
   "4171ed8f-d715-4077-b7b9-958804462340", // Cheek and Lip Tint Duo 2 Shades: Red and Burgundy
   "ea3a9072-0a22-484d-bb3a-28179b3ee61b", // Lash & Brow Duo
+  // Sephora Favorites
+  "83d02cc1-14ed-45ee-a125-c0b852f63020", // The Clean Routine
   // Benefit Cosmetics
   "01608ba2-b81b-4a63-a319-45ef6a6b883f", // BADgal Party Co. Mini Volumizing Lash Duo
   "0fecd450-57c9-44b1-a1b7-d0ee607a7729", // Lash & Bronze Duo
@@ -53,5 +55,7 @@ export const HOLIDAY_PRODUCT_IDS: string[] = [
   "a44d5227-08dc-4b8e-9380-1f73311aed57", // The Beneville Times Lip & Lash Trio
   "1f34b9b7-725c-4947-9b12-ded2b1e7cf30", // BAD & Bouncy Volumizing Mascara Duo
   "fb67fe55-8b44-47fa-aaad-5af75f9a71c3", // Connect Pore
-  "69f09181-f635-4958-a8f8-ff8d41932212" // Benebingo
+  "69f09181-f635-4958-a8f8-ff8d41932212", // Benebingo
+  // Yves Saint Laurent
+  "1bb27831-a748-4633-abfb-0ed710ae156f" // Lash Clash Duo Ramadan Gift Set
 ];
