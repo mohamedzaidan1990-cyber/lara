@@ -271,7 +271,7 @@ const PRODUCTS: ProductSeed[] = [
     "brand": "Benefit Cosmetics",
     "name": "Rhythm & Beauty Radio Full-Size & Mini Bestsellers Trio",
     "category": "Makeup",
-    "price_usd": 74,
+    "price_usd": 75,
     "product_url": "https://www.sephora.me/qa-en/p/rhythm-beauty-radio-full-size-mini-bestsellers-trio/P10064669",
     "image_url": "/benefit-rhythm-beauty-radio-full-size-mini-bestsellers-trio.jpg",
     "description": "A full-size and mini bestsellers trio in a radio-shaped box: BADgal BANG! volumizing mascara, Benetint rose-tinted lip & cheek stain and 24-HR Brow Setter clear brow gel."
