@@ -1,7 +1,8 @@
 /**
  * Add the Charlotte Tilbury "Powder & Brush Kit" to the catalogue at $130 and
  * create a manual order (Instagram) for new client Marwa Zougheib.
- *  - 1x Charlotte Tilbury Powder & Brush Kit @ $130 (price set by the user)
+ *  - 1x Charlotte Tilbury Powder & Brush Kit — Fair @ $130 (price set by the user;
+ *    shade Fair confirmed by the user, so it is in the name to avoid a wrong pick)
  *  - Payment: COD, order confirmed (payment_confirmed = true, status
  *    payment_confirmed) — the default for every manual order.
  *  - Generates the invoice PDF with lib/invoice.ts and stores it on the order
@@ -43,14 +44,14 @@ const PRICE_GBP = Math.round((PRICE_USD / 1.3) * 100) / 100;
 
 const PRODUCT = {
   brand: "Charlotte Tilbury",
-  name: "Powder & Brush Kit",
+  name: "Powder & Brush Kit — Fair",
   category: "Makeup",
   // Internal key (no retailer page to link) — same convention as other
   // products added without a source URL.
   product_url: "https://seasonsbyb.co.uk/p/charlotte-tilbury-powder-and-brush-kit",
   image_url: "/charlotte-tilbury-powder-and-brush-kit.jpg",
   description:
-    "A Charlotte Tilbury powder and brush kit: a pressed setting powder in a rose-gold compact, with the Powder & Sculpt Brush in Rose Gold & Night Crimson."
+    "A Charlotte Tilbury powder and brush kit in the shade Fair: a pressed setting powder in a rose-gold compact, with the Powder & Sculpt Brush in Rose Gold & Night Crimson."
 };
 
 const CUSTOMER = {
