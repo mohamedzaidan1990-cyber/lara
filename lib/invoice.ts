@@ -23,6 +23,10 @@ export interface InvoiceItem {
   name: string;
   quantity: number;
   price_usd: number;
+  // Set on a partial-delivery invoice to mark which lines are being
+  // delivered now vs still in transit. Left undefined on a normal
+  // (full-order) invoice, which renders exactly as before.
+  ready?: boolean;
 }
 
 // Candy theme: hot pink primary, warm plum ink, soft pink rows.
@@ -133,18 +137,26 @@ export function generateInvoice(order: InvoiceOrder, customer: InvoiceCustomer, 
   }
 
   // ---- Items table ----
+  // A partial-delivery invoice sets `ready` on every item; a normal
+  // full-order invoice never does, and renders exactly as before (no
+  // Status column).
+  const isPartialDelivery = items.some((it) => it.ready !== undefined);
   const startY = Math.max(y + 6, 90);
   autoTable(doc, {
     startY,
-    head: [["Product", "Brand", "Qty", "Unit Price", "Total"]],
-    body: items.map((it) => [
-      it.name,
-      it.brand,
-      String(it.quantity),
-      usd(it.price_usd),
-      usd(it.price_usd * it.quantity)
-    ]),
-    foot: [["Subtotal", "", "", "", usd(items.reduce((s, it) => s + it.price_usd * it.quantity, 0))]],
+    head: isPartialDelivery
+      ? [["Product", "Brand", "Qty", "Unit Price", "Total", "Status"]]
+      : [["Product", "Brand", "Qty", "Unit Price", "Total"]],
+    body: items.map((it) => {
+      const row = [it.name, it.brand, String(it.quantity), usd(it.price_usd), usd(it.price_usd * it.quantity)];
+      if (isPartialDelivery) row.push(it.ready ? "Ready now" : "Pending");
+      return row;
+    }),
+    foot: [
+      isPartialDelivery
+        ? ["Subtotal", "", "", "", usd(items.reduce((s, it) => s + it.price_usd * it.quantity, 0)), ""]
+        : ["Subtotal", "", "", "", usd(items.reduce((s, it) => s + it.price_usd * it.quantity, 0))]
+    ],
     theme: "grid",
     headStyles: { fillColor: GOLD, textColor: INK, fontStyle: "bold" },
     footStyles: { fillColor: ROW_ALT, textColor: INK, fontStyle: "bold" },
@@ -153,15 +165,49 @@ export function generateInvoice(order: InvoiceOrder, customer: InvoiceCustomer, 
     columnStyles: {
       2: { halign: "center" },
       3: { halign: "right" },
-      4: { halign: "right" }
+      4: { halign: "right" },
+      5: { halign: "center", fontStyle: "bold" }
+    },
+    didParseCell: (data) => {
+      if (isPartialDelivery && data.section === "body" && data.column.index === 5) {
+        const ready = items[data.row.index]?.ready;
+        data.cell.styles.textColor = ready ? GREEN : [180, 100, 0];
+      }
     },
     styles: { fontSize: 9, cellPadding: 3 },
     margin: { left, right: 14 }
   });
 
-  // ---- Payment section ----
+  // ---- Partial-delivery note: what's coming now vs what's still pending ----
   // @ts-expect-error lastAutoTable is attached by the plugin at runtime
-  const afterTable: number = doc.lastAutoTable?.finalY ?? startY + 40;
+  let afterTable: number = doc.lastAutoTable?.finalY ?? startY + 40;
+  if (isPartialDelivery) {
+    const pendingItems = items.filter((it) => !it.ready);
+    const pendingBalance = pendingItems.reduce((s, it) => s + it.price_usd * it.quantity, 0);
+    const noteY = afterTable + 10;
+    doc.setFillColor(255, 245, 225);
+    doc.roundedRect(left, noteY - 5, right - left, pendingItems.length > 0 ? 16 : 10, 2, 2, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9.5);
+    doc.setTextColor(180, 100, 0);
+    doc.text(
+      pendingItems.length > 0
+        ? `This is a PARTIAL delivery — only the "Ready now" items above are included today.`
+        : "All items on this order have arrived and are included in this delivery.",
+      left + 3,
+      noteY
+    );
+    if (pendingItems.length > 0) {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.text(`Remaining balance of items still pending: ${usd(pendingBalance)} — to be delivered separately once received.`, left + 3, noteY + 6);
+      afterTable = noteY + 12;
+    } else {
+      afterTable = noteY + 6;
+    }
+  }
+
+  // ---- Payment section ----
   let py = afterTable + 12;
   const amountPaid = order.amount_paid_usd ?? 0;
   const isFullyPaid = amountPaid >= order.total_usd && order.total_usd > 0;
