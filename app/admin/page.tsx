@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { ensureSchema, getSql, type OrderWithCustomer, type ExpenseRow, type StockItemRow } from "@/lib/db";
 import { isAdmin } from "@/lib/auth";
+import { getLoyaltyCustomers, getLoyaltySettings, getRedemptions, getRewards, syncPoints } from "@/lib/loyalty";
 import AdminDashboard from "./AdminDashboard";
 
 export const dynamic = "force-dynamic";
@@ -22,6 +23,7 @@ export default async function AdminPage() {
            o.amount_paid_usd,
            coalesce(c.full_name, '') as full_name,
            coalesce(c.phone, '') as phone,
+           c.phone_norm,
            coalesce(c.address, '') as address,
            coalesce(
              (select json_agg(json_build_object(
@@ -56,5 +58,22 @@ export default async function AdminPage() {
     order by created_at desc
   `) as StockItemRow[];
 
-  return <AdminDashboard initialOrders={rows} initialBespoke={bespoke} initialExpenses={expenses} initialStock={stockItems} />;
+  // Keep points in step with order statuses (scripts change orders directly).
+  await syncPoints();
+  const [loyaltyCustomers, rewards, redemptions, loyaltySettings] = await Promise.all([
+    getLoyaltyCustomers(),
+    getRewards(),
+    getRedemptions(),
+    getLoyaltySettings()
+  ]);
+
+  return (
+    <AdminDashboard
+      initialOrders={rows}
+      initialBespoke={bespoke}
+      initialExpenses={expenses}
+      initialStock={stockItems}
+      loyalty={{ customers: loyaltyCustomers, rewards, redemptions, settings: loyaltySettings }}
+    />
+  );
 }

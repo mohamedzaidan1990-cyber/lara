@@ -35,6 +35,24 @@ export default function CheckoutClient({ whish, orderCount = 0 }: { whish: strin
 
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [form, setForm] = useState({ full_name: "", email: "", phone: "", address: "", notes: "" });
+
+  // Signed-in clients get their details prefilled (only into empty fields).
+  useEffect(() => {
+    fetch("/api/account/me")
+      .then((r) => r.json())
+      .then((d: { account?: { full_name: string; phone: string; address: string; email: string } | null }) => {
+        const a = d.account;
+        if (!a) return;
+        setForm((f) => ({
+          ...f,
+          full_name: f.full_name || a.full_name,
+          phone: f.phone || a.phone,
+          address: f.address || a.address,
+          email: f.email || a.email
+        }));
+      })
+      .catch(() => {});
+  }, []);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("whish_direct");
   const [screenshot, setScreenshot] = useState<{ name: string; dataUrl: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);

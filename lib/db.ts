@@ -338,6 +338,115 @@ export const SCHEMA_STATEMENTS = [
   // Speeds the dedupe guard (scraper + admin import) and the top-brands image
   // lookups, both of which filter on lower(trim(brand)) / lower(trim(name)).
   `create index if not exists products_brand_name_norm_idx on products (lower(trim(brand)), lower(trim(name)))`,
+
+  // ----- Customer accounts + loyalty points (Oct 2026) -----
+  // One canonical key per phone. Lebanese numbers → 8 local digits ("70123456",
+  // "03123456"); "+"/"00"-prefixed foreign numbers → "+<digits>"; anything
+  // else (Instagram handles, two numbers in one field, wrong length) → null.
+  // Created only once: customers.phone_norm is a generated column built on it.
+  `do $do$ begin
+     if not exists (select 1 from pg_proc where proname = 'sbb_normalize_phone') then
+       execute $fn$
+         create function sbb_normalize_phone(p text) returns text language sql immutable as $body$
+           select case
+             when x.d = '' then null
+             when length(x.l) = 7 and x.l like '3%' then '0' || x.l
+             when length(x.l) = 8 and x.l ~ '^(0[1-9]|7[0-9]|8[0-9])' then x.l
+             when x.intl and length(x.d) between 8 and 15 then '+' || x.d
+             else null
+           end
+           from (
+             select d, intl, case when d ~ '^961' and length(d) in (10, 11) then substr(d, 4) else d end as l
+             from (
+               select regexp_replace(regexp_replace(coalesce(p, ''), '[^0-9]', '', 'g'), '^00', '') as d,
+                      (trim(coalesce(p, '')) ~ '^(\\+|00)') as intl
+             ) a
+           ) x
+         $body$
+       $fn$;
+     end if;
+   end $do$`,
+  `alter table customers add column if not exists phone_norm text generated always as (sbb_normalize_phone(phone)) stored`,
+  `create index if not exists customers_phone_norm_idx on customers (phone_norm)`,
+  `create table if not exists accounts (
+    id uuid default gen_random_uuid() primary key,
+    phone text not null unique,
+    full_name text not null,
+    pin_hash text not null,
+    created_by text not null default 'self',
+    last_login_at timestamp,
+    created_at timestamp default now()
+  )`,
+  `create table if not exists account_sessions (
+    token_hash text primary key,
+    account_id uuid not null references accounts(id) on delete cascade,
+    created_at timestamp default now(),
+    expires_at timestamp not null
+  )`,
+  // Throttles PIN logins, sign-up claims (order-number guesses) and admin logins.
+  `create table if not exists auth_throttle (
+    key text primary key,
+    attempts int not null default 0,
+    locked_until timestamp,
+    updated_at timestamp default now()
+  )`,
+  `create table if not exists loyalty_settings (
+    id int primary key default 1 check (id = 1),
+    launched_at timestamp not null default now(),
+    points_per_usd numeric not null default 1,
+    backfill_points_per_usd numeric not null default 0.5,
+    expiry_days int not null default 90
+  )`,
+  `insert into loyalty_settings (id) values (1) on conflict (id) do nothing`,
+  // Points are keyed by phone_norm, so customers earn before they ever open an
+  // account. Positive rows are "lots" that spending consumes oldest-first via
+  // `remaining`; the balance is the sum of unexpired remaining.
+  `create table if not exists points_ledger (
+    id uuid default gen_random_uuid() primary key,
+    phone text not null,
+    kind text not null,
+    points int not null,
+    remaining int not null default 0,
+    order_id uuid references orders(id),
+    redemption_id uuid,
+    note text,
+    earned_at timestamp not null default now(),
+    expires_at timestamp,
+    created_at timestamp default now()
+  )`,
+  `create index if not exists points_ledger_phone_idx on points_ledger (phone)`,
+  `create unique index if not exists points_ledger_order_kind_uidx on points_ledger (order_id, kind) where order_id is not null`,
+  `create table if not exists rewards (
+    id uuid default gen_random_uuid() primary key,
+    title text not null,
+    description text,
+    points_cost int not null check (points_cost > 0),
+    reward_type text not null default 'free_item',
+    discount_usd numeric,
+    active boolean not null default true,
+    sort_order int not null default 0,
+    created_at timestamp default now()
+  )`,
+  `create table if not exists reward_products (
+    reward_id uuid not null references rewards(id) on delete cascade,
+    product_id uuid not null references products(id),
+    primary key (reward_id, product_id)
+  )`,
+  `create table if not exists redemptions (
+    id uuid default gen_random_uuid() primary key,
+    phone text not null,
+    account_id uuid references accounts(id),
+    reward_id uuid references rewards(id),
+    reward_title text not null,
+    points_cost int not null,
+    product_id uuid references products(id),
+    product_label text,
+    status text not null default 'requested',
+    order_id uuid references orders(id),
+    note text,
+    created_at timestamp default now(),
+    resolved_at timestamp
+  )`,
 ];
 
 export async function ensureSchema(): Promise<void> {
@@ -460,6 +569,8 @@ export interface ExpenseRow {
 export interface OrderWithCustomer extends OrderRow {
   full_name: string;
   phone: string;
+  /** Canonical phone (customers.phone_norm) — one per real client. */
+  phone_norm?: string | null;
   address: string;
   items?: OrderLineItem[];
 }
