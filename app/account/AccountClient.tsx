@@ -26,7 +26,6 @@ interface Props {
   rewards: RewardRow[];
   redemptions: RedemptionRow[];
   pointsPerUsd: number;
-  expiryDays: number;
 }
 
 type Tab = "orders" | "points" | "rewards";
@@ -94,22 +93,13 @@ export default function AccountClient(props: Props) {
         </button>
       </header>
 
-      <section className="mt-8 grid gap-3 sm:grid-cols-3">
-        <div className="rounded-3xl bg-accent p-6 text-white shadow-lg shadow-accent/20 sm:col-span-2">
+      <section className="mt-8">
+        <div className="rounded-3xl bg-accent p-6 text-white shadow-lg shadow-accent/20">
           <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/80">Your points</p>
           <p className="mt-1 font-serif text-5xl">{props.summary.balance.toLocaleString()}</p>
           <p className="mt-2 text-xs text-white/85">
             You earn {props.pointsPerUsd === 1 ? "1 point" : `${props.pointsPerUsd} points`} for every $1 you pay, once your order is
-            delivered. Points last {props.expiryDays} days.
-          </p>
-        </div>
-        <div className="rounded-3xl border border-accent/20 bg-white p-6">
-          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-ink/60">Expiring soon</p>
-          <p className="mt-1 font-serif text-3xl text-ink">{props.summary.expiring_soon.toLocaleString()}</p>
-          <p className="mt-2 text-xs text-ink/60">
-            {props.summary.expiring_soon > 0 && props.summary.next_expiry
-              ? `Use them before ${date(props.summary.next_expiry)}.`
-              : "Nothing expires in the next 30 days."}
+            delivered. Your points never expire.
           </p>
         </div>
       </section>
@@ -210,11 +200,9 @@ function Points({ ledger: all }: { ledger: LedgerEntry[] }) {
   // A cancelled order whose points were already spent leaves a 0-point marker.
   const ledger = all.filter((l) => l.points !== 0);
   if (!ledger.length) return <Empty>No points yet — they&apos;re added when your orders are delivered.</Empty>;
-  const now = Date.now();
   return (
     <ul className="divide-y divide-ink/10 rounded-3xl border border-ink/10 bg-white">
       {ledger.map((l) => {
-        const expired = l.points > 0 && l.remaining > 0 && l.expires_at && new Date(l.expires_at).getTime() <= now;
         return (
           <li key={l.id} className="flex items-center justify-between gap-4 px-5 py-4">
             <div className="min-w-0">
@@ -225,7 +213,6 @@ function Points({ ledger: all }: { ledger: LedgerEntry[] }) {
               <p className="text-xs text-ink/50">
                 {date(l.earned_at)}
                 {l.note && !l.order_number ? ` · ${l.note}` : ""}
-                {l.points > 0 && l.expires_at ? (expired ? ` · ${l.remaining} expired ${date(l.expires_at)}` : ` · expires ${date(l.expires_at)}`) : ""}
               </p>
             </div>
             <p className={"shrink-0 font-bold " + (l.points > 0 ? "text-accent" : "text-ink/60")}>

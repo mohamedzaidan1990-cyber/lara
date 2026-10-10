@@ -7,8 +7,8 @@ import { getPointsSummary, grantPoints, spendPoints, syncPoints } from "@/lib/lo
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Manual +/− points (gestures, corrections, golden-ticket wins). Added points
-// expire like any other points; removals take the soonest-expiring first.
+// Manual +/− points (gestures, corrections, golden-ticket wins). Removals take
+// the oldest points first.
 export async function POST(req: Request) {
   if (!isAdmin()) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const body = (await req.json().catch(() => ({}))) as { phone?: string; points?: number | string; note?: string };

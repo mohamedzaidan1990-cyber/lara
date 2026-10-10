@@ -5,8 +5,8 @@ import { getSql } from "@/lib/db";
 //   total so delivery fees don't earn), at loyalty_settings.points_per_usd.
 // - Orders delivered before loyalty_settings.launched_at earn the backfill
 //   rate (1 point per $2), and those points count as earned at launch.
-// - Every grant expires `expiry_days` (90) after it was earned. Spending uses
-//   the soonest-expiring points first.
+// - Points never expire (decided Oct 2026; expires_at stays null). Spending
+//   uses the oldest points first.
 // - Points belong to a phone number (customers.phone_norm), not an account, so
 //   they accrue for everyone and appear when the customer signs up.
 
@@ -14,13 +14,10 @@ export interface LoyaltySettings {
   launched_at: string;
   points_per_usd: number;
   backfill_points_per_usd: number;
-  expiry_days: number;
 }
 
 export interface PointsSummary {
   balance: number;
-  expiring_soon: number;
-  next_expiry: string | null;
 }
 
 export interface LedgerEntry {
@@ -38,7 +35,7 @@ export async function getLoyaltySettings(): Promise<LoyaltySettings> {
   const sql = getSql();
   const rows = (await sql`
     select launched_at, points_per_usd::float8 as points_per_usd,
-           backfill_points_per_usd::float8 as backfill_points_per_usd, expiry_days
+           backfill_points_per_usd::float8 as backfill_points_per_usd
     from loyalty_settings where id = 1
   `) as LoyaltySettings[];
   return rows[0];
@@ -53,11 +50,11 @@ export async function getLoyaltySettings(): Promise<LoyaltySettings> {
 export async function syncPoints(phone: string | null = null): Promise<void> {
   const sql = getSql();
   await sql`
-    insert into points_ledger (phone, kind, points, remaining, order_id, note, earned_at, expires_at)
+    insert into points_ledger (phone, kind, points, remaining, order_id, note, earned_at)
     select c.phone_norm,
            case when b.is_backfill then 'backfill' else 'earn' end,
            p.pts, p.pts, o.id, 'Order ' || o.order_number,
-           e.earned_at, e.earned_at + make_interval(days => s.expiry_days)
+           e.earned_at
     from orders o
     join customers c on c.id = o.customer_id
     cross join loyalty_settings s
@@ -97,9 +94,7 @@ export async function syncPoints(phone: string | null = null): Promise<void> {
 export async function getPointsSummary(phone: string): Promise<PointsSummary> {
   const sql = getSql();
   const rows = (await sql`
-    select coalesce(sum(remaining) filter (where remaining > 0 and expires_at > now()), 0)::int as balance,
-           coalesce(sum(remaining) filter (where remaining > 0 and expires_at > now() and expires_at <= now() + interval '30 days'), 0)::int as expiring_soon,
-           min(expires_at) filter (where remaining > 0 and expires_at > now()) as next_expiry
+    select coalesce(sum(remaining) filter (where remaining > 0), 0)::int as balance
     from points_ledger where phone = ${phone}
   `) as PointsSummary[];
   return rows[0];
@@ -116,7 +111,7 @@ export async function getLedger(phone: string): Promise<LedgerEntry[]> {
 }
 
 /**
- * Spends `cost` points (soonest-expiring first) in one statement. When
+ * Spends `cost` points (oldest first) in one statement. When
  * `redemption` is given, also creates the redemption row. Returns null if the
  * balance is too low (nothing is changed in that case).
  */
@@ -129,11 +124,11 @@ export async function spendPoints(
   const sql = getSql();
   const rows = (await sql`
     with lots as (
-      select id, remaining, expires_at, created_at from points_ledger
-      where phone = ${phone} and remaining > 0 and expires_at > now()
+      select id, remaining, earned_at, created_at from points_ledger
+      where phone = ${phone} and remaining > 0
       for update
     ),
-    cum as (select id, remaining, sum(remaining) over (order by expires_at, created_at, id) as c from lots),
+    cum as (select id, remaining, sum(remaining) over (order by earned_at, created_at, id) as c from lots),
     total as (select coalesce(sum(remaining), 0)::int as t from lots),
     ok as (select t from total where t >= ${cost}::int),
     upd as (
@@ -166,10 +161,8 @@ export async function spendPoints(
 export async function grantPoints(phone: string, points: number, kind: "adjust" | "refund", note: string, redemptionId: string | null = null): Promise<void> {
   const sql = getSql();
   await sql`
-    insert into points_ledger (phone, kind, points, remaining, redemption_id, note, earned_at, expires_at)
-    select ${phone}, ${kind}::text, ${points}::int, ${points}::int, ${redemptionId}::uuid, ${note}::text, now(),
-           now() + make_interval(days => expiry_days)
-    from loyalty_settings where id = 1
+    insert into points_ledger (phone, kind, points, remaining, redemption_id, note, earned_at)
+    values (${phone}, ${kind}::text, ${points}::int, ${points}::int, ${redemptionId}::uuid, ${note}::text, now())
   `;
 }
 
@@ -223,7 +216,7 @@ export async function getLoyaltyCustomers(): Promise<LoyaltyCustomer[]> {
       group by c.phone_norm
     ),
     pts as (
-      select phone, coalesce(sum(remaining) filter (where remaining > 0 and expires_at > now()), 0)::int as balance
+      select phone, coalesce(sum(remaining) filter (where remaining > 0), 0)::int as balance
       from points_ledger group by phone
     )
     select coalesce(p.phone, a.phone) as phone,

@@ -467,13 +467,12 @@ function RewardForm({ draft, setDraft, onSave, busy, error }: { draft: Draft; se
 function Settings({ settings }: { settings: LoyaltySettings }) {
   const router = useRouter();
   const [rate, setRate] = useState(String(settings.points_per_usd));
-  const [days, setDays] = useState(String(settings.expiry_days));
   const [msg, setMsg] = useState<string | null>(null);
 
   async function save() {
     setMsg(null);
     try {
-      await call("/api/admin/loyalty/settings", "PATCH", { points_per_usd: rate, expiry_days: days });
+      await call("/api/admin/loyalty/settings", "PATCH", { points_per_usd: rate });
       setMsg("Saved — applies to points earned from now on.");
       router.refresh();
     } catch (err) {
@@ -486,16 +485,12 @@ function Settings({ settings }: { settings: LoyaltySettings }) {
       <h2 className={H2}>Programme settings</h2>
       <p className="mt-1 text-xs text-ink/60">
         Launched {date(settings.launched_at)}. Orders delivered before launch earned {settings.backfill_points_per_usd} points per $1
-        (1 point per $2). Points are earned on the amount paid, capped at the order total, once the order is delivered.
+        (1 point per $2). Points are earned on the amount paid, capped at the order total (delivery fees don't earn), once the order is delivered. Points never expire.
       </p>
       <div className="mt-3 flex flex-wrap items-end gap-3">
         <label className="text-xs text-ink/60">
           Points per $1
           <input className="mt-1 block w-24 border border-ink/15 px-3 py-1.5 text-sm" value={rate} onChange={(e) => setRate(e.target.value)} />
-        </label>
-        <label className="text-xs text-ink/60">
-          Points expire after (days)
-          <input className="mt-1 block w-24 border border-ink/15 px-3 py-1.5 text-sm" value={days} onChange={(e) => setDays(e.target.value)} />
         </label>
         <button type="button" className={SMALL_BTN} onClick={save}>Save</button>
         {msg ? <span className="text-xs text-ink/60">{msg}</span> : null}

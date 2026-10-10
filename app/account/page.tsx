@@ -51,7 +51,6 @@ export default async function AccountPage() {
       rewards={rewards}
       redemptions={redemptions}
       pointsPerUsd={settings.points_per_usd}
-      expiryDays={settings.expiry_days}
     />
   );
 }

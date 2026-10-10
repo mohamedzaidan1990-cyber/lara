@@ -395,12 +395,14 @@ export const SCHEMA_STATEMENTS = [
     launched_at timestamp not null default now(),
     points_per_usd numeric not null default 1,
     backfill_points_per_usd numeric not null default 0.5,
+    -- Unused: points never expire (Oct 2026). Kept so the table shape is stable.
     expiry_days int not null default 90
   )`,
   `insert into loyalty_settings (id) values (1) on conflict (id) do nothing`,
   // Points are keyed by phone_norm, so customers earn before they ever open an
   // account. Positive rows are "lots" that spending consumes oldest-first via
-  // `remaining`; the balance is the sum of unexpired remaining.
+  // `remaining`; the balance is the sum of remaining. Points never expire, so
+  // expires_at stays null (column kept in case expiry is ever reintroduced).
   `create table if not exists points_ledger (
     id uuid default gen_random_uuid() primary key,
     phone text not null,
