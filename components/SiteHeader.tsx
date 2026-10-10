@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ShoppingBag } from "lucide-react";
+import { ShoppingBag, UserRound } from "lucide-react";
 import { CATEGORY_DEFS } from "@/lib/categories";
 import { useCart } from "@/lib/cart";
 import { INSTAGRAM_URL } from "@/lib/links";
@@ -179,11 +179,13 @@ export default function SiteHeader() {
           <div className="w-32 shrink-0 md:w-44 lg:w-56">
             <SearchAutocomplete query={searchQuery} setQuery={setSearchQuery} onSubmit={submitSearch} size="compact" />
           </div>
+          <AccountButton />
           <CartButton />
         </nav>
 
         {/* Mobile: cart + menu toggle */}
         <div className="flex items-center gap-2 sm:hidden">
+          <AccountButton />
           <CartButton />
           <button
             type="button"
@@ -298,5 +300,18 @@ function Chevron({ open }: { open: boolean }) {
         clipRule="evenodd"
       />
     </svg>
+  );
+}
+
+// Account / points — goes to the login page when signed out.
+function AccountButton() {
+  return (
+    <Link
+      href="/account"
+      aria-label="My account"
+      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-accent/20 text-accent transition-colors hover:bg-accent/10"
+    >
+      <UserRound className="h-4 w-4" />
+    </Link>
   );
 }

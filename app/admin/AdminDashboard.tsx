@@ -10,6 +10,7 @@ import AdminAccountingTab from "@/components/AdminAccountingTab";
 import AdminAwaitingOrderTab from "@/components/AdminAwaitingOrderTab";
 import AdminStockTab from "@/components/AdminStockTab";
 import AdminClientsTab from "@/components/AdminClientsTab";
+import AdminLoyaltyTab, { type LoyaltyData } from "@/components/AdminLoyaltyTab";
 import type { OrderWithCustomer, BespokeRequestRow, ExpenseRow, StockItemRow } from "@/lib/db";
 
 interface Props {
@@ -17,9 +18,10 @@ interface Props {
   initialBespoke?: BespokeRequestRow[];
   initialExpenses?: ExpenseRow[];
   initialStock?: StockItemRow[];
+  loyalty: LoyaltyData;
 }
 
-type Tab = "orders" | "awaiting" | "bespoke" | "accounting" | "stock" | "clients";
+type Tab = "orders" | "awaiting" | "bespoke" | "accounting" | "stock" | "clients" | "loyalty";
 
 interface Group {
   key: string;
@@ -51,7 +53,7 @@ const GROUPS: Group[] = [
   { key: "delivered", label: "Delivered", color: "#277C43", match: (o) => o.status === "delivered" }
 ];
 
-export default function AdminDashboard({ initialOrders, initialBespoke = [], initialExpenses = [], initialStock = [] }: Props) {
+export default function AdminDashboard({ initialOrders, initialBespoke = [], initialExpenses = [], initialStock = [], loyalty }: Props) {
   const router = useRouter();
   const [orders, setOrders] = useState(initialOrders);
   const [expenses, setExpenses] = useState<ExpenseRow[]>(initialExpenses);
@@ -84,7 +86,7 @@ export default function AdminDashboard({ initialOrders, initialBespoke = [], ini
   }, [orders]);
 
   const clientCount = useMemo(() => {
-    const keys = new Set(orders.map((o) => o.customer_id ?? `${o.full_name}||${o.phone}`));
+    const keys = new Set(orders.map((o) => o.phone_norm || o.customer_id || `${o.full_name}||${o.phone}`));
     return keys.size;
   }, [orders]);
 
@@ -105,6 +107,7 @@ export default function AdminDashboard({ initialOrders, initialBespoke = [], ini
   }
 
   const newBespoke = initialBespoke.filter((b) => b.status === "new").length;
+  const pendingRedemptions = loyalty.redemptions.filter((r) => r.status === "requested").length;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
@@ -120,7 +123,7 @@ export default function AdminDashboard({ initialOrders, initialBespoke = [], ini
         </nav>
       </header>
 
-      <div className="mt-8 flex gap-2 border-b border-ink/10">
+      <div className="mt-8 flex gap-2 overflow-x-auto border-b border-ink/10">
         <TabButton active={tab === "orders"} onClick={() => setTab("orders")} label={`Orders (${orders.length})`} />
         <TabButton
           active={tab === "bespoke"}
@@ -135,9 +138,16 @@ export default function AdminDashboard({ initialOrders, initialBespoke = [], ini
         <TabButton active={tab === "accounting"} onClick={() => setTab("accounting")} label="Accounting" />
         <TabButton active={tab === "stock"} onClick={() => setTab("stock")} label="Stock" />
         <TabButton active={tab === "clients"} onClick={() => setTab("clients")} label={`Clients (${clientCount})`} />
+        <TabButton
+          active={tab === "loyalty"}
+          onClick={() => setTab("loyalty")}
+          label={`Loyalty${pendingRedemptions > 0 ? ` · ${pendingRedemptions} to fulfil` : ""}`}
+        />
       </div>
 
-      {tab === "clients" ? (
+      {tab === "loyalty" ? (
+        <AdminLoyaltyTab data={loyalty} />
+      ) : tab === "clients" ? (
         <AdminClientsTab orders={orders} />
       ) : tab === "accounting" ? (
         <AdminAccountingTab orders={orders} expenses={expenses} onExpensesChange={setExpenses} stockItems={stockItems} />
