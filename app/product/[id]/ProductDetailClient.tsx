@@ -398,6 +398,16 @@ export default function ProductDetailClient({ product, promoGift }: Props) {
 
         <p className="mt-5 max-w-prose text-sm leading-relaxed text-ink/70">{description}</p>
 
+        {promo?.perk ? (
+          <div className="mt-5 flex items-start gap-3 rounded-xl border border-accent/25 bg-accent/[0.06] p-4">
+            <span className="text-xl leading-none">🎟️</span>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-accent">{promo.perk.title}</p>
+              <p className="mt-1 text-sm text-ink">{promo.perk.text}</p>
+            </div>
+          </div>
+        ) : null}
+
         {/* Promo gift banner — only shown on the Summer's Hottest Look Set page */}
         {promoGift ? (
           <div className="mt-5 flex items-start gap-3 rounded-xl border border-accent/25 bg-accent/[0.06] p-4">
