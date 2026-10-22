@@ -18,9 +18,9 @@
  * Variants at different prices (sizes, refills) are split into one product
  * per price, as with the Summer Fridays import.
  *
- * Images are Sephora ME CDN URLs served through /api/image-proxy
- * (img-product.sephora.me is on the allowlist), not self-hosted — ~2,500
- * images would bloat the repo.
+ * Images are Sephora ME CDN URLs loaded directly by the browser (the CDN
+ * allows hotlinking but refuses Vercel's servers, so they can't go through
+ * /api/image-proxy), not self-hosted — ~2,500 images would bloat the repo.
  *
  * Products already in the catalogue (matched by Sephora product id in
  * product_url, or by name) are skipped, so existing prices and listings are

@@ -24,7 +24,8 @@ const PROXY_HOSTS = [
   "kyliecosmetics.com",
   "soldejaneiro.com",
   "sephora.com",
-  "sephora.me",
+  // Not "sephora.me": its CDN refuses requests from Vercel's servers, so
+  // img-product.sephora.me images are loaded directly by the browser.
   "cloudinary.com",
   "imgix.net",
   "cdn.shopify.com",
