@@ -75,6 +75,26 @@ export async function syncPoints(phone: string | null = null): Promise<void> {
       and not exists (select 1 from points_ledger l where l.order_id = o.id and l.kind in ('earn', 'backfill'))
     on conflict do nothing
   `;
+  // Orders paid in instalments: top the grant (and its unspent remainder) up
+  // when more has been paid since the points were first given. Never lowers.
+  await sql`
+    with t as (
+      select l.id, floor(
+        greatest(least(coalesce(o.amount_paid_usd, o.total_usd, o.price_usd, 0), coalesce(o.total_usd, o.price_usd, 0)), 0)
+        * case when l.kind = 'backfill' then s.backfill_points_per_usd else s.points_per_usd end
+      )::int as pts
+      from points_ledger l
+      join orders o on o.id = l.order_id
+      cross join loyalty_settings s
+      where l.kind in ('earn', 'backfill')
+        and o.status = 'delivered'
+        and (${phone}::text is null or l.phone = ${phone}::text)
+    )
+    update points_ledger pl
+    set remaining = pl.remaining + (t.pts - pl.points), points = t.pts
+    from t
+    where pl.id = t.id and t.pts > pl.points
+  `;
   await sql`
     with r as (
       select l.id, l.phone, l.order_id, l.remaining, o.order_number
@@ -89,6 +109,24 @@ export async function syncPoints(phone: string | null = null): Promise<void> {
     select phone, 'reverse', -remaining, 0, order_id, 'Order ' || order_number || ' cancelled — unspent points removed' from r
     on conflict do nothing
   `;
+}
+
+/**
+ * Syncs points for the customer behind one order — called right after an
+ * order's status or amount paid changes so points land immediately instead of
+ * on the next admin/account page load. Never throws: loyalty must not block
+ * order updates.
+ */
+export async function syncOrderPoints(orderId: string): Promise<void> {
+  try {
+    const sql = getSql();
+    const rows = (await sql`
+      select c.phone_norm from orders o join customers c on c.id = o.customer_id where o.id = ${orderId}
+    `) as Array<{ phone_norm: string | null }>;
+    if (rows[0]?.phone_norm) await syncPoints(rows[0].phone_norm);
+  } catch (err) {
+    console.error("syncOrderPoints failed", err);
+  }
 }
 
 export async function getPointsSummary(phone: string): Promise<PointsSummary> {

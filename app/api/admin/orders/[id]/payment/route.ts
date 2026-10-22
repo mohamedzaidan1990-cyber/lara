@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ensureSchema, getSql } from "@/lib/db";
 import { isAdmin } from "@/lib/auth";
+import { syncOrderPoints } from "@/lib/loyalty";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,6 +21,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     returning id, amount_paid_usd, coalesce(total_usd, price_usd, 0) as total_usd
   `) as Array<{ id: string; amount_paid_usd: string; total_usd: string }>;
   if (!rows[0]) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  // Points follow the amount paid (no-op unless the order is delivered).
+  await syncOrderPoints(params.id);
   const total = Number(rows[0].total_usd) || 0;
   const paid = Number(rows[0].amount_paid_usd) || 0;
   return NextResponse.json({ amount_paid_usd: paid, total_usd: total, balance_due: Math.max(0, total - paid) });

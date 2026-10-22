@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ensureSchema, getSql, ORDER_STATUSES, type OrderRow, type OrderStatus, type StockItemRow } from "@/lib/db";
 import { isAdmin } from "@/lib/auth";
+import { syncOrderPoints } from "@/lib/loyalty";
 import { sendPaymentConfirmation } from "@/lib/email";
 import { sendWhatsAppConfirmation, sendWhatsAppText } from "@/lib/whatsapp";
 
@@ -163,6 +164,11 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     } catch (err) {
       console.error("failed to move sourced items to stock on cancel", err);
     }
+  }
+
+  // Delivered orders earn points; cancelled/refunded ones lose unspent points.
+  if (nextStatus === "delivered" || nextStatus === "cancelled" || nextStatus === "refunded") {
+    await syncOrderPoints(id);
   }
 
   return NextResponse.json({ order, movedToStock });
