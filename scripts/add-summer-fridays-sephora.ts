@@ -108,6 +108,14 @@ const PRODUCTS: Spec[] = [
     description: "On-the-go hydration with minis from the Jet Lag™ collection: Jet Lag Mask, Skin Soothing Hydration Mist, Deep Hydration Serum, Overnight Eye Serum and Eye Patches."
   },
 
+  {
+    // Sephora ME sale price (QAR 185; "real value" QAR 234). From the listing page.
+    name: "Sweet Pink Duo", category: "Makeup", subcategory: "Lip Care", qar: 185, set: true,
+    pdp: "sweet-pink-duo/P1000211921", sku: "800685",
+    image: "dwc14f72ba/images/hi-res/SKU/SKU_7121/800685_swatch.jpg",
+    description: "A Sephora-exclusive duo of two Lip Butter Balms in sweet pink shades."
+  },
+
   // ----- Lips -----
   {
     name: "Lip Butter Balm", category: "Makeup", subcategory: "Lip Care", qar: 116,
@@ -306,6 +314,45 @@ const PRODUCTS: Spec[] = [
     pdp: "light-aura-vitamin-c-peptide-eye-cream/P10024589", sku: "587330",
     image: "dw65f4ec2e/images/hi-res/SKU/SKU_3121/587330_swatch.jpg",
     description: "A multitasking eye cream with a vitamin C and peptide blend that visibly brightens the eye area and supports natural collagen for a firmer, smoother look. Caffeine de-puffs, allantoin and vitamin E soothe, and soft optics illuminate all skin tones. 15ml."
+  },
+  {
+    name: "Gentle Reset Daily Exfoliating Pads", category: "Skincare", subcategory: "Exfoliator & Peel", qar: 204,
+    pdp: "gentle-reset-daily-exfoliating-pads/P1000208972", sku: "776534",
+    image: "dwfb62d50e/images/hi-res-AE/PID_principal/PID_principal_5565/P1000208972_principal.jpg",
+    description: "That post-facial feeling in an instant. Formulated in Korea for everyday use, these pads help even skin tone and improve texture for soft, supple skin. For all skin types. 30 pads."
+  },
+  // The next five were added from the brand listing page (name, QAR price,
+  // image) because Sephora ME's bot protection blocked their product pages;
+  // descriptions are kept to what the product name states.
+  {
+    name: "Babymoon Belly Balm", category: "Skincare", subcategory: "Body & Hand", qar: 134,
+    pdp: "babymoon-belly-balm/P10058542", sku: "654007",
+    image: "dwa850cf36/images/hi-res/SKU/SKU_5393/654007_swatch.jpg",
+    description: "A nourishing balm for the belly, made to keep stretching skin moisturised and comfortable during pregnancy and beyond."
+  },
+  {
+    name: "Rich Cushion Cream", category: "Skincare", subcategory: "Moisturiser", qar: 244,
+    pdp: "rich-cushion-cream/P10053264", sku: "702909",
+    image: "dw183b62d2/images/hi-res/SKU/SKU_4540/702909_swatch.jpg",
+    description: "An ultra-plumping, rich cushiony face moisturiser that deeply hydrates and comforts skin. 50ml."
+  },
+  {
+    name: "Heavenly Sixteen Boost Restorative Antioxidant Elixir", category: "Skincare", subcategory: "Face Oil", qar: 256,
+    pdp: "heavenly-sixteen-boost-restorative-antioxidant-elixer/P10057853", sku: "574484",
+    image: "dw3cf1b7f9/images/hi-res/SKU/SKU_5393/574484_swatch.jpg",
+    description: "An all-in-one restorative antioxidant face oil that nourishes and boosts skin for a healthy-looking glow. 30ml."
+  },
+  {
+    name: "Jet Lag Eye Patches", category: "Skincare", subcategory: "Eye Care", qar: 117,
+    pdp: "jet-lag-eye-patches/P1000206760", sku: "760185",
+    image: "dwb9d7dc49/images/hi-res/SKU/SKU_6115/760185_swatch.jpg",
+    description: "Hydrating under-eye patches from the Jet Lag™ collection to refresh tired-looking eyes."
+  },
+  {
+    name: "ShadeDrops Broad Spectrum SPF 50 Mineral Milk Sunscreen", category: "Skincare", subcategory: "SPF & Sun Care", qar: 186,
+    pdp: "shadedrops-broad-spectrum-spf50-mineral-milk-sunscreen/P1000213445", sku: "814047",
+    image: "dw6e55c131/images/hi-res/SKU/SKU_7602/814047_swatch.jpg",
+    description: "A lightweight mineral sunscreen milk with broad-spectrum SPF 50 protection for everyday wear."
   },
   {
     name: "CC Me Serum", category: "Skincare", subcategory: "Serum", qar: 321,
