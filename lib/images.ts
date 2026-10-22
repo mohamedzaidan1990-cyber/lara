@@ -24,6 +24,7 @@ const PROXY_HOSTS = [
   "kyliecosmetics.com",
   "soldejaneiro.com",
   "sephora.com",
+  "sephora.me",
   "cloudinary.com",
   "imgix.net",
   "cdn.shopify.com",

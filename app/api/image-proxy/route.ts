@@ -40,6 +40,7 @@ const ALLOWED_HOSTS = [
   "kyliecosmetics.com",
   "soldejaneiro.com",
   "sephora.com",
+  "sephora.me", // Sephora Middle East (img-product.sephora.me)
   // Korean beauty brand CDNs (products sourced via Selfridges but may link
   // to brand-owned image hosts):
   "cosrx.com",
@@ -81,6 +82,9 @@ function refererFor(hostname: string): string {
   }
   if (hostname.endsWith("sephora.com")) {
     return "https://www.sephora.com/";
+  }
+  if (hostname.endsWith("sephora.me")) {
+    return "https://www.sephora.me/";
   }
   return "https://www.spacenk.com/";
 }
