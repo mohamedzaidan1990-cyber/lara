@@ -21,7 +21,7 @@ export const CATEGORY_DEFS: readonly CategoryDef[] = [
     slug: "skincare",
     name: "Skincare",
     label: "Skincare",
-    blurb: "Crèmes, serums and treatments — La Mer to Augustinus Bader.",
+    blurb: "Crèmes, serums and treatments — La Mer to Sisley.",
     defaultImage: "/category-skincare.jpg"
   },
   {

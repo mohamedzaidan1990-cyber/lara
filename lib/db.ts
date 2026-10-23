@@ -449,6 +449,30 @@ export const SCHEMA_STATEMENTS = [
     created_at timestamp default now(),
     resolved_at timestamp
   )`,
+
+  // ----- Brands removed from the storefront (Oct 2026) -----
+  // Their products are archived, and any product inserted later under one of
+  // these brands (Selfridges scraper, admin import, scripts) arrives archived.
+  // The brand list is data, managed out-of-band — see
+  // scripts/hide-brands-oct-2026.ts — never seeded here.
+  `create table if not exists hidden_brands (
+    brand text primary key,
+    created_at timestamp default now()
+  )`,
+  `create or replace function sbb_archive_hidden_brand() returns trigger language plpgsql as $fn$
+   begin
+     if exists (select 1 from hidden_brands where lower(trim(brand)) = lower(trim(new.brand))) then
+       new.archived := true;
+     end if;
+     return new;
+   end
+   $fn$`,
+  `do $do$ begin
+     if not exists (select 1 from pg_trigger where tgname = 'products_archive_hidden_brand') then
+       create trigger products_archive_hidden_brand before insert on products
+         for each row execute function sbb_archive_hidden_brand();
+     end if;
+   end $do$`,
 ];
 
 export async function ensureSchema(): Promise<void> {
