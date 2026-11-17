@@ -7,6 +7,7 @@ import { productImageSrc } from "@/lib/images";
 import { useCart } from "@/lib/cart";
 import { whatsappRequestLink } from "@/lib/links";
 import { getPromo } from "@/lib/promotions";
+import { getBrandSale, saleGbp, saleUsd } from "@/lib/brand-sale";
 import { getMixAndMatch, MIX_AND_MATCH_GROUP } from "@/lib/mix-and-match";
 import { BeeSvg } from "@/components/BeeMascot";
 import type { ProductDetail } from "@/lib/products";
@@ -181,6 +182,9 @@ export default function ProductDetailClient({ product, promoGift }: Props) {
     : Boolean(activeSrc) && !imgFailed[activeImage];
   const activeIsVideo = !variantImage && isVideoSrc(gallery[activeImage]);
   const promo = getPromo(product.id);
+  const sale = getBrandSale(product);
+  const priceUsd = saleUsd(product.price_usd, sale);
+  const priceGbp = saleGbp(product.price_gbp, sale);
   const mixAndMatch = getMixAndMatch(product.id);
 
   // Complexion products get the optional Shade Finder prompt; anything
@@ -219,8 +223,8 @@ export default function ProductDetailClient({ product, promoGift }: Props) {
       name: selectedShade ? `${product.name} — ${shadeLabel}: ${selectedShade}` : product.name,
       // Mix & Match lines default to retail; computeCartPricing drops them to
       // promo once 4+ are in the basket.
-      price_usd: mm ? mm.retailUsd : product.price_usd,
-      price_gbp: mm ? mm.retailGbp : product.price_gbp,
+      price_usd: mm ? mm.retailUsd : priceUsd,
+      price_gbp: mm ? mm.retailGbp : priceGbp,
       image_url: product.image_url ?? "",
       product_url: product.product_url ?? "",
       category: product.category ?? "",
@@ -378,7 +382,15 @@ export default function ProductDetailClient({ product, promoGift }: Props) {
         <p className="text-[11px] uppercase tracking-[0.32em] text-accent">{product.brand}</p>
         <h1 className="mt-2 font-serif text-3xl leading-tight text-ink sm:text-4xl">{product.name}</h1>
         <div className="mt-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <span className="font-serif text-3xl text-ink">{formatUsd(product.price_usd)}</span>
+          <span className="font-serif text-3xl text-ink">{formatUsd(priceUsd)}</span>
+          {sale && !promo ? (
+            <>
+              <span className="font-serif text-xl text-ink/40 line-through">{formatUsd(product.price_usd)}</span>
+              <span className="rounded-full bg-accent px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.15em] text-white">
+                {sale.label}
+              </span>
+            </>
+          ) : null}
           {promo ? (
             <>
               <span className="font-serif text-xl text-ink/40 line-through">{formatUsd(promo.compareAtUsd)}</span>

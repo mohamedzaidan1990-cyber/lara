@@ -7,6 +7,7 @@ import { productImageSrc } from "@/lib/images";
 import { BeeSvg } from "./BeeMascot";
 import { useCart } from "@/lib/cart";
 import { getPromo } from "@/lib/promotions";
+import { getBrandSale, saleGbp, saleUsd } from "@/lib/brand-sale";
 import { getMixAndMatch, MIX_AND_MATCH_GROUP } from "@/lib/mix-and-match";
 import { isShadeRelevant } from "@/lib/shade-options";
 import { flyToCart } from "@/lib/fly-to-cart";
@@ -390,6 +391,9 @@ export default function ProductCard({ product, index = 0 }: Props) {
   const imgSrc = productImageSrc(product.light_shade_image_url ?? product.image_url);
   const showImage = Boolean(imgSrc) && !imgFailed;
   const promo = getPromo(product.id);
+  const sale = getBrandSale(product);
+  const priceUsd = saleUsd(product.price_usd, sale);
+  const priceGbp = saleGbp(product.price_gbp, sale);
   const isNew = !!product.created_at && Date.now() - new Date(product.created_at).getTime() < 30 * 24 * 60 * 60 * 1000;
 
   function addToCart() {
@@ -400,8 +404,8 @@ export default function ProductCard({ product, index = 0 }: Props) {
       name: product.name,
       // Mix & Match lines default to retail; computeCartPricing drops them to
       // promo once 4+ are in the basket.
-      price_usd: mm ? mm.retailUsd : product.price_usd,
-      price_gbp: mm ? mm.retailGbp : product.price_gbp,
+      price_usd: mm ? mm.retailUsd : priceUsd,
+      price_gbp: mm ? mm.retailGbp : priceGbp,
       image_url: product.image_url,
       product_url: product.product_url,
       category: product.category ?? "",
@@ -443,6 +447,10 @@ export default function ProductCard({ product, index = 0 }: Props) {
         {promo ? (
           <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-accent px-3 py-1 text-[9px] font-bold uppercase tracking-[0.15em] text-white shadow">
             ✦ {promo.label}
+          </span>
+        ) : sale ? (
+          <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-accent px-3 py-1 text-[9px] font-bold uppercase tracking-[0.15em] text-white shadow">
+            ✦ {sale.label}
           </span>
         ) : !product.deliverable_lebanon ? (
           <span className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-ink/85 px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-cream">
@@ -487,6 +495,11 @@ export default function ProductCard({ product, index = 0 }: Props) {
           <div className="mt-3 flex items-baseline gap-2">
             <span className="font-serif text-xl font-bold text-accent">{formatUsd(product.price_usd)}</span>
             <span className="text-sm text-ink/40 line-through">{formatUsd(promo.compareAtUsd)}</span>
+          </div>
+        ) : sale ? (
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="font-serif text-xl font-bold text-accent">{formatUsd(priceUsd)}</span>
+            <span className="text-sm text-ink/40 line-through">{formatUsd(product.price_usd)}</span>
           </div>
         ) : (
           <p className="mt-3 font-serif text-xl font-bold text-accent">{formatUsd(product.price_usd)}</p>

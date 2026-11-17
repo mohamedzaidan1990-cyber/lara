@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { getBrandSale, saleGbp, saleUsd } from "@/lib/brand-sale";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { BeeMascot } from "@/components/BeeMascot";
@@ -497,13 +498,15 @@ function ResultCard({ match, index }: { match: CatalogMatch; index: number }) {
   const [failed, setFailed] = useState(false);
   const src = productImageSrc(match.image_url);
   const showImg = Boolean(src) && !failed;
+  const sale = getBrandSale(match);
+  const usd = saleUsd(match.price_usd, sale);
   const orderHref =
     "/order?" +
     new URLSearchParams({
       brand: match.brand,
       name: match.name,
-      gbp: String(match.price_gbp),
-      usd: String(match.price_usd)
+      gbp: String(saleGbp(match.price_gbp, sale)),
+      usd: String(usd)
     }).toString();
 
   return (
@@ -531,7 +534,10 @@ function ResultCard({ match, index }: { match: CatalogMatch; index: number }) {
       </div>
       <p className="mt-3 text-[11px] uppercase tracking-[0.24em] text-ink/60">{match.brand}</p>
       <p className="mt-1 line-clamp-2 text-sm text-ink">{match.name}</p>
-      <p className="mt-2 font-serif text-lg text-ink">{formatUsd(match.price_usd)}</p>
+      <p className="mt-2 font-serif text-lg text-ink">
+        {formatUsd(usd)}
+        {sale ? <span className="ml-2 text-sm text-ink/40 line-through">{formatUsd(match.price_usd)}</span> : null}
+      </p>
       <Link href={orderHref} className="btn-primary mt-3 text-center text-xs">
         Order Now
       </Link>

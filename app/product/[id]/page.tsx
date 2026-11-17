@@ -7,6 +7,7 @@ import { getSql } from "@/lib/db";
 import { categorySlug } from "@/lib/categories";
 import ProductDetailClient from "./ProductDetailClient";
 import { BackButton } from "./BackButton";
+import { getBrandSale, saleUsd } from "@/lib/brand-sale";
 
 const SUMMER_SET_URL = "https://hudabeauty.com/en-qa/products/summers-hottest-look-set_136";
 const EDP_URL = "https://hudabeauty.com/en-qa/products/easy-bake-intense-eau-de-parfum-travel-spray-10ml-hb01781";
@@ -96,7 +97,7 @@ export default async function ProductPage({ params }: { params: Params }) {
       "@type": "Offer",
       // USD — must match the price shown on the page for rich-result eligibility.
       priceCurrency: "USD",
-      price: product.price_usd.toFixed(2),
+      price: saleUsd(product.price_usd, getBrandSale(product)).toFixed(2),
       availability: "https://schema.org/InStock",
       url: `${SITE_URL}/product/${product.id}`,
       seller: { "@type": "Organization", name: "Seasons by B" },
