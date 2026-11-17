@@ -21,26 +21,6 @@ export const HOME_PROMOS: HomePromo[] = [
     slug: "kiehls-limited-time-offer",
     title: "Kiehl's Limited Time Offer",
     productIds: ["c39655d2-3dfd-4268-a3ec-ff59bec6699d"]
-  },
-  {
-    slug: "mix-and-match-any-4",
-    title: "Mix & Match — Any 4",
-    note:
-      "Buy any 4 from this edit — mix & match across brands — and pay these prices. With fewer than 4, each is charged at its regular price.",
-    productIds: [
-      "8bd9871e-a3bf-405e-b168-704ffd197698",
-      "4e3afa47-bd5f-40eb-9ee1-e2844241d337",
-      "6bfe5abb-43d7-4693-bfe7-3c8ff692b741",
-      "3fcf4a82-d12c-47af-922d-1072a455d87b",
-      "2deb4629-4155-4f59-9dd6-c4fe032a3277",
-      "9341a859-26f7-4bd1-8a68-18859ef56e41",
-      "a169ca6b-5e9c-4272-bae4-8af38c361a81",
-      "df4c9110-3baf-48e1-b527-09e4b1c682d7",
-      "7002c330-0bca-40b1-899f-01f44ef9ef2e",
-      "6bd05d04-0d90-4b51-8e06-8a90317c6998",
-      "7273f117-dfcc-49a8-97f3-85f7fa420012",
-      "ee7b9949-30fb-4e53-b5de-7537ec062def"
-    ]
   }
 ];
 

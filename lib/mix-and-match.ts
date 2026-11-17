@@ -21,20 +21,10 @@ export interface MixAndMatchEntry {
   retailGbp: number;
 }
 
-const MIX_AND_MATCH: Record<string, MixAndMatchEntry> = {
-  "8bd9871e-a3bf-405e-b168-704ffd197698": { promoUsd: 25, promoGbp: 19.23, retailUsd: 40, retailGbp: 30.77 }, // gisou-lip-oil-raspberry-swirl
-  "4e3afa47-bd5f-40eb-9ee1-e2844241d337": { promoUsd: 25, promoGbp: 19.23, retailUsd: 40, retailGbp: 30.77 }, // gisou-lip-oil-bee-llini-peach
-  "6bfe5abb-43d7-4693-bfe7-3c8ff692b741": { promoUsd: 25, promoGbp: 19.23, retailUsd: 40, retailGbp: 30.77 }, // gisou-lip-oil-glazed-plum
-  "3fcf4a82-d12c-47af-922d-1072a455d87b": { promoUsd: 30, promoGbp: 23.08, retailUsd: 60, retailGbp: 46.15 }, // milk-jelly-lip-kit
-  "2deb4629-4155-4f59-9dd6-c4fe032a3277": { promoUsd: 25, promoGbp: 19.23, retailUsd: 50, retailGbp: 38.46 }, // rare-beauty-find-comfort-mist
-  "9341a859-26f7-4bd1-8a68-18859ef56e41": { promoUsd: 25, promoGbp: 19.23, retailUsd: 50, retailGbp: 38.46 }, // sol-danca-mistica
-  "a169ca6b-5e9c-4272-bae4-8af38c361a81": { promoUsd: 25, promoGbp: 19.23, retailUsd: 50, retailGbp: 38.46 }, // sephora-blush-trio-candy-lover
-  "df4c9110-3baf-48e1-b527-09e4b1c682d7": { promoUsd: 30, promoGbp: 23.08, retailUsd: 60, retailGbp: 46.15 }, // sephora-x-waad-shaat
-  "7002c330-0bca-40b1-899f-01f44ef9ef2e": { promoUsd: 30, promoGbp: 23.08, retailUsd: 60, retailGbp: 46.15 }, // sephora-x-talia-fawaz
-  "6bd05d04-0d90-4b51-8e06-8a90317c6998": { promoUsd: 25, promoGbp: 19.23, retailUsd: 50, retailGbp: 38.46 }, // fenty-mini-killawatt-wattabrat
-  "7273f117-dfcc-49a8-97f3-85f7fa420012": { promoUsd: 25, promoGbp: 19.23, retailUsd: 50, retailGbp: 38.46 }, // tarte-maracuja-juicy-lip-plump-pink
-  "ee7b9949-30fb-4e53-b5de-7537ec062def": { promoUsd: 25, promoGbp: 19.23, retailUsd: 50, retailGbp: 38.46 }  // huda-faux-filler-extra-shine-she-fire
-};
+// Promotion ended 2026-11-18 (owner): entries removed and the 12 products put
+// back to their retail price (scripts/end-mix-and-match-promo.ts). The cart
+// machinery stays in place but is inert while this map is empty.
+const MIX_AND_MATCH: Record<string, MixAndMatchEntry> = {};
 
 export function getMixAndMatch(id: string | undefined | null): MixAndMatchEntry | null {
   return (id && MIX_AND_MATCH[id]) || null;

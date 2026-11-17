@@ -18,22 +18,7 @@ const PROMOS: Record<string, Promo> = {
       title: "Golden Ticket Inside",
       text: "Every set comes with a golden ticket. Prizes range from a discount on your next order to mini-size items, and one lucky buyer wins a full-size item."
     }
-  },
-
-  // "Mix & Match — Any 4" edit — compare-at is 2x the promo price; the cart
-  // charges retail until 4+ of these are in the basket. See lib/mix-and-match.ts.
-  "8bd9871e-a3bf-405e-b168-704ffd197698": { compareAtUsd: 40, label: "Any 4 for this price" }, // gisou-lip-oil-raspberry-swirl
-  "4e3afa47-bd5f-40eb-9ee1-e2844241d337": { compareAtUsd: 40, label: "Any 4 for this price" }, // gisou-lip-oil-bee-llini-peach
-  "6bfe5abb-43d7-4693-bfe7-3c8ff692b741": { compareAtUsd: 40, label: "Any 4 for this price" }, // gisou-lip-oil-glazed-plum
-  "3fcf4a82-d12c-47af-922d-1072a455d87b": { compareAtUsd: 60, label: "Any 4 for this price" }, // milk-jelly-lip-kit
-  "2deb4629-4155-4f59-9dd6-c4fe032a3277": { compareAtUsd: 50, label: "Any 4 for this price" }, // rare-beauty-find-comfort-mist
-  "9341a859-26f7-4bd1-8a68-18859ef56e41": { compareAtUsd: 50, label: "Any 4 for this price" }, // sol-danca-mistica
-  "a169ca6b-5e9c-4272-bae4-8af38c361a81": { compareAtUsd: 50, label: "Any 4 for this price" }, // sephora-blush-trio-candy-lover
-  "df4c9110-3baf-48e1-b527-09e4b1c682d7": { compareAtUsd: 60, label: "Any 4 for this price" }, // sephora-x-waad-shaat
-  "7002c330-0bca-40b1-899f-01f44ef9ef2e": { compareAtUsd: 60, label: "Any 4 for this price" }, // sephora-x-talia-fawaz
-  "6bd05d04-0d90-4b51-8e06-8a90317c6998": { compareAtUsd: 50, label: "Any 4 for this price" }, // fenty-mini-killawatt-wattabrat
-  "7273f117-dfcc-49a8-97f3-85f7fa420012": { compareAtUsd: 50, label: "Any 4 for this price" }, // tarte-maracuja-juicy-lip-plump-pink
-  "ee7b9949-30fb-4e53-b5de-7537ec062def": { compareAtUsd: 50, label: "Any 4 for this price" }  // huda-faux-filler-extra-shine-she-fire
+  }
 };
 
 export function getPromo(id: string | undefined): Promo | null {
